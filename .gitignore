@@ -1,0 +1,42 @@
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.local
+
+# Java / Maven / Spring
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+*.log
+
+# IDEs and editors
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+.factorypath
+.springBeans
+.sts4-cache/
+.vscode/
+
+# Node / frontend tooling
+**/node_modules/
+**/dist/
+**/.cache/
+**/.parcel-cache/
+
+# Generated workspaces
+outputs/
+.presentation_workspaces/
+.security-review/
+
+# Personal development principles and agent skills
+/backend/development-principles/
