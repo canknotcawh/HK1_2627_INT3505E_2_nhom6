@@ -2,6 +2,7 @@ package com.soa.gr6.lms.security;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import javax.crypto.SecretKey;
@@ -15,7 +16,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
-@Service 
+@Service
 public class JwtService {
     private final SecretKey key;
     private final long accessTokenMinutes;
@@ -28,13 +29,12 @@ public class JwtService {
 
     public String generateAccessToken(User user) {
         Instant now = Instant.now();
-
         return Jwts.builder()
-                .subject(String.valueOf(user.getId()))
+                .subject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(accessTokenMinutes * 60)))
+                .expiration(Date.from(now.plus(accessTokenMinutes, ChronoUnit.MINUTES)))
                 .signWith(key)
                 .compact();
     }
@@ -43,6 +43,7 @@ public class JwtService {
         return accessTokenMinutes * 60;
     }
 
+    // Parse the JWT token and return the claims. Throws JwtException if the token is invalid.
     public Claims parse(String token) {
         return Jwts.parser()
                 .verifyWith(key)

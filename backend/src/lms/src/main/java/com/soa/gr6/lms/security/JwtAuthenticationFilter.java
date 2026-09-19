@@ -2,6 +2,7 @@ package com.soa.gr6.lms.security;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,13 +36,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             try {
                 Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()));
-                List<?> roles = claims.get("roles", List.class);
-                List<SimpleGrantedAuthority> authorities = (roles == null ? List.of() : roles).stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                        .toList();
+                String role = claims.get("role", String.class);
+                List<SimpleGrantedAuthority> authorities = role == null
+                        ? List.of()
+                        : List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(Long.valueOf(claims.getSubject()), null, authorities);
+                        new UsernamePasswordAuthenticationToken(UUID.fromString(claims.getSubject()), null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (JwtException | IllegalArgumentException e) {
                 SecurityContextHolder.clearContext();
