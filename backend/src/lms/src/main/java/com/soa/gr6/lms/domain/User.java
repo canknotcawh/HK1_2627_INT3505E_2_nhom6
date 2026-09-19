@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.soa.gr6.lms.domain.enums.UserRole;
 import com.soa.gr6.lms.domain.enums.UserStatus;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -95,7 +96,8 @@ public class User {
 
     private static String requireValue(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(fieldName + " must not be blank");
+            throw new InvalidDomainStateException(
+                    "USER_" + fieldName.toUpperCase() + "_REQUIRED", fieldName + " must not be blank");
         }
         return value;
     }

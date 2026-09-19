@@ -13,6 +13,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.soa.gr6.lms.domain.enums.BookStatus;
+import com.soa.gr6.lms.exception.BookUnavailableException;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -147,7 +149,8 @@ public class Book {
 
     public void setCopyCounts(int totalCopies, int availableCopies) {
         if (totalCopies < 0 || availableCopies < 0 || availableCopies > totalCopies) {
-            throw new IllegalArgumentException("availableCopies must be between 0 and totalCopies");
+            throw new InvalidDomainStateException(
+                    "INVALID_COPY_COUNTS", "availableCopies must be between 0 and totalCopies");
         }
         this.totalCopies = totalCopies;
         this.availableCopies = availableCopies;
@@ -155,17 +158,18 @@ public class Book {
 
     public void borrowCopy() {
         if (status != BookStatus.ACTIVE) {
-            throw new IllegalStateException("retired books cannot be borrowed");
+            throw BookUnavailableException.retired();
         }
         if (availableCopies == 0) {
-            throw new IllegalStateException("no available copies");
+            throw BookUnavailableException.noCopies();
         }
         availableCopies--;
     }
 
     public void returnCopy() {
         if (availableCopies >= totalCopies) {
-            throw new IllegalStateException("all copies are already available");
+            throw new InvalidDomainStateException(
+                    "ALL_COPIES_ALREADY_AVAILABLE", "all copies are already available");
         }
         availableCopies++;
     }
@@ -180,14 +184,15 @@ public class Book {
 
     private static String requireTitle(String title) {
         if (title == null || title.isBlank()) {
-            throw new IllegalArgumentException("title must not be blank");
+            throw new InvalidDomainStateException("BOOK_TITLE_REQUIRED", "title must not be blank");
         }
         return title;
     }
 
     private static Integer requireNonNegative(Integer value, String fieldName) {
         if (value != null && value < 0) {
-            throw new IllegalArgumentException(fieldName + " must not be negative");
+            throw new InvalidDomainStateException(
+                    "NEGATIVE_" + fieldName.toUpperCase(), fieldName + " must not be negative");
         }
         return value;
     }

@@ -17,6 +17,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
 import com.soa.gr6.lms.domain.enums.UserStatus;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
+import com.soa.gr6.lms.exception.LoanRenewalException;
+import com.soa.gr6.lms.exception.LoanStateException;
+import com.soa.gr6.lms.exception.UserSuspendedException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -57,16 +61,17 @@ public class Loan {
 
     public Loan(Book book, User user, Instant dueAt) {
         if (book == null || user == null || dueAt == null) {
-            throw new IllegalArgumentException("book, user, and dueAt are required");
+            throw new InvalidDomainStateException(
+                    "LOAN_FIELDS_REQUIRED", "book, user, and dueAt are required");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new IllegalStateException("suspended users cannot borrow books");
+            throw new UserSuspendedException();
         }
         this.book = book;
         this.user = user;
         this.borrowedAt = Instant.now();
         if (!dueAt.isAfter(borrowedAt)) {
-            throw new IllegalArgumentException("dueAt must be after borrowedAt");
+            throw new InvalidDomainStateException("DUE_DATE_INVALID", "dueAt must be after borrowedAt");
         }
         book.borrowCopy();
         this.dueAt = dueAt;
@@ -75,7 +80,7 @@ public class Loan {
     public void returnBook(Instant returnedAt) {
         requireOpen();
         if (returnedAt == null) {
-            throw new IllegalArgumentException("returnedAt is required");
+            throw new InvalidDomainStateException("RETURN_DATE_REQUIRED", "returnedAt is required");
         }
         book.returnCopy();
         this.returnedAt = returnedAt;
@@ -85,7 +90,7 @@ public class Loan {
     public void markOverdue(Instant now) {
         requireOpen();
         if (now == null || !now.isAfter(dueAt)) {
-            throw new IllegalArgumentException("now must be after dueAt");
+            throw new InvalidDomainStateException("OVERDUE_DATE_INVALID", "now must be after dueAt");
         }
         status = LoanStatus.OVERDUE;
     }
@@ -97,13 +102,15 @@ public class Loan {
 
     public void renew(Instant newDueAt) {
         if (status != LoanStatus.ACTIVE) {
-            throw new IllegalStateException("only active loans can be renewed");
+            throw new LoanRenewalException(
+                    "LOAN_NOT_RENEWABLE", "only active loans can be renewed");
         }
         if (renewedCount >= 1) {
-            throw new IllegalStateException("loan renewal limit reached");
+            throw new LoanRenewalException("RENEWAL_LIMIT_REACHED", "loan renewal limit reached");
         }
         if (newDueAt == null || !newDueAt.isAfter(dueAt)) {
-            throw new IllegalArgumentException("newDueAt must be after dueAt");
+            throw new InvalidDomainStateException(
+                    "NEW_DUE_DATE_INVALID", "newDueAt must be after dueAt");
         }
         dueAt = newDueAt;
         renewedCount++;
@@ -125,7 +132,7 @@ public class Loan {
 
     private void requireOpen() {
         if (status != LoanStatus.ACTIVE && status != LoanStatus.OVERDUE) {
-            throw new IllegalStateException("loan is already closed");
+            throw new LoanStateException("LOAN_ALREADY_CLOSED", "loan is already closed");
         }
     }
 
