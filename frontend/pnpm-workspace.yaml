@@ -1,0 +1,4 @@
+packages:
+  - "packages/*"
+  - "main-web"
+  - "admin-web"
