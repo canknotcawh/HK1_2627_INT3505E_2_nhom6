@@ -39,9 +39,6 @@ public class User {
     @Column(name = "full_name", length = 255, nullable = false)
     private String fullName;
 
-    @Column(name = "password_hash", length = 100, nullable = false)
-    private String passwordHash;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "role", length = 20, nullable = false)
     private UserRole role = UserRole.USER;
@@ -60,13 +57,16 @@ public class User {
         this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
         this.email = requireValue(email, "email");
         this.fullName = requireValue(fullName, "fullName");
-        this.passwordHash = requireValue(passwordHash, "passwordHash");
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
 
     public void updateProfile(String fullName) {
         this.fullName = requireValue(fullName, "fullName");
+    }
+
+    public void changeEmail(String email) {
+        this.email = requireValue(email, "email");
     }
 
     public void suspend() {
