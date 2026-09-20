@@ -1,20 +1,15 @@
-import { useNavigate } from "react-router-dom"
-import { Button } from "../components/ui/button"
+import NavBar from '../components/layouts/NavBar'
+import BigSection from '../components/sections/BigSection'
+import StatsSection from '../components/sections/StatsSection'
+import FeaturesSection from '../components/sections/FeaturesSection'
 
 export default function HomePage() {
-    const navigate = useNavigate();
     return (
-        <div>
-            THIS IS HOME PAGE OF PORTAL
-            <div>
-                <Button
-                    onClick={() => {
-                        navigate("/login")
-                    }}
-                >
-                    Login
-                </Button>
-            </div>
-        </div>
+        <main>
+            <NavBar />
+            <BigSection />
+            <StatsSection />
+            <FeaturesSection />
+        </main>
     )
 }
