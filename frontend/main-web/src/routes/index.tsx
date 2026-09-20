@@ -1,28 +1,27 @@
-import { createBrowserRouter } from 'react-router-dom'
-
-import AuthLayout from '../layouts/AuthLayout'
-import PublicLayout from '../layouts/PublicLayout'
-import UserLayout from '../layouts/UserLayout'
-import authRoutes from './config.auth'
-import publicRoutes from './config.public'
-import userRoutes from './config.user'
+import { createBrowserRouter } from "react-router-dom";
+import ProtecedRoute from "./protected-route";
+import PublicLayout from "@/components/layouts/PublicLayout";
+import HomePage from "@/pages/PortalPage";
+import Login from "@/pages/Login";
+import Profile from "@/pages/Dashboard";
 
 const router = createBrowserRouter([
-	{
-		path: '/',
-		element: <PublicLayout />,
-		children: publicRoutes,
-	},
-	{
-		path: '/login',
-		element: <AuthLayout />,
-		children: authRoutes,
-	},
-	{
-		path: '/user/:userId',
-		element: <UserLayout />,
-		children: userRoutes,
-	},
-])
+    {
+        path: "/login",
+        element: <Login />
+    },
+    {
+        element: <PublicLayout />,
+        children: [
+            { path: "/", element: <HomePage /> }
+        ]
+    },
+    {
+        element: <ProtecedRoute />,
+        children: [
+            { path: "/user", element: <Profile /> },
+        ]
+    }
+]);
 
-export default router
+export default router;

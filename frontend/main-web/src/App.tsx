@@ -1,9 +1,12 @@
-import { RouterProvider } from 'react-router-dom'
+import { StrictMode } from 'react'
+import { RouterProvider } from "react-router-dom";
+import router from "./routes"
 
-import router from './routes'
 
-function App() {
-	return <RouterProvider router={router} />
+export default function App() {
+  return (
+    <StrictMode>
+        <RouterProvider router={router} />
+    </StrictMode>
+  );
 }
-
-export default App

@@ -1,1 +1,0 @@
-export { default as portalHomeRoute } from './routes'
