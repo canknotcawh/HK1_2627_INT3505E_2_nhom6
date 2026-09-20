@@ -1,4 +1,4 @@
-package com.soa.gr6.lms.dto.identity;
+package com.soa.gr6.lms.dto;
 
 import java.util.UUID;
 

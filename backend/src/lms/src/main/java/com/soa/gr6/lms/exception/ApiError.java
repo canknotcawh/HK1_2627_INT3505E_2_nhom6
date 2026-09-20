@@ -1,6 +1,7 @@
 package com.soa.gr6.lms.exception;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import org.springframework.http.HttpStatusCode;
 
 import java.time.Instant;
 import java.util.Map;
@@ -19,5 +20,14 @@ public record ApiError(int status, String code, String message, Instant timestam
                 errorCode.getMessage(),
                 Instant.now(),
                 fieldErrors);
+    }
+
+    public static ApiError of(HttpStatusCode status, String code, String message) {
+        return new ApiError(
+                status.value(),
+                code,
+                message,
+                Instant.now(),
+                null);
     }
 }
