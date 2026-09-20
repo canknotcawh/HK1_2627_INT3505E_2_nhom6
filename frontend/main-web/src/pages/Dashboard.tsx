@@ -1,9 +1,12 @@
+import NavBar from "@/components/layouts/NavBar"
+
 export default function Profile() {
     return (
         <div>
-            Name:
-            ID:
-            Birth:
+            <NavBar />
+            <h1>Name:</h1>
+            <p>ID:</p>
+            <p>Birth:</p>
         </div>
     )
 }

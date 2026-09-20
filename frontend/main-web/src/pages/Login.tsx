@@ -7,11 +7,11 @@ export default function Login() {
         <div>
             Portal Login
             <div>
-                <Button 
+                <Button
                     onClick={() => {
                         navigate("/user")
                     }}
-                > 
+                >
                     Login
                 </Button>
             </div>
