@@ -85,6 +85,10 @@ public class User {
         role = UserRole.USER;
     }
 
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
