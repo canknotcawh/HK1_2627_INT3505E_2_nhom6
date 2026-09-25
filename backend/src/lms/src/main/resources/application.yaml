@@ -1,3 +1,29 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: lms
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lms}
+    username: ${DB_USER:lms}
+    password: ${DB_PASSWORD:lms}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/lms}
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:3000
