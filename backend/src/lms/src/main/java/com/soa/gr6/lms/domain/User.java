@@ -1,5 +1,12 @@
 package com.soa.gr6.lms.domain;
 
+import java.time.Instant;
+import java.util.UUID;
+
+import com.soa.gr6.lms.domain.enums.UserRole;
+import com.soa.gr6.lms.domain.enums.UserStatus;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,12 +19,6 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import com.soa.gr6.lms.domain.enums.UserRole;
-import com.soa.gr6.lms.domain.enums.UserStatus;
-import com.soa.gr6.lms.exception.InvalidDomainStateException;
-
-import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "app_user")
@@ -64,6 +65,10 @@ public class User {
         this.fullName = requireValue(fullName, "fullName");
     }
 
+    public void changeEmail(String email) {
+        this.email = requireValue(email, "email");
+    }
+
     public void suspend() {
         status = UserStatus.SUSPENDED;
     }
@@ -78,6 +83,10 @@ public class User {
 
     public void demoteToUser() {
         role = UserRole.USER;
+    }
+
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
     }
 
     @PrePersist
