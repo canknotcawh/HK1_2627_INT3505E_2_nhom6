@@ -41,3 +41,5 @@ outputs/
 # Personal development principles and agent skills
 /backend/development-principles/
 AGENTS.md
+
+.claude/
