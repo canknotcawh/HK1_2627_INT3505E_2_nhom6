@@ -11,12 +11,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
-import com.soa.gr6.lms.domain.enums.UserStatus;
 import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import com.soa.gr6.lms.exception.LoanRenewalException;
 import com.soa.gr6.lms.exception.LoanStateException;
@@ -30,6 +28,8 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor
 public class Loan {
+    public static final int MAX_RENEWALS = 1;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", updatable = false, nullable = false)
@@ -64,16 +64,17 @@ public class Loan {
             throw new InvalidDomainStateException(
                     "LOAN_FIELDS_REQUIRED", "book, user, and dueAt are required");
         }
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        if (!user.getStatus().canBorrow()) {
             throw new UserSuspendedException();
         }
-        this.book = book;
-        this.user = user;
-        this.borrowedAt = Instant.now();
-        if (!dueAt.isAfter(borrowedAt)) {
+        Instant now = Instant.now();
+        if (!dueAt.isAfter(now)) {
             throw new InvalidDomainStateException("DUE_DATE_INVALID", "dueAt must be after borrowedAt");
         }
         book.borrowCopy();
+        this.book = book;
+        this.user = user;
+        this.borrowedAt = now;
         this.dueAt = dueAt;
     }
 
@@ -88,7 +89,9 @@ public class Loan {
     }
 
     public void markOverdue(Instant now) {
-        requireOpen();
+        if (status != LoanStatus.ACTIVE) {
+            throw new LoanStateException("LOAN_NOT_ACTIVE", "only active loans can become overdue");
+        }
         if (now == null || !now.isAfter(dueAt)) {
             throw new InvalidDomainStateException("OVERDUE_DATE_INVALID", "now must be after dueAt");
         }
@@ -97,7 +100,20 @@ public class Loan {
 
     public void markLost() {
         requireOpen();
+        book.writeOffLostCopy();
         status = LoanStatus.LOST;
+    }
+
+    public void recoverLost(Instant returnedAt) {
+        if (status != LoanStatus.LOST) {
+            throw new LoanStateException("LOAN_NOT_LOST", "only lost loans can be recovered");
+        }
+        if (returnedAt == null) {
+            throw new InvalidDomainStateException("RETURN_DATE_REQUIRED", "returnedAt is required");
+        }
+        book.recoverLostCopy();
+        this.returnedAt = returnedAt;
+        this.status = LoanStatus.RETURNED;
     }
 
     public void renew(Instant newDueAt) {
@@ -105,7 +121,7 @@ public class Loan {
             throw new LoanRenewalException(
                     "LOAN_NOT_RENEWABLE", "only active loans can be renewed");
         }
-        if (renewedCount >= 1) {
+        if (renewedCount >= MAX_RENEWALS) {
             throw new LoanRenewalException("RENEWAL_LIMIT_REACHED", "loan renewal limit reached");
         }
         if (newDueAt == null || !newDueAt.isAfter(dueAt)) {
@@ -123,17 +139,9 @@ public class Loan {
         }
     }
 
-    @PreUpdate
-    void onUpdate() {
-        if (status == LoanStatus.RETURNED && returnedAt == null) {
-            returnedAt = Instant.now();
-        }
-    }
-
     private void requireOpen() {
-        if (status != LoanStatus.ACTIVE && status != LoanStatus.OVERDUE) {
+        if (!status.isOpen()) {
             throw new LoanStateException("LOAN_ALREADY_CLOSED", "loan is already closed");
         }
     }
-
 }

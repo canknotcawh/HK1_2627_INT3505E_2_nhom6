@@ -22,8 +22,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ApiError> handleDomainException(DomainException e) {
-        HttpStatus status = HttpStatus.UNPROCESSABLE_CONTENT;
+        HttpStatus status = statusOf(e);
         return ResponseEntity.status(status).body(ApiError.of(status, e.getCode(), e.getMessage()));
+    }
+
+    private static HttpStatus statusOf(DomainException e) {
+        return switch (e) {
+            case LoanNotFoundException ignored -> HttpStatus.NOT_FOUND;
+            case DuplicateResourceException ignored -> HttpStatus.CONFLICT;
+            case LoanStateException ignored -> HttpStatus.CONFLICT;
+            case UserSuspendedException ignored -> HttpStatus.FORBIDDEN;
+            default -> HttpStatus.UNPROCESSABLE_CONTENT;
+        };
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
