@@ -17,6 +17,7 @@ import com.soa.gr6.lms.exception.BookUnavailableException;
 import com.soa.gr6.lms.exception.InvalidDomainStateException;
 
 import java.time.Instant;
+import java.time.Year;
 import java.util.UUID;
 
 @Entity
@@ -134,20 +135,23 @@ public class Book {
             String previewUrl,
             String readerUrl) {
         String validTitle = requireTitle(title);
+        String validIsbn13 = requireValidIsbn13(isbn13);
+        String validLanguage = requireValidLanguage(language);
+        Integer validPublishedYear = requireValidPublishedYear(publishedYear);
         Integer validPageCount = requireNonNegative(pageCount, "pageCount");
-        this.isbn13 = isbn13;
+        this.isbn13 = validIsbn13;
         this.title = validTitle;
         this.subtitle = subtitle;
         this.description = description;
-        this.language = language;
-        this.publishedYear = publishedYear;
+        this.language = validLanguage;
+        this.publishedYear = validPublishedYear;
         this.pageCount = validPageCount;
         this.coverImageUrl = coverImageUrl;
         this.previewUrl = previewUrl;
         this.readerUrl = readerUrl;
     }
 
-    public void setCopyCounts(int totalCopies, int availableCopies) {
+    public void updateCopyCounts(int totalCopies, int availableCopies) {
         if (totalCopies < 0 || availableCopies < 0 || availableCopies > totalCopies) {
             throw new InvalidDomainStateException(
                     "INVALID_COPY_COUNTS", "availableCopies must be between 0 and totalCopies");
@@ -157,7 +161,7 @@ public class Book {
     }
 
     public void borrowCopy() {
-        if (status != BookStatus.ACTIVE) {
+        if (!status.isBorrowable()) {
             throw BookUnavailableException.retired();
         }
         if (availableCopies == 0) {
@@ -171,6 +175,21 @@ public class Book {
             throw new InvalidDomainStateException(
                     "ALL_COPIES_ALREADY_AVAILABLE", "all copies are already available");
         }
+        availableCopies++;
+    }
+
+    /** A borrowed copy was lost: it leaves the catalogue and never comes back as available. */
+    public void writeOffLostCopy() {
+        if (totalCopies <= availableCopies) {
+            throw new InvalidDomainStateException(
+                    "NO_BORROWED_COPY", "no borrowed copy exists to write off");
+        }
+        totalCopies--;
+    }
+
+    /** A copy previously written off as lost has been found and handed back. */
+    public void recoverLostCopy() {
+        totalCopies++;
         availableCopies++;
     }
 
@@ -189,6 +208,34 @@ public class Book {
         return title;
     }
 
+    private static String requireValidIsbn13(String isbn13) {
+        if (isbn13 == null || isbn13.isBlank()) {
+            return null;
+        }
+        if (!isbn13.matches("\\d{13}")) {
+            throw new InvalidDomainStateException("ISBN13_INVALID", "isbn13 must be exactly 13 digits");
+        }
+        return isbn13;
+    }
+
+    private static String requireValidLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            return null;
+        }
+        if (language.length() > 10) {
+            throw new InvalidDomainStateException(
+                    "LANGUAGE_INVALID", "language must be at most 10 characters");
+        }
+        return language;
+    }
+
+    private static Integer requireValidPublishedYear(Integer year) {
+        if (year != null && (year < 1000 || year > Year.now().getValue() + 1)) {
+            throw new InvalidDomainStateException("PUBLISHED_YEAR_INVALID", "publishedYear is out of range");
+        }
+        return year;
+    }
+
     private static Integer requireNonNegative(Integer value, String fieldName) {
         if (value != null && value < 0) {
             throw new InvalidDomainStateException(
@@ -196,5 +243,4 @@ public class Book {
         }
         return value;
     }
-
 }
