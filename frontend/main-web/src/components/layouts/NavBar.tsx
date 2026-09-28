@@ -1,10 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Library } from "lucide-react";
+import { Search, Library, UserCircle, LogOut, Clock } from "lucide-react";
 import { Button } from "../ui/button";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function NavBar() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { role, logout } = useAuth();
 
     return (
         <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
@@ -38,10 +40,37 @@ export default function NavBar() {
                     <Button variant="outline" className="hidden md:flex rounded-full px-5">
                         Trợ giúp
                     </Button>
-                    {!location.pathname.startsWith("/user") && (
+
+                    {role === 'user' ? (
+                        <div className="flex items-center gap-2 md:gap-4 ml-2 border-l pl-4">
+                            <Button variant="ghost" onClick={() => navigate("/user")} className="flex items-center gap-2 text-gray-700">
+                                <UserCircle className="w-4 h-4" />
+                                <span className="hidden md:inline">Tổng quan</span>
+                            </Button>
+                            <Button variant="ghost" onClick={() => navigate("/user/history")} className="flex items-center gap-2 text-gray-700">
+                                <Clock className="w-4 h-4" />
+                                <span className="hidden md:inline">Lịch sử mượn</span>
+                            </Button>
+                            <div className="flex items-center gap-2 ml-2">
+                                <UserCircle className="w-8 h-8 text-gray-600" />
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                        logout();
+                                        navigate("/");
+                                    }} 
+                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
                         <Button
+                            variant="brand"
                             onClick={() => navigate("/login")}
-                            className="bg-[#e60023] hover:bg-[#cc0020] text-white rounded-full px-6"
+                            className="rounded-full px-6"
                         >
                             Đăng nhập
                         </Button>

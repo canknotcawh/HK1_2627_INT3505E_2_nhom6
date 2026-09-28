@@ -3,7 +3,9 @@ import ProtecedRoute from "./protected-route";
 import PublicLayout from "@/components/layouts/PublicLayout";
 import HomePage from "@/pages/PortalPage";
 import Login from "@/pages/Login";
-import Profile from "@/pages/Dashboard";
+import Dashboard from "@/pages/Dashboard";
+import History from "@/pages/History";
+import Books from "@/pages/Books";
 
 const router = createBrowserRouter([
     {
@@ -13,13 +15,16 @@ const router = createBrowserRouter([
     {
         element: <PublicLayout />,
         children: [
-            { path: "/", element: <HomePage /> }
+            { path: "/", element: <HomePage /> },
+            { path: "/books", element: <Books /> }
         ]
     },
     {
+        path: "/user",
         element: <ProtecedRoute />,
         children: [
-            { path: "/user", element: <Profile /> },
+            { path: "", element: <Dashboard /> },
+            { path: "history", element: <History /> }
         ]
     }
 ]);

@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom"
 import { Button } from "../../components/ui/button";
 import logo from "../../assets/logo.png";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function BigSection() {
     // Section đầu + Logo
     const navigate = useNavigate();
+    const { role } = useAuth();
     return (
         <section className="container mx-auto px-4 py-20 flex flex-col md:flex-row items-center justify-between min-h-[600px] gap-12">
 
@@ -24,12 +26,18 @@ export default function BigSection() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4 pt-4">
-                    <Button className="px-8 py-6 rounded-full bg-[#e60023] hover:bg-[#cc0020] text-white">
+                    <Button 
+                        variant="brand"
+                        className="px-8 py-6 rounded-full"
+                        onClick={() => navigate("/books")}
+                    >
                         Khám phá danh mục
                     </Button>
-                    <Button variant="outline" className="px-8 py-6 rounded-full" onClick={() => navigate("/login")}>
-                        Đăng nhập
-                    </Button>
+                    {role !== 'user' && (
+                        <Button variant="outline" className="px-8 py-6 rounded-full" onClick={() => navigate("/login")}>
+                            Đăng nhập
+                        </Button>
+                    )}
                 </div>
             </div>
 
