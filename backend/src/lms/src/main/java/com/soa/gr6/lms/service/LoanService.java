@@ -23,6 +23,9 @@ public interface LoanService {
     /** Lists a user's loans, optionally filtered by status (null = all). */
     Page<LoanResponse> listUserLoans(UUID userId, LoanStatus status, Pageable pageable);
 
+    /** Lists all loans across every user, optionally filtered by status. For admin dashboard. */
+    Page<LoanResponse> listLoans(LoanStatus status, Pageable pageable);
+
     /** Flags every active loan past its due date as overdue; returns how many changed. */
     int markOverdueLoans();
 }

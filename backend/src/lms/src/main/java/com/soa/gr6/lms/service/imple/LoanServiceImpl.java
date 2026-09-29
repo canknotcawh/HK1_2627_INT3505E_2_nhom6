@@ -108,6 +108,15 @@ public class LoanServiceImpl implements LoanService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<LoanResponse> listLoans(LoanStatus status, Pageable pageable) {
+        Page<Loan> page = status == null
+                ? loanRepository.findAll(pageable)
+                : loanRepository.findByStatus(status, pageable);
+        return page.map(loanMapper::toResponse);
+    }
+
+    @Override
     @Transactional
     public int markOverdueLoans() {
         Instant now = Instant.now();

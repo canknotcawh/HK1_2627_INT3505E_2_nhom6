@@ -16,6 +16,8 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
     Page<Loan> findByUserIdAndStatus(UUID userId, LoanStatus status, Pageable pageable);
 
+    Page<Loan> findByStatus(LoanStatus status, Pageable Pageable);
+
     boolean existsByUserIdAndBookIdAndStatusIn(UUID userId, UUID bookId, Collection<LoanStatus> statuses);
 
     long countByUserIdAndStatusIn(UUID userId, Collection<LoanStatus> statuses);

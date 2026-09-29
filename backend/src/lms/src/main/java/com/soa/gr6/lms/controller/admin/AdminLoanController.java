@@ -25,6 +25,13 @@ public class AdminLoanController {
         this.loanService = loanService;
     }
 
+    @GetMapping("/loans")
+    public Page<LoanResponse> listLoans(
+            @RequestParam(required = false) LoanStatus status,
+            @PageableDefault(size = 20, sort = "borrowedAt") Pageable pageable) {
+        return loanService.listLoans(status, pageable);
+    }
+
     @GetMapping("/loans/{loanId}")
     public LoanResponse getLoan(@PathVariable UUID loanId) {
         return loanService.getLoan(loanId);
