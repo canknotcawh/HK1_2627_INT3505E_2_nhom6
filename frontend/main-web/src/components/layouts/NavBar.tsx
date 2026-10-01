@@ -1,18 +1,28 @@
-import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Library, UserCircle, LogOut, Clock } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function NavBar() {
     const navigate = useNavigate();
-    const location = useLocation();
     const { role, logout } = useAuth();
+    const [searchValue, setSearchValue] = useState('');
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchValue.trim()) {
+            navigate(`/books?q=${encodeURIComponent(searchValue.trim())}`);
+        } else {
+            navigate('/books');
+        }
+    };
 
     return (
         <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
             <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
                 {/* Logo, Brand */}
-                <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate("/")}>
                     <div className="bg-[#e60023] p-1.5 rounded-lg">
                         <Library className="w-5 h-5 text-white" />
                     </div>
@@ -22,47 +32,48 @@ export default function NavBar() {
                 </div>
 
                 {/* Search Bar */}
-                <div className="flex-1 max-w-2xl mx-auto">
+                <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-auto">
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="h-4 w-4 text-gray-400 group-focus-within:text-[#e60023]" />
                         </div>
                         <input
                             type="text"
+                            value={searchValue}
+                            onChange={e => setSearchValue(e.target.value)}
                             className="block w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023] transition-all text-sm"
-                            placeholder="Tìm kiếm sách, tác giả, thể loại..."
+                            placeholder="Tìm kiếm sách, tác giả..."
+                            aria-label="Tìm kiếm sách"
                         />
                     </div>
-                </div>
+                </form>
 
                 {/* Actions */}
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" className="hidden md:flex rounded-full px-5">
-                        Trợ giúp
-                    </Button>
-
+                <div className="flex items-center gap-2 shrink-0">
                     {role === 'user' ? (
-                        <div className="flex items-center gap-2 md:gap-4 ml-2 border-l pl-4">
-                            <Button variant="ghost" onClick={() => navigate("/user")} className="flex items-center gap-2 text-gray-700">
-                                <UserCircle className="w-4 h-4" />
+                        <div className="flex items-center gap-1 md:gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => navigate("/user")} className="flex items-center gap-1.5 text-gray-700">
+                                <LayoutDashboard className="w-4 h-4" />
                                 <span className="hidden md:inline">Tổng quan</span>
                             </Button>
-                            <Button variant="ghost" onClick={() => navigate("/user/history")} className="flex items-center gap-2 text-gray-700">
+                            <Button variant="ghost" size="sm" onClick={() => navigate("/user/history")} className="flex items-center gap-1.5 text-gray-700">
                                 <Clock className="w-4 h-4" />
-                                <span className="hidden md:inline">Lịch sử mượn</span>
+                                <span className="hidden md:inline">Lịch sử</span>
                             </Button>
-                            <div className="flex items-center gap-2 ml-2">
-                                <UserCircle className="w-8 h-8 text-gray-600" />
-                                <Button 
-                                    variant="ghost" 
+                            <div className="flex items-center gap-1 ml-1 pl-2 border-l border-gray-200">
+                                <UserCircle className="w-7 h-7 text-gray-400 hidden sm:block" />
+                                <Button
+                                    variant="ghost"
                                     size="sm"
                                     onClick={() => {
                                         logout();
                                         navigate("/");
-                                    }} 
+                                    }}
                                     className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    aria-label="Đăng xuất"
                                 >
                                     <LogOut className="w-4 h-4" />
+                                    <span className="hidden md:inline ml-1">Đăng xuất</span>
                                 </Button>
                             </div>
                         </div>
@@ -70,7 +81,7 @@ export default function NavBar() {
                         <Button
                             variant="brand"
                             onClick={() => navigate("/login")}
-                            className="rounded-full px-6"
+                            className="rounded-full px-5"
                         >
                             Đăng nhập
                         </Button>
