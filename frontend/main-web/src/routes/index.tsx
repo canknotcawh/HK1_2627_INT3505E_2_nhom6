@@ -6,6 +6,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
 import Books from "@/pages/Books";
+import BookDetail from "@/pages/BookDetail";
 
 const router = createBrowserRouter([
     {
@@ -16,7 +17,8 @@ const router = createBrowserRouter([
         element: <PublicLayout />,
         children: [
             { path: "/", element: <HomePage /> },
-            { path: "/books", element: <Books /> }
+            { path: "/books", element: <Books /> },
+            { path: "/books/:id", element: <BookDetail /> },
         ]
     },
     {
