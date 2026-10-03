@@ -1,106 +1,67 @@
-import { useCallback, useEffect, useState, startTransition } from "react";
-import { apiClient, ApiClientError } from "../lib/api-client";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
-import { Search } from "lucide-react";
-
-type BookResponse = {
-    id: string;
-    title: string;
-    subtitle: string | null;
-    totalCopies: number;
-    availableCopies: number;
-};
-
-type PageResponse<T> = { content: T[]; totalElements: number; totalPages: number; number: number };
+import { useNavigate } from "react-router-dom";
+import { Library } from "lucide-react";
 
 export default function Books() {
-    const [query, setQuery] = useState("");
-    const [page, setPage] = useState(0);
-    const [data, setData] = useState<PageResponse<BookResponse> | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-    const [borrowingId, setBorrowingId] = useState<string | null>(null);
-
-    const load = useCallback(async () => {
-        setLoading(true);
-        try {
-            const result = await apiClient.get<PageResponse<BookResponse>>("/api/v1/public/books", {
-                q: query || undefined,
-                page,
-                size: 12,
-            });
-            setData(result);
-        } catch (err) {
-            setMessage({ type: "error", text: err instanceof ApiClientError ? err.message : "Không tải được danh sách sách" });
-        } finally {
-            setLoading(false);
-        }
-    }, [query, page]);
-
-    useEffect(() => {
-        startTransition(() => {
-            load();
-        });
-    }, [load]);
-
-    async function handleBorrow(bookId: string) {
-        setBorrowingId(bookId);
-        setMessage(null);
-        try {
-            await apiClient.post("/api/v1/users/me/loans", { bookId });
-            setMessage({ type: "success", text: "Mượn sách thành công! Kiểm tra mục Sách đang mượn." });
-            await load();
-        } catch (err) {
-            setMessage({ type: "error", text: err instanceof ApiClientError ? err.message : "Mượn sách thất bại" });
-        } finally {
-            setBorrowingId(null);
-        }
-    }
+    const { books, role, borrowBook } = useAuth();
+    const navigate = useNavigate();
 
     return (
-        <div className="flex flex-col gap-4">
-            <div className="flex gap-2">
-                <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (setPage(0), load())}
-                    placeholder="Tìm sách theo tên..."
-                    className="flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:border-neutral-400"
-                />
-                <Button variant="outline" onClick={() => { setPage(0); load(); }}>
-                    <Search className="size-4" />
-                    Tìm
-                </Button>
+        <div className="container mx-auto p-4 md:p-8">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <h1 className="text-3xl font-bold flex items-center gap-2">
+                    <Library className="w-8 h-8 text-[#e60023]" />
+                    Danh mục sách
+                </h1>
             </div>
 
-            {message && (
-                <div className={`rounded-md border px-4 py-2 text-sm ${message.type === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
-                    {message.text}
-                </div>
-            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {books.map(book => (
+                    <div key={book.id} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between h-full">
+                        <div>
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 line-clamp-2">{book.title}</h3>
+                                    <p className="text-gray-500 mt-1">{book.author}</p>
+                                </div>
+                                <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${book.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                    {book.status === 'available' ? 'Còn sách' : 'Đã hết'}
+                                </span>
+                            </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {loading && !data && <div className="col-span-full py-8 text-center text-neutral-400">Đang tải...</div>}
-                {data?.content.length === 0 && <div className="col-span-full py-8 text-center text-neutral-400">Không tìm thấy sách nào</div>}
-                {data?.content.map((book) => (
-                    <div key={book.id} className="flex flex-col gap-2 rounded-lg border bg-white p-4">
-                        <div className="font-medium">{book.title}</div>
-                        {book.subtitle && <div className="text-sm text-neutral-500">{book.subtitle}</div>}
-                        <div className="text-xs text-neutral-400">Còn {book.availableCopies}/{book.totalCopies} bản</div>
-                        <Button size="sm" disabled={book.availableCopies === 0 || borrowingId === book.id} onClick={() => handleBorrow(book.id)}>
-                            {book.availableCopies === 0 ? "Hết sách" : "Mượn sách"}
-                        </Button>
+                            <div className="w-full h-40 bg-gray-50 rounded-lg mb-6 flex items-center justify-center border border-gray-100">
+                                <Library className="w-12 h-12 text-gray-300" />
+                            </div>
+                        </div>
+
+                        <div className="mt-auto">
+                            {role === 'guest' ? (
+                                <Button
+                                    className="w-full"
+                                    variant="outline"
+                                    onClick={() => navigate('/login')}
+                                >
+                                    Đăng nhập để mượn
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="brand"
+                                    className="w-full"
+                                    disabled={book.status !== 'available'}
+                                    onClick={() => {
+                                        borrowBook(book.id);
+                                        navigate('/user/history');
+                                    }}
+                                >
+                                    {book.status === 'available' ? 'Mượn sách' : 'Không khả dụng'}
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
-
-            {data && data.totalPages > 1 && (
-                <div className="flex items-center justify-end gap-2 text-sm">
-                    <Button variant="outline" size="xs" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Trước</Button>
-                    <span className="text-neutral-500">Trang {data.number + 1} / {data.totalPages}</span>
-                    <Button variant="outline" size="xs" disabled={page >= data.totalPages - 1} onClick={() => setPage((p) => p + 1)}>Sau</Button>
-                </div>
-            )}
         </div>
     );
 }
