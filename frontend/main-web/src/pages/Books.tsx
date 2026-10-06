@@ -15,8 +15,11 @@ export default function Books() {
 
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+    const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || '');
     const [confirmBook, setConfirmBook] = useState<Book | null>(null);
     const [toast, setToast] = useState<ToastType>(null);
+
+    const allCategories = [...new Set(books.map(b => b.category))];
 
     // Filter and search logic
     const filteredBooks = books.filter(book => {
@@ -29,7 +32,9 @@ export default function Books() {
             (filterStatus === 'available' && book.quantity > 0) ||
             (filterStatus === 'unavailable' && book.quantity <= 0);
 
-        return matchesSearch && matchesFilter;
+        const matchesCategory = categoryFilter === '' || book.category === categoryFilter;
+
+        return matchesSearch && matchesFilter && matchesCategory;
     });
 
     const showToast = (message: string, type: 'success' | 'error') => {
@@ -121,6 +126,27 @@ export default function Books() {
                 </div>
             </div>
 
+            {/* Category filter */}
+            {allCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                    <button
+                        onClick={() => setCategoryFilter('')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${categoryFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                        Tất cả thể loại
+                    </button>
+                    {allCategories.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setCategoryFilter(cat)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${categoryFilter === cat ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* Empty state */}
             {filteredBooks.length === 0 ? (
                 <div className="text-center py-16">
@@ -131,7 +157,7 @@ export default function Books() {
                             ? `Không có kết quả cho "${searchQuery}"`
                             : 'Không có sách nào phù hợp với bộ lọc.'}
                     </p>
-                    <Button variant="outline" onClick={() => { setSearchQuery(''); setFilterStatus('all'); }}>
+                    <Button variant="outline" onClick={() => { setSearchQuery(''); setFilterStatus('all'); setCategoryFilter(''); }}>
                         Xóa bộ lọc
                     </Button>
                 </div>
