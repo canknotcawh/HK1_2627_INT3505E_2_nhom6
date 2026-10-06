@@ -1,7 +1,8 @@
 import UserLayout from "@/components/layouts/UserLayout"
 import { Navigate } from "react-router-dom"
+import { useAuth } from "../contexts/AuthContext"
 
 export default function ProtecedRoute() {
-    const token = true  // Them hook lay token nguoi dung sau :(
-    return token ? < UserLayout/> : <Navigate to="/login" replace />
+    const { role } = useAuth();
+    return role === 'user' ? <UserLayout /> : <Navigate to="/login" replace />
 }
