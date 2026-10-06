@@ -11,7 +11,7 @@ export function Header({ title }: { title: string }) {
             <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Đã xác thực OTP
+                    Đã xác thực
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -20,10 +20,6 @@ export function Header({ title }: { title: string }) {
                             {getInitials(user.name)}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="text-sm">
-                        <span className="font-medium">{user.name}</span>
-                        <span className="text-muted-foreground"> · Quản trị viên </span>
-                    </div>
                 </div>
             </div>
         </header>
