@@ -1,10 +1,13 @@
 import { Outlet } from "react-router-dom";
+import NavBar from "./NavBar";
 
 export default function PublicLayout() {
     return (
         <div>
-            This is Public Layout
-            <Outlet />
+            <NavBar />
+            <main className="container mx-auto p-4 md:p-8">
+                <Outlet />
+            </main>
         </div>
     )
 }
