@@ -77,6 +77,7 @@ interface AuthContextType {
   loans: Loan[];
 
   login: (idpHint?: string) => Promise<void>;
+  forgotPassword: () => Promise<void>;
   logout: () => Promise<void>;
 
   borrowBook: (bookId: string) => BorrowResult;
@@ -131,6 +132,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       redirectUri: `${window.location.origin}/user`,
       ...(idpHint ? { idpHint } : {}),
     });
+  }, []);
+
+  const forgotPassword = useCallback(async () => {
+    const resetUrl = new URL(await keycloak.createLoginUrl({
+      redirectUri: `${window.location.origin}/login`,
+    }));
+    const authorizationPath = '/protocol/openid-connect/auth';
+
+    if (!resetUrl.pathname.endsWith(authorizationPath)) {
+      throw new Error('Không thể tạo đường dẫn quên mật khẩu Keycloak.');
+    }
+
+    resetUrl.pathname = `${resetUrl.pathname.slice(0, -authorizationPath.length)}/protocol/openid-connect/forgot-credentials`;
+    window.location.assign(resetUrl.toString());
   }, []);
 
   // Logout by Keycloak
@@ -192,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const username = keycloak.tokenParsed?.preferred_username || keycloak.tokenParsed?.name || keycloak.tokenParsed?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, username, books, loans, login, logout, borrowBook, requestReturn }}>
+    <AuthContext.Provider value={{ role, initialized, username, books, loans, login, forgotPassword, logout, borrowBook, requestReturn }}>
       {children}
     </AuthContext.Provider>
   );
