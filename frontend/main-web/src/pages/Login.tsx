@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext"
 import { Library, Mail, Loader2 } from "lucide-react"
 
 export default function Login() {
-    const { login, role, initialized } = useAuth();
+    const { login, forgotPassword, role, initialized } = useAuth();
 
     // Show loading spinner while checking authentication status
     if (!initialized) {
@@ -55,6 +55,14 @@ export default function Login() {
           <Mail className="w-4 h-4 mr-2" />
           Đăng nhập bằng email
         </Button>
+
+        <button
+          type="button"
+          onClick={() => void forgotPassword()}
+          className="mt-3 text-sm font-medium text-[#e60023] hover:underline"
+        >
+          Quên mật khẩu?
+        </button>
 
         <Button
           variant="outline"
