@@ -2,8 +2,18 @@ import { createBrowserRouter } from "react-router-dom";
 import ProtecedRoute from "./protected-route";
 import PublicLayout from "@/components/layouts/PublicLayout";
 import HomePage from "@/pages/PortalPage";
+import UserHomePage from "@/pages/UserHomePage";
 import Login from "@/pages/Login";
-import Profile from "@/pages/Dashboard";
+import Dashboard from "@/pages/Dashboard";
+import History from "@/pages/History";
+import Books from "@/pages/Books";
+import BookDetail from "@/pages/BookDetail";
+import { useAuth } from "@/contexts/AuthContext";
+
+function HomeRouter() {
+    const { role } = useAuth();
+    return role === 'user' ? <UserHomePage /> : <HomePage />;
+}
 
 const router = createBrowserRouter([
     {
@@ -13,13 +23,17 @@ const router = createBrowserRouter([
     {
         element: <PublicLayout />,
         children: [
-            { path: "/", element: <HomePage /> }
+            { path: "/", element: <HomeRouter /> },
+            { path: "/books", element: <Books /> },
+            { path: "/books/:id", element: <BookDetail /> },
         ]
     },
     {
+        path: "/user",
         element: <ProtecedRoute />,
         children: [
-            { path: "/user", element: <Profile /> },
+            { path: "", element: <Dashboard /> },
+            { path: "history", element: <History /> }
         ]
     }
 ]);
