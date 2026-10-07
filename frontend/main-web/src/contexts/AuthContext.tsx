@@ -1,5 +1,8 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
+
+import keycloak from '../lib/keycloak';
+import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
 
 export type Role = 'guest' | 'user';
 
@@ -67,10 +70,16 @@ type BorrowResult = { success: true } | { success: false; message: string };
 
 interface AuthContextType {
   role: Role;
+  initialized: boolean;
+  username?: string;
+
   books: Book[];
   loans: Loan[];
-  login: () => void;
-  logout: () => void;
+
+  login: (idpHint?: string) => Promise<void>;
+  forgotPassword: () => Promise<void>;
+  logout: () => Promise<void>;
+
   borrowBook: (bookId: string) => BorrowResult;
   requestReturn: (loanId: string) => BorrowResult;
 }
@@ -79,11 +88,76 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('guest');
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize Keycloak
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setInterval> | undefined;
+    let cancelled = false;
+
+    const initialize = async () => {
+      try {
+        const authenticated = await initKeycloak();
+        if (cancelled) return;
+
+        setRole(authenticated ? 'user' : 'guest');
+        if (authenticated) {
+          refreshTimer = scheduleTokenRefresh();
+        }
+      } catch (error) {
+        console.error('Failed to initialize Keycloak:', error);
+        if (!cancelled) {
+          setRole('guest');
+        }
+      } finally {
+        if (!cancelled) {
+          setInitialized(true);
+        }
+      }
+    };
+
+    initialize();
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+      }
+    };
+  }, []);
+
+  // Login by Keycloak
+  const login = useCallback(async (idpHint?: string) => {
+    await keycloak.login({
+      redirectUri: `${window.location.origin}/user`,
+      ...(idpHint ? { idpHint } : {}),
+    });
+  }, []);
+
+  const forgotPassword = useCallback(async () => {
+    const resetUrl = new URL(await keycloak.createLoginUrl({
+      redirectUri: `${window.location.origin}/login`,
+    }));
+    const authorizationPath = '/protocol/openid-connect/auth';
+
+    if (!resetUrl.pathname.endsWith(authorizationPath)) {
+      throw new Error('Không thể tạo đường dẫn quên mật khẩu Keycloak.');
+    }
+
+    resetUrl.pathname = `${resetUrl.pathname.slice(0, -authorizationPath.length)}/protocol/openid-connect/forgot-credentials`;
+    window.location.assign(resetUrl.toString());
+  }, []);
+
+  // Logout by Keycloak
+  const logout = useCallback(async () => {
+    await keycloak.logout({
+      redirectUri: `${window.location.origin}/`,
+    });
+    setRole('guest');
+  }, []);
+
   const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
   const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
-
-  const login = useCallback(() => setRole('user'), []);
-  const logout = useCallback(() => setRole('guest'), []);
 
   const borrowBook = useCallback((bookId: string): BorrowResult => {
     if (role !== 'user') {
@@ -130,8 +204,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   }, [loans]);
 
+  const username = keycloak.tokenParsed?.preferred_username || keycloak.tokenParsed?.name || keycloak.tokenParsed?.email;
+
   return (
-    <AuthContext.Provider value={{ role, books, loans, login, logout, borrowBook, requestReturn }}>
+    <AuthContext.Provider value={{ role, initialized, username, books, loans, login, forgotPassword, logout, borrowBook, requestReturn }}>
       {children}
     </AuthContext.Provider>
   );
