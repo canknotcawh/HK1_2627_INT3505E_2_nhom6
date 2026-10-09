@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
+import keycloak from "../../lib/keycloak";
 
 export default function NavBar() {
     const navigate = useNavigate();
     const { role, logout } = useAuth();
     const [searchValue, setSearchValue] = useState('');
+    const [avatarFailed, setAvatarFailed] = useState(false);
+    const avatarUrl = typeof keycloak.tokenParsed?.picture === "string" ? keycloak.tokenParsed.picture : "";
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,11 +67,20 @@ export default function NavBar() {
                                 <button
                                     type="button"
                                     onClick={() => navigate("/user/profile")}
-                                    className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-[#e60023] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]"
+                                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#e60023] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]"
                                     aria-label="Mở hồ sơ cá nhân"
                                     title="Hồ sơ cá nhân"
                                 >
-                                    <UserCircle className="w-7 h-7" />
+                                    {avatarUrl && !avatarFailed ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt=""
+                                            className="h-full w-full rounded-full object-cover"
+                                            onError={() => setAvatarFailed(true)}
+                                        />
+                                    ) : (
+                                        <UserCircle className="h-7 w-7" />
+                                    )}
                                 </button>
                                 <Button
                                     variant="ghost"
