@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login by Keycloak
   const login = useCallback(async (idpHint?: string) => {
     await keycloak.login({
-      redirectUri: `${window.location.origin}/user`,
+      redirectUri: `${window.location.origin}/`,
       ...(idpHint ? { idpHint } : {}),
     });
   }, []);
