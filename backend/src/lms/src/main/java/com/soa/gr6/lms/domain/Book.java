@@ -7,6 +7,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -16,8 +19,11 @@ import com.soa.gr6.lms.domain.enums.BookStatus;
 import com.soa.gr6.lms.exception.BookUnavailableException;
 import com.soa.gr6.lms.exception.InvalidDomainStateException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.Year;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -65,6 +71,29 @@ public class Book {
 
     @Column(name = "available_copies", nullable = false)
     private int availableCopies;
+
+    @Column(name = "rating_avg", precision = 3, scale = 2, nullable = false)
+    private BigDecimal ratingAvg = BigDecimal.ZERO;
+
+    @Column(name = "rating_count", nullable = false)
+    private int ratingCount;
+
+    @Column(name = "borrow_count", nullable = false)
+    private int borrowCount;
+
+    @ManyToMany
+    @JoinTable(
+            name = "book_author",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "author_id"))
+    private Set<Author> authors = new LinkedHashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "book_category",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id"))
+    private Set<Category> categories = new LinkedHashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
@@ -151,6 +180,25 @@ public class Book {
         this.readerUrl = readerUrl;
     }
 
+    public void replaceAuthors(Set<Author> newAuthors) {
+        authors.clear();
+        authors.addAll(newAuthors);
+    }
+
+    public void replaceCategories(Set<Category> newCategories) {
+        categories.clear();
+        categories.addAll(newCategories);
+    }
+
+    public void updateRating(BigDecimal average, int count) {
+        if (average == null || average.signum() < 0 || average.compareTo(BigDecimal.valueOf(5)) > 0 || count < 0) {
+            throw new InvalidDomainStateException(
+                    "RATING_INVALID", "rating average must be between 0 and 5 and count must not be negative");
+        }
+        this.ratingAvg = average;
+        this.ratingCount = count;
+    }
+
     public void updateCopyCounts(int totalCopies, int availableCopies) {
         if (totalCopies < 0 || availableCopies < 0 || availableCopies > totalCopies) {
             throw new InvalidDomainStateException(
@@ -168,6 +216,7 @@ public class Book {
             throw BookUnavailableException.noCopies();
         }
         availableCopies--;
+        borrowCount++;
     }
 
     public void returnCopy() {
