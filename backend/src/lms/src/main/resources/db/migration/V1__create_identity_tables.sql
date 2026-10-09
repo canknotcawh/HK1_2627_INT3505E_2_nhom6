@@ -3,7 +3,7 @@ CREATE TABLE app_user (
     keycloak_subject  VARCHAR(64)  NOT NULL UNIQUE,
     email             VARCHAR(255) NOT NULL UNIQUE,
     full_name         VARCHAR(255) NOT NULL,
-    role              VARCHAR(20)  NOT NULL DEFAULT 'USER',
+    role              VARCHAR(20)  NOT NULL DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN')),
     status            VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
