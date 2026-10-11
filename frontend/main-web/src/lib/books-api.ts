@@ -14,6 +14,8 @@ export interface BookDTO {
   readerUrl: string | null;
   totalCopies: number;
   availableCopies: number;
+  ratingAvg: number | null;
+  ratingCount: number;
   status: string;
   createdAt: string;
   updatedAt: string;

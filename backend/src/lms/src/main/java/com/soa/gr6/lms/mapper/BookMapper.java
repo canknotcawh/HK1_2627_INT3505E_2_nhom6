@@ -33,6 +33,8 @@ public class BookMapper {
                 book.getReaderUrl(),
                 book.getTotalCopies(),
                 book.getAvailableCopies(),
+                book.getRatingAvg(),
+                book.getRatingCount(),
                 book.getStatus().name(),
                 book.getCreatedAt(),
                 book.getUpdatedAt(),
