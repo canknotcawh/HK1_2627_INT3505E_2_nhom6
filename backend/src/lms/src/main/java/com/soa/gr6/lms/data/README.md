@@ -28,7 +28,7 @@ docker compose exec -w /tmp postgres psql -U lms -d lms -f import_books.sql
 **Dùng psql:**
 ```
 cd data
-psql -h localhost -U lms -d lms -f import_books.sql
+psql -h localhost -p 5433 -U lms -d lms -f import_books.sql
 ```
 
 ## Chạy lại nhiều lần có an toàn không?

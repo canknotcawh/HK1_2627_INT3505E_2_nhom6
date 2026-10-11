@@ -3,17 +3,18 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import type { Book } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
-import { Library, ArrowLeft, Star, Calendar, Hash, Tag, CheckCircle, AlertCircle } from "lucide-react";
+import { Library, ArrowLeft, Star, Calendar, Hash, Tag, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
 type ToastType = { message: string; type: 'success' | 'error' } | null;
 
 export default function BookDetail() {
     const { id } = useParams<{ id: string }>();
-    const { books, role, borrowBook } = useAuth();
+    const { books, booksLoading, role, borrowBook } = useAuth();
     const navigate = useNavigate();
 
     const [confirmBook, setConfirmBook] = useState<Book | null>(null);
     const [toast, setToast] = useState<ToastType>(null);
+    const [borrowing, setBorrowing] = useState(false);
 
     const book = books.find(b => b.id === id);
 
@@ -22,9 +23,11 @@ export default function BookDetail() {
         setTimeout(() => setToast(null), 4000);
     };
 
-    const handleBorrow = () => {
+    const handleBorrow = async () => {
         if (!confirmBook) return;
-        const result = borrowBook(confirmBook.id);
+        setBorrowing(true);
+        const result = await borrowBook(confirmBook.id);
+        setBorrowing(false);
         setConfirmBook(null);
         if (result.success) {
             showToast(`Mượn "${confirmBook.title}" thành công!`, 'success');
@@ -32,6 +35,15 @@ export default function BookDetail() {
             showToast(`Mượn "${confirmBook.title}" thất bại: ${result.message}`, 'error');
         }
     };
+
+    if (booksLoading) {
+        return (
+            <div className="flex items-center justify-center py-32">
+                <Loader2 className="w-8 h-8 animate-spin text-[#e60023]" />
+                <span className="ml-3 text-gray-500">Đang tải...</span>
+            </div>
+        );
+    }
 
     if (!book) {
         return (
@@ -79,7 +91,11 @@ export default function BookDetail() {
                 <div className="flex flex-col md:flex-row">
                     {/* Cover */}
                     <div className="w-full md:w-80 h-64 md:h-auto bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 shrink-0">
-                        <Library className="w-20 h-20 text-gray-200" />
+                        {book.coverUrl ? (
+                            <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                        ) : (
+                            <Library className="w-20 h-20 text-gray-200" />
+                        )}
                     </div>
 
                     {/* Info */}
@@ -87,7 +103,10 @@ export default function BookDetail() {
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">{book.title}</h1>
-                                <p className="text-gray-500 text-lg">{book.author}</p>
+                                {book.subtitle && <p className="text-gray-400 text-base mb-1">{book.subtitle}</p>}
+                                <p className="text-gray-500 text-lg">
+                                    {book.authors.length > 0 ? book.authors.join(', ') : book.author}
+                                </p>
                             </div>
                             <span className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium ${book.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                                 }`}>
@@ -95,28 +114,53 @@ export default function BookDetail() {
                             </span>
                         </div>
 
+                        {/* Description */}
+                        {book.description && (
+                            <p className="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-4">{book.description}</p>
+                        )}
+
                         {/* Details grid */}
                         <div className="grid grid-cols-2 gap-4 mb-6 py-4 border-y border-gray-100">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Tag className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-400">Thể loại:</span>
-                                <span className="font-medium">{book.category}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-400">Năm XB:</span>
-                                <span className="font-medium">{book.publishYear}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Hash className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-400">ISBN:</span>
-                                <span className="font-medium">{book.isbn}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Star className="w-4 h-4 text-amber-400" />
-                                <span className="text-gray-400">Đánh giá:</span>
-                                <span className="font-medium">{book.rating} / 5</span>
-                            </div>
+                            {book.category && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Tag className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-400">Thể loại:</span>
+                                    <span className="font-medium">{book.categories.length > 0 ? book.categories.join(', ') : book.category}</span>
+                                </div>
+                            )}
+                            {book.publishYear && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-400">Năm XB:</span>
+                                    <span className="font-medium">{book.publishYear}</span>
+                                </div>
+                            )}
+                            {book.isbn && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Hash className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-400">ISBN:</span>
+                                    <span className="font-medium">{book.isbn}</span>
+                                </div>
+                            )}
+                            {book.rating > 0 && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Star className="w-4 h-4 text-amber-400" />
+                                    <span className="text-gray-400">Đánh giá:</span>
+                                    <span className="font-medium">{book.rating.toFixed(1)} / 5</span>
+                                </div>
+                            )}
+                            {book.pageCount && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="text-gray-400">Số trang:</span>
+                                    <span className="font-medium">{book.pageCount}</span>
+                                </div>
+                            )}
+                            {book.language && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="text-gray-400">Ngôn ngữ:</span>
+                                    <span className="font-medium">{book.language}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Action */}
@@ -152,18 +196,18 @@ export default function BookDetail() {
                     >
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Xác nhận mượn sách</h2>
                         <p className="text-gray-500 mb-6">
-                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.author}?
+                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors.length > 0 ? confirmBook.authors.join(', ') : confirmBook.author}?
                             <br />
                             <span className="text-sm mt-2 block text-gray-400">
                                 Thời hạn mượn: 14 ngày kể từ hôm nay.
                             </span>
                         </p>
                         <div className="flex gap-3 justify-end">
-                            <Button variant="outline" onClick={() => setConfirmBook(null)}>
+                            <Button variant="outline" onClick={() => setConfirmBook(null)} disabled={borrowing}>
                                 Hủy
                             </Button>
-                            <Button variant="brand" onClick={handleBorrow}>
-                                Xác nhận mượn
+                            <Button variant="brand" onClick={handleBorrow} disabled={borrowing}>
+                                {borrowing ? 'Đang xử lý...' : 'Xác nhận mượn'}
                             </Button>
                         </div>
                     </div>

@@ -3,14 +3,17 @@ import { BookOpen, Clock, CheckCircle, AlertTriangle, ArrowRight } from "lucide-
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 
+const formatDate = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString('vi-VN') : '-';
+
 export default function Dashboard() {
-    const { loans, books } = useAuth();
+    const { loans, loansLoading } = useAuth();
     const navigate = useNavigate();
 
-    const activeLoans = loans.filter(l => l.status === 'active');
-    const returnedLoans = loans.filter(l => l.status === 'returned');
-    const overdueLoans = loans.filter(l => l.status === 'overdue');
-    const pendingLoans = loans.filter(l => l.status === 'pending_return');
+    const activeLoans = loans.filter(l => l.status === 'active' || l.status === 'ACTIVE');
+    const returnedLoans = loans.filter(l => l.status === 'returned' || l.status === 'RETURNED');
+    const overdueLoans = loans.filter(l => l.status === 'overdue' || l.status === 'OVERDUE');
+    const pendingLoans = loans.filter(l => l.status === 'pending_return' || l.status === 'PENDING_RETURN');
 
     // Upcoming due dates (active loans sorted by due date, soonest first)
     const upcomingDue = [...activeLoans]
@@ -22,6 +25,17 @@ export default function Dashboard() {
         const due = new Date(dueDate);
         return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     };
+
+    if (loansLoading) {
+        return (
+            <div className="space-y-6">
+                <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100">
+                    <h1 className="text-3xl font-bold text-gray-800">Xin chào! 👋</h1>
+                    <p className="text-gray-500 mt-2">Đang tải dữ liệu...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -112,16 +126,15 @@ export default function Dashboard() {
                     </div>
                     <div className="divide-y divide-gray-50">
                         {upcomingDue.map(loan => {
-                            const book = books.find(b => b.id === loan.bookId);
                             const daysLeft = getDaysUntilDue(loan.dueDate);
                             const isUrgent = daysLeft <= 3;
 
                             return (
                                 <div key={loan.id} className="px-5 py-4 flex items-center justify-between gap-4">
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-gray-800 truncate">{book?.title || 'Không rõ'}</p>
+                                        <p className="font-medium text-gray-800 truncate">{loan.bookTitle || 'Không rõ'}</p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            Mượn ngày {loan.borrowDate}
+                                            Mượn ngày {formatDate(loan.borrowDate)}
                                         </p>
                                     </div>
                                     <span className={`shrink-0 text-sm font-medium px-3 py-1 rounded-full ${
