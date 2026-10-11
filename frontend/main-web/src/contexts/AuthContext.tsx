@@ -14,16 +14,13 @@ export type Book = {
   id: string;
   title: string;
   authors: string[];
-  /** Backward compat helper — first author or empty string */
   author: string;
   isbn: string | null;
   publishYear: number | null;
-  /** 0–5 average rating from backend */
   rating: number;
+  ratingCount: number;
   categories: string[];
-  /** Backward compat helper — first category or empty string */
   category: string;
-  /** Number of available copies */
   quantity: number;
   coverUrl: string | null;
   subtitle: string | null;
@@ -34,7 +31,7 @@ export type Book = {
 };
 
 export type LoanStatus =
-  | 'active' | 'pending_return' | 'returned' | 'overdue'
+  | 'active' | 'pending_return' | 'returned' | 'overdue' | 'lost'
   | 'ACTIVE' | 'PENDING_RETURN' | 'RETURNED' | 'OVERDUE' | 'LOST';
 
 export type Loan = {
@@ -42,9 +39,7 @@ export type Loan = {
   bookId: string;
   bookTitle: string;
   userId: string;
-  /** ISO datetime string (borrowedAt) */
   borrowDate: string;
-  /** ISO datetime string (dueAt) */
   dueDate: string;
   returnedAt: string | null;
   status: LoanStatus;
@@ -63,7 +58,8 @@ function mapBook(dto: BookDTO): Book {
     author: (dto.authors ?? [])[0] ?? '',
     isbn: dto.isbn13,
     publishYear: dto.publishedYear,
-    rating: 0, // backend ratingAvg not yet exposed in BookResponse
+    rating: dto.ratingAvg != null ? Number(dto.ratingAvg) : 0,
+    ratingCount: dto.ratingCount ?? 0,
     categories: dto.categories ?? [],
     category: (dto.categories ?? [])[0] ?? '',
     quantity: dto.availableCopies,
@@ -128,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loansLoading, setLoansLoading] = useState(false);
   const [loansError, setLoansError] = useState<string | null>(null);
 
-  // ── Book fetching ──────────────────────────────────────────────────────────
+  // Book fetching
   const refetchBooks = useCallback(async () => {
     setBooksLoading(true);
     setBooksError(null);
@@ -143,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ── Loan fetching (only when logged in) ───────────────────────────────────
+  // Loan fetching (only when logged in)
   const refetchLoans = useCallback(async () => {
     setLoansLoading(true);
     setLoansError(null);
@@ -158,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ── Initialize Keycloak ────────────────────────────────────────────────────
+  // Initialize Keycloak
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
@@ -195,14 +191,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ── Fetch books once initialized ───────────────────────────────────────────
+  // Fetch books once initialized
   useEffect(() => {
     if (initialized) {
       refetchBooks();
     }
   }, [initialized, refetchBooks]);
 
-  // ── Fetch loans once logged in ─────────────────────────────────────────────
+  // Fetch loans once logged in
   useEffect(() => {
     if (initialized && role === 'user') {
       refetchLoans();
@@ -211,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [initialized, role, refetchLoans]);
 
-  // ── Auth actions ───────────────────────────────────────────────────────────
+  // Auth actions
   const login = useCallback(async (idpHint?: string) => {
     await keycloak.login({
       redirectUri: `${window.location.origin}/`,
@@ -240,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole('guest');
   }, []);
 
-  // ── Borrow / Return ────────────────────────────────────────────────────────
+  // Borrow / Return
   const borrowBook = useCallback(async (bookId: string): Promise<BorrowResult> => {
     if (role !== 'user') {
       return { success: false, message: 'Bạn cần đăng nhập để mượn sách.' };
@@ -299,7 +295,7 @@ export function useAuth() {
   return context;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// Helpers
 function extractErrorMessage(err: unknown): string | null {
   if (err && typeof err === 'object') {
     const axiosErr = err as { response?: { data?: { message?: string; error?: string } }; message?: string };

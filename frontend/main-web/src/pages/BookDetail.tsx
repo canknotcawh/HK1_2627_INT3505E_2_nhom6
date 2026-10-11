@@ -144,9 +144,16 @@ export default function BookDetail() {
                             )}
                             {book.rating > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <Star className="w-4 h-4 text-amber-400" />
+                                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                                     <span className="text-gray-400">Đánh giá:</span>
-                                    <span className="font-medium">{book.rating.toFixed(1)} / 5</span>
+                                    <span className="font-medium text-amber-600">
+                                        {book.rating.toFixed(1)} / 5
+                                        {book.ratingCount > 0 && (
+                                            <span className="text-gray-400 text-xs font-normal ml-1.5">
+                                                ({book.ratingCount.toLocaleString('vi-VN')} lượt đánh giá)
+                                            </span>
+                                        )}
+                                    </span>
                                 </div>
                             )}
                             {book.pageCount && (

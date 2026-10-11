@@ -3,7 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import type { Book } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Library, Search, X, CheckCircle, AlertCircle, BookOpen, Loader2 } from "lucide-react";
+import { Library, Search, X, CheckCircle, AlertCircle, BookOpen, Loader2, Star } from "lucide-react";
 
 type FilterStatus = 'all' | 'available' | 'unavailable';
 type ToastType = { message: string; type: 'success' | 'error' } | null;
@@ -228,7 +228,12 @@ export default function Books() {
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     {book.category && <span className="text-xs bg-gray-50 text-gray-500 px-2 py-1 rounded-md">{book.category}</span>}
                                     {book.publishYear && <span className="text-xs bg-gray-50 text-gray-500 px-2 py-1 rounded-md">{book.publishYear}</span>}
-                                    {book.rating > 0 && <span className="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded-md">★ {book.rating.toFixed(1)}</span>}
+                                    {book.rating > 0 && (
+                                        <span className="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded-md flex items-center gap-1 font-medium">
+                                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                            {book.rating.toFixed(1)}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 

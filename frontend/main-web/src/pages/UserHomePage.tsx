@@ -118,8 +118,8 @@ export default function UserHomePage() {
                     role="status"
                     aria-live="polite"
                     className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success'
-                            ? 'bg-green-50 text-green-800 border border-green-200'
-                            : 'bg-red-50 text-red-800 border border-red-200'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
                         }`}
                 >
                     {toast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
@@ -228,8 +228,8 @@ export default function UserHomePage() {
                                         key={i}
                                         onClick={() => goToSlide(i)}
                                         className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide
-                                                ? 'bg-[#e60023] scale-110'
-                                                : 'bg-gray-300 hover:bg-gray-400'
+                                            ? 'bg-[#e60023] scale-110'
+                                            : 'bg-gray-300 hover:bg-gray-400'
                                             }`}
                                         aria-label={`Slide ${i + 1}`}
                                     />
