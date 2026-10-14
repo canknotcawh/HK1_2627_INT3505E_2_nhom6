@@ -10,10 +10,12 @@ import com.soa.gr6.lms.mapper.BookMapper;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.service.BookService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,12 +36,24 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<BookResponse> searchBooks(String titleKeyword, Pageable pageable) {
-        Page<Book> page = (titleKeyword == null || titleKeyword.isBlank())
-                ? bookRepository.findByStatus(BookStatus.ACTIVE, pageable)
-                : bookRepository.findByStatusAndTitleContainingIgnoreCase(
-                        BookStatus.ACTIVE, titleKeyword.trim(), pageable);
+    public Page<BookResponse> searchBooks(String q, String category, String availability, Pageable pageable) {
+        Pageable unpagedSort = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        Page<Book> page;
+        if (q != null && !q.trim().isBlank()) {
+            page = bookRepository.searchBooks(q.trim(), category, availability, unpagedSort);
+        } else if ((category != null && !category.isBlank())
+                || (availability != null && !availability.isBlank() && !"all".equalsIgnoreCase(availability))) {
+            page = bookRepository.filterBooks(category, availability, unpagedSort);
+        } else {
+            page = bookRepository.findByStatus(BookStatus.ACTIVE, pageable);
+        }
         return page.map(bookMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getCategories() {
+        return bookRepository.findAllActiveCategoryNames();
     }
 
     @Override

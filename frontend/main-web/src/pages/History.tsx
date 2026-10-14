@@ -40,7 +40,7 @@ export default function History() {
 
     const handleReturn = async (loanId: string, bookTitle: string) => {
         const result = await requestReturn(loanId);
-        if (!result.success) {
+        if (result.success === false) {
             showToast(result.message, 'error');
         } else {
             showToast(`Yêu cầu trả "${bookTitle}" đã được gửi. Vui lòng chờ admin xác nhận.`, 'success');
