@@ -29,10 +29,10 @@ export default function BookDetail() {
         const result = await borrowBook(confirmBook.id);
         setBorrowing(false);
         setConfirmBook(null);
-        if (result.success) {
-            showToast(`Mượn "${confirmBook.title}" thành công!`, 'success');
-        } else {
+        if (result.success === false) {
             showToast(`Mượn "${confirmBook.title}" thất bại: ${result.message}`, 'error');
+        } else {
+            showToast(`Mượn "${confirmBook.title}" thành công!`, 'success');
         }
     };
 
@@ -68,7 +68,7 @@ export default function BookDetail() {
                 <div
                     role="status"
                     aria-live="polite"
-                    className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success'
+                    className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all animate-in fade-in slide-in-from-top-2 ${toast.type === 'success'
                         ? 'bg-green-50 text-green-800 border border-green-200'
                         : 'bg-red-50 text-red-800 border border-red-200'
                         }`}

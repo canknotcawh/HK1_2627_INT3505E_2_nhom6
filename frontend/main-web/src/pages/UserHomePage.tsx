@@ -85,10 +85,10 @@ export default function UserHomePage() {
         const result = await borrowBook(confirmBook.id);
         setBorrowing(false);
         setConfirmBook(null);
-        if (result.success) {
-            showToast(`Mượn "${confirmBook.title}" thành công!`, 'success');
+        if (result.success === false) {
+            showToast(`Mượn "${confirmBook.title}" thất bại: ${result.message}`, 'error');
         } else {
-            showToast(result.message, 'error');
+            showToast(`Mượn "${confirmBook.title}" thành công!`, 'success');
         }
     };
 

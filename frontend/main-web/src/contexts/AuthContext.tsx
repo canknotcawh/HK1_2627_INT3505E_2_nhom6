@@ -3,32 +3,12 @@ import type { ReactNode } from 'react';
 
 import keycloak from '../lib/keycloak';
 import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
-import { fetchBooks } from '../lib/books-api';
+import { fetchBooks, mapBook, type Book } from '../lib/books-api';
 import { fetchMyLoans, borrowBook as apiBorrowBook, returnBook as apiReturnBook } from '../lib/loans-api';
-import type { BookDTO } from '../lib/books-api';
 import type { LoanDTO } from '../lib/loans-api';
 
+export type { Book } from '../lib/books-api';
 export type Role = 'guest' | 'user';
-
-export type Book = {
-  id: string;
-  title: string;
-  authors: string[];
-  author: string;
-  isbn: string | null;
-  publishYear: number | null;
-  rating: number;
-  ratingCount: number;
-  categories: string[];
-  category: string;
-  quantity: number;
-  coverUrl: string | null;
-  subtitle: string | null;
-  description: string | null;
-  language: string | null;
-  pageCount: number | null;
-  status: string;
-};
 
 export type LoanStatus =
   | 'active' | 'pending_return' | 'returned' | 'overdue' | 'lost'
@@ -48,29 +28,6 @@ export type Loan = {
 
 type BorrowResult = { success: true; loan: Loan } | { success: false; message: string };
 type ReturnResult = { success: true; loan: Loan } | { success: false; message: string };
-
-/** Map backend BookDTO → frontend Book */
-function mapBook(dto: BookDTO): Book {
-  return {
-    id: dto.id,
-    title: dto.title,
-    authors: dto.authors ?? [],
-    author: (dto.authors ?? [])[0] ?? '',
-    isbn: dto.isbn13,
-    publishYear: dto.publishedYear,
-    rating: dto.ratingAvg != null ? Number(dto.ratingAvg) : 0,
-    ratingCount: dto.ratingCount ?? 0,
-    categories: dto.categories ?? [],
-    category: (dto.categories ?? [])[0] ?? '',
-    quantity: dto.availableCopies,
-    coverUrl: dto.coverImageUrl,
-    subtitle: dto.subtitle,
-    description: dto.description,
-    language: dto.language,
-    pageCount: dto.pageCount,
-    status: dto.status,
-  };
-}
 
 /** Map backend LoanDTO → frontend Loan */
 function mapLoan(dto: LoanDTO): Loan {
