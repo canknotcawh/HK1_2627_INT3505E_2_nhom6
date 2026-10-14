@@ -1,7 +1,7 @@
 import apiClient from './api-client';
 import type { PageResponse } from './books-api';
 
-export interface LoanDTO {
+export interface LoanResponse {
   id: string;
   bookId: string;
   bookTitle: string;
@@ -13,12 +13,15 @@ export interface LoanDTO {
   renewedCount: number;
 }
 
+// Alias
+export type Loan = LoanResponse;
+
 export async function fetchMyLoans(params?: {
   status?: string;
   page?: number;
   size?: number;
-}): Promise<PageResponse<LoanDTO>> {
-  const response = await apiClient.get<PageResponse<LoanDTO>>('/api/v1/users/me/loans', {
+}): Promise<PageResponse<LoanResponse>> {
+  const response = await apiClient.get<PageResponse<LoanResponse>>('/api/v1/users/me/loans', {
     params: {
       ...params,
       size: params?.size ?? 100,
@@ -27,12 +30,12 @@ export async function fetchMyLoans(params?: {
   return response.data;
 }
 
-export async function borrowBook(bookId: string): Promise<LoanDTO> {
-  const response = await apiClient.post<LoanDTO>('/api/v1/users/me/loans', { bookId });
+export async function borrowBook(bookId: string): Promise<LoanResponse> {
+  const response = await apiClient.post<LoanResponse>('/api/v1/users/me/loans', { bookId });
   return response.data;
 }
 
-export async function returnBook(loanId: string): Promise<LoanDTO> {
-  const response = await apiClient.post<LoanDTO>(`/api/v1/users/me/loans/${loanId}/return`);
+export async function returnBook(loanId: string): Promise<LoanResponse> {
+  const response = await apiClient.post<LoanResponse>(`/api/v1/users/me/loans/${loanId}/return`);
   return response.data;
 }

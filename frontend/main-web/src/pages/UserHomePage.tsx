@@ -35,14 +35,14 @@ export default function UserHomePage() {
 
     // Featured books = top 5 by rating (or just first 5 if all ratings are 0)
     const featuredBooks = [...books]
-        .sort((a, b) => b.rating - a.rating)
+        .sort((a, b) => Number(b.ratingAvg ?? 0) - Number(a.ratingAvg ?? 0))
         .slice(0, 5);
 
-    // Group books by first category
-    const categories = [...new Set(books.map(b => b.category).filter(Boolean))];
+    // Group books by categories
+    const categories = [...new Set(books.flatMap(b => b.categories ?? []).filter(Boolean))];
     const booksByCategory = categories.map(cat => ({
         name: cat,
-        books: books.filter(b => b.category === cat),
+        books: books.filter(b => b.categories?.includes(cat)),
     }));
 
     // Auto-slide
@@ -153,8 +153,8 @@ export default function UserHomePage() {
                                         className="w-40 h-56 md:w-48 md:h-64 rounded-xl bg-white/80 border border-gray-200 flex items-center justify-center shadow-sm cursor-pointer hover:shadow-md transition-shadow shrink-0 overflow-hidden"
                                         onClick={() => navigate(`/books/${book.id}`)}
                                     >
-                                        {book.coverUrl ? (
-                                            <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                                        {book.coverImageUrl ? (
+                                            <img src={book.coverImageUrl} alt={book.title} className="w-full h-full object-cover" />
                                         ) : (
                                             <Library className="w-16 h-16 text-gray-200" />
                                         )}
@@ -163,10 +163,10 @@ export default function UserHomePage() {
                                     {/* Info */}
                                     <div className="flex-1 text-center md:text-left">
                                         <div className="flex items-center gap-2 justify-center md:justify-start mb-2">
-                                            {book.rating > 0 && (
+                                            {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
                                                 <>
                                                     <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                                                    <span className="text-sm font-medium text-amber-600">{book.rating.toFixed(1)} / 5</span>
+                                                    <span className="text-sm font-medium text-amber-600">{Number(book.ratingAvg).toFixed(1)} / 5</span>
                                                 </>
                                             )}
                                             <span className="text-xs bg-[#e60023]/10 text-[#e60023] px-2 py-0.5 rounded-full font-medium ml-1">Nổi bật</span>
@@ -178,22 +178,22 @@ export default function UserHomePage() {
                                             {book.title}
                                         </h2>
                                         <p className="text-gray-500 mb-1">
-                                            {book.authors.length > 0 ? book.authors.join(', ') : book.author}
+                                            {book.authors?.length > 0 ? book.authors.join(', ') : 'Không rõ tác giả'}
                                         </p>
                                         <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-3 mb-5">
-                                            {book.category && <span className="text-xs bg-white/80 text-gray-500 px-2 py-1 rounded-md border border-gray-100">{book.category}</span>}
-                                            {book.publishYear && <span className="text-xs bg-white/80 text-gray-500 px-2 py-1 rounded-md border border-gray-100">{book.publishYear}</span>}
-                                            <span className={`text-xs px-2 py-1 rounded-md ${book.quantity > 0 ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
-                                                {book.quantity > 0 ? `Còn ${book.quantity} cuốn` : 'Hết sách'}
+                                            {book.categories?.length > 0 && <span className="text-xs bg-white/80 text-gray-500 px-2 py-1 rounded-md border border-gray-100">{book.categories[0]}</span>}
+                                            {book.publishedYear && <span className="text-xs bg-white/80 text-gray-500 px-2 py-1 rounded-md border border-gray-100">{book.publishedYear}</span>}
+                                            <span className={`text-xs px-2 py-1 rounded-md ${book.availableCopies > 0 ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
+                                                {book.availableCopies > 0 ? `Còn ${book.availableCopies} cuốn` : 'Hết sách'}
                                             </span>
                                         </div>
                                         <div className="flex gap-3 justify-center md:justify-start">
                                             <Button
                                                 variant="brand"
-                                                disabled={book.quantity <= 0}
+                                                disabled={book.availableCopies <= 0}
                                                 onClick={() => setConfirmBook(book)}
                                             >
-                                                {book.quantity > 0 ? 'Mượn sách' : 'Không khả dụng'}
+                                                {book.availableCopies > 0 ? 'Mượn sách' : 'Không khả dụng'}
                                             </Button>
                                             <Button variant="outline" onClick={() => navigate(`/books/${book.id}`)}>
                                                 Chi tiết
@@ -269,8 +269,8 @@ export default function UserHomePage() {
                                         className="w-full h-32 bg-white/60 rounded-lg flex items-center justify-center border border-gray-100 mb-3 cursor-pointer hover:bg-white/80 transition-colors overflow-hidden"
                                         onClick={() => navigate(`/books/${book.id}`)}
                                     >
-                                        {book.coverUrl ? (
-                                            <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                                        {book.coverImageUrl ? (
+                                            <img src={book.coverImageUrl} alt={book.title} className="w-full h-full object-cover" />
                                         ) : (
                                             <Library className="w-8 h-8 text-gray-300" />
                                         )}
@@ -284,18 +284,18 @@ export default function UserHomePage() {
                                         {book.title}
                                     </h3>
                                     <p className="text-xs text-gray-500 mb-2 truncate">
-                                        {book.authors.length > 0 ? book.authors.join(', ') : book.author}
+                                        {book.authors?.length > 0 ? book.authors.join(', ') : 'Không rõ tác giả'}
                                     </p>
 
                                     <div className="flex items-center justify-between mb-3">
-                                        {book.rating > 0 && (
+                                        {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
                                             <span className="text-xs text-amber-600 flex items-center gap-0.5">
                                                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                                {book.rating.toFixed(1)}
+                                                {Number(book.ratingAvg).toFixed(1)}
                                             </span>
                                         )}
-                                        <span className={`text-xs font-medium ml-auto ${book.quantity > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                                            {book.quantity > 0 ? `Còn ${book.quantity}` : 'Hết'}
+                                        <span className={`text-xs font-medium ml-auto ${book.availableCopies > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                            {book.availableCopies > 0 ? `Còn ${book.availableCopies}` : 'Hết'}
                                         </span>
                                     </div>
 
@@ -303,10 +303,10 @@ export default function UserHomePage() {
                                         variant="brand"
                                         size="sm"
                                         className="w-full"
-                                        disabled={book.quantity <= 0}
+                                        disabled={book.availableCopies <= 0}
                                         onClick={() => setConfirmBook(book)}
                                     >
-                                        {book.quantity > 0 ? 'Mượn sách' : 'Hết sách'}
+                                        {book.availableCopies > 0 ? 'Mượn sách' : 'Hết sách'}
                                     </Button>
                                 </div>
                             ))}
@@ -327,7 +327,7 @@ export default function UserHomePage() {
                     >
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Xác nhận mượn sách</h2>
                         <p className="text-gray-500 mb-6">
-                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors.length > 0 ? confirmBook.authors.join(', ') : confirmBook.author}?
+                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors?.length > 0 ? confirmBook.authors.join(', ') : 'tác giả'}?
                             <br />
                             <span className="text-sm mt-2 block text-gray-400">
                                 Thời hạn mượn: 14 ngày kể từ hôm nay.

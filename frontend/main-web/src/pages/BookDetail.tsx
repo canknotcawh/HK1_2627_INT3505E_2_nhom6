@@ -91,8 +91,8 @@ export default function BookDetail() {
                 <div className="flex flex-col md:flex-row">
                     {/* Cover */}
                     <div className="w-full md:w-80 h-64 md:h-auto bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 shrink-0">
-                        {book.coverUrl ? (
-                            <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                        {book.coverImageUrl ? (
+                            <img src={book.coverImageUrl} alt={book.title} className="w-full h-full object-cover" />
                         ) : (
                             <Library className="w-20 h-20 text-gray-200" />
                         )}
@@ -105,12 +105,12 @@ export default function BookDetail() {
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">{book.title}</h1>
                                 {book.subtitle && <p className="text-gray-400 text-base mb-1">{book.subtitle}</p>}
                                 <p className="text-gray-500 text-lg">
-                                    {book.authors.length > 0 ? book.authors.join(', ') : book.author}
+                                    {book.authors && book.authors.length > 0 ? book.authors.join(', ') : 'Chưa rõ tác giả'}
                                 </p>
                             </div>
-                            <span className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium ${book.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                            <span className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium ${book.availableCopies > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                                 }`}>
-                                {book.quantity > 0 ? `Còn ${book.quantity} cuốn` : 'Hết sách'}
+                                {book.availableCopies > 0 ? `Còn ${book.availableCopies} cuốn` : 'Hết sách'}
                             </span>
                         </div>
 
@@ -121,33 +121,33 @@ export default function BookDetail() {
 
                         {/* Details grid */}
                         <div className="grid grid-cols-2 gap-4 mb-6 py-4 border-y border-gray-100">
-                            {book.category && (
+                            {book.categories && book.categories.length > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                     <Tag className="w-4 h-4 text-gray-400" />
                                     <span className="text-gray-400">Thể loại:</span>
-                                    <span className="font-medium">{book.categories.length > 0 ? book.categories.join(', ') : book.category}</span>
+                                    <span className="font-medium">{book.categories.join(', ')}</span>
                                 </div>
                             )}
-                            {book.publishYear && (
+                            {book.publishedYear && (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                     <Calendar className="w-4 h-4 text-gray-400" />
                                     <span className="text-gray-400">Năm XB:</span>
-                                    <span className="font-medium">{book.publishYear}</span>
+                                    <span className="font-medium">{book.publishedYear}</span>
                                 </div>
                             )}
-                            {book.isbn && (
+                            {book.isbn13 && (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                     <Hash className="w-4 h-4 text-gray-400" />
                                     <span className="text-gray-400">ISBN:</span>
-                                    <span className="font-medium">{book.isbn}</span>
+                                    <span className="font-medium">{book.isbn13}</span>
                                 </div>
                             )}
-                            {book.rating > 0 && (
+                            {book.ratingAvg != null && book.ratingAvg > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                     <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                                     <span className="text-gray-400">Đánh giá:</span>
                                     <span className="font-medium text-amber-600">
-                                        {book.rating.toFixed(1)} / 5
+                                        {book.ratingAvg.toFixed(1)} / 5
                                         {book.ratingCount > 0 && (
                                             <span className="text-gray-400 text-xs font-normal ml-1.5">
                                                 ({book.ratingCount.toLocaleString('vi-VN')} lượt đánh giá)
@@ -179,11 +179,11 @@ export default function BookDetail() {
                             ) : (
                                 <Button
                                     variant="brand"
-                                    disabled={book.quantity <= 0}
+                                    disabled={book.availableCopies <= 0}
                                     onClick={() => setConfirmBook(book)}
                                     className="w-full sm:w-auto"
                                 >
-                                    {book.quantity > 0 ? 'Mượn sách này' : 'Sách đã hết'}
+                                    {book.availableCopies > 0 ? 'Mượn sách này' : 'Sách đã hết'}
                                 </Button>
                             )}
                         </div>
@@ -203,7 +203,7 @@ export default function BookDetail() {
                     >
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Xác nhận mượn sách</h2>
                         <p className="text-gray-500 mb-6">
-                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors.length > 0 ? confirmBook.authors.join(', ') : confirmBook.author}?
+                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors && confirmBook.authors.length > 0 ? confirmBook.authors.join(', ') : 'Chưa rõ tác giả'}?
                             <br />
                             <span className="text-sm mt-2 block text-gray-400">
                                 Thời hạn mượn: 14 ngày kể từ hôm nay.

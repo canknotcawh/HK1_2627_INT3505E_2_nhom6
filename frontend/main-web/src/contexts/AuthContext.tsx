@@ -3,46 +3,15 @@ import type { ReactNode } from 'react';
 
 import keycloak from '../lib/keycloak';
 import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
-import { fetchBooks, mapBook, type Book } from '../lib/books-api';
-import { fetchMyLoans, borrowBook as apiBorrowBook, returnBook as apiReturnBook } from '../lib/loans-api';
-import type { LoanDTO } from '../lib/loans-api';
+import { fetchBooks, type Book } from '../lib/books-api';
+import { fetchMyLoans, borrowBook as apiBorrowBook, returnBook as apiReturnBook, type Loan } from '../lib/loans-api';
 
 export type { Book } from '../lib/books-api';
+export type { Loan } from '../lib/loans-api';
 export type Role = 'guest' | 'user';
-
-export type LoanStatus =
-  | 'active' | 'pending_return' | 'returned' | 'overdue' | 'lost'
-  | 'ACTIVE' | 'PENDING_RETURN' | 'RETURNED' | 'OVERDUE' | 'LOST';
-
-export type Loan = {
-  id: string;
-  bookId: string;
-  bookTitle: string;
-  userId: string;
-  borrowDate: string;
-  dueDate: string;
-  returnedAt: string | null;
-  status: LoanStatus;
-  renewedCount: number;
-};
 
 type BorrowResult = { success: true; loan: Loan } | { success: false; message: string };
 type ReturnResult = { success: true; loan: Loan } | { success: false; message: string };
-
-/** Map backend LoanDTO → frontend Loan */
-function mapLoan(dto: LoanDTO): Loan {
-  return {
-    id: dto.id,
-    bookId: dto.bookId,
-    bookTitle: dto.bookTitle,
-    userId: dto.userId,
-    borrowDate: dto.borrowedAt,
-    dueDate: dto.dueAt,
-    returnedAt: dto.returnedAt,
-    status: dto.status as LoanStatus,
-    renewedCount: dto.renewedCount,
-  };
-}
 
 interface AuthContextType {
   role: Role;
@@ -87,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setBooksError(null);
     try {
       const page = await fetchBooks({ size: 100 });
-      setBooks(page.content.map(mapBook));
+      setBooks(page.content);
     } catch (err) {
       console.error('Failed to load books:', err);
       setBooksError('Không thể tải danh sách sách. Vui lòng thử lại.');
@@ -102,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoansError(null);
     try {
       const page = await fetchMyLoans({ size: 100 });
-      setLoans(page.content.map(mapLoan));
+      setLoans(page.content);
     } catch (err) {
       console.error('Failed to load loans:', err);
       setLoansError('Không thể tải lịch sử mượn sách. Vui lòng thử lại.');
@@ -199,12 +168,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'Bạn cần đăng nhập để mượn sách.' };
     }
     try {
-      const dto = await apiBorrowBook(bookId);
-      const loan = mapLoan(dto);
+      const loan = await apiBorrowBook(bookId);
       setLoans(prev => [...prev, loan]);
       // Decrease available copies optimistically
       setBooks(prev =>
-        prev.map(b => b.id === bookId ? { ...b, quantity: Math.max(0, b.quantity - 1) } : b)
+        prev.map(b => b.id === bookId ? { ...b, availableCopies: Math.max(0, b.availableCopies - 1) } : b)
       );
       return { success: true, loan };
     } catch (err: unknown) {
@@ -215,12 +183,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestReturn = useCallback(async (loanId: string): Promise<ReturnResult> => {
     try {
-      const dto = await apiReturnBook(loanId);
-      const updated = mapLoan(dto);
+      const updated = await apiReturnBook(loanId);
       setLoans(prev => prev.map(l => l.id === loanId ? updated : l));
       // Increase available copies optimistically
       setBooks(prev =>
-        prev.map(b => b.id === updated.bookId ? { ...b, quantity: b.quantity + 1 } : b)
+        prev.map(b => b.id === updated.bookId ? { ...b, availableCopies: b.availableCopies + 1 } : b)
       );
       return { success: true, loan: updated };
     } catch (err: unknown) {

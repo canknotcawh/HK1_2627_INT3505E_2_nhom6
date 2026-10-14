@@ -119,8 +119,8 @@ export default function History() {
                                     return (
                                         <tr key={loan.id} className="border-b hover:bg-gray-50/50">
                                             <td className="p-4 font-medium text-gray-800">{bookTitle}</td>
-                                            <td className="p-4 text-gray-600 text-sm">{formatDate(loan.borrowDate)}</td>
-                                            <td className="p-4 text-gray-600 text-sm">{formatDate(loan.dueDate)}</td>
+                                            <td className="p-4 text-gray-600 text-sm">{formatDate(loan.borrowedAt)}</td>
+                                            <td className="p-4 text-gray-600 text-sm">{formatDate(loan.dueAt)}</td>
                                             <td className="p-4">
                                                 <span className={`px-3 py-1 text-xs rounded-full font-medium ${statusInfo.className}`}>
                                                     {statusInfo.label}
@@ -166,8 +166,8 @@ export default function History() {
                                         </span>
                                     </div>
                                     <div className="flex gap-4 text-xs text-gray-500 mb-3">
-                                        <span>Mượn: {formatDate(loan.borrowDate)}</span>
-                                        <span>Hạn: {formatDate(loan.dueDate)}</span>
+                                        <span>Mượn: {formatDate(loan.borrowedAt)}</span>
+                                        <span>Hạn: {formatDate(loan.dueAt)}</span>
                                     </div>
                                     {canReturn(loan.status) && (
                                         <Button
