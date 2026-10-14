@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { fetchBooks, fetchCategories, mapBook, type Book } from "../lib/books-api";
+import { fetchBooks, fetchCategories, type BookResponse } from "../lib/books-api";
 import { Button } from "../components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Library, Search, X, CheckCircle, AlertCircle, BookOpen, Loader2, Star } from "lucide-react";
@@ -19,14 +19,14 @@ export default function Books() {
     const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || '');
 
     // Backend results states (no frontend filtering!)
-    const [books, setBooks] = useState<Book[]>([]);
+    const [books, setBooks] = useState<BookResponse[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [totalElements, setTotalElements] = useState<number>(0);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
     // Dialog & toast states
-    const [confirmBook, setConfirmBook] = useState<Book | null>(null);
+    const [confirmBook, setConfirmBook] = useState<BookResponse | null>(null);
     const [toast, setToast] = useState<ToastType>(null);
     const [borrowing, setBorrowing] = useState(false);
 
@@ -71,7 +71,7 @@ export default function Books() {
             });
 
             if (curId === requestIdRef.current) {
-                setBooks(pageData.content.map(mapBook));
+                setBooks(pageData.content);
                 setTotalElements(pageData.totalElements);
             }
         } catch (err) {
@@ -274,14 +274,14 @@ export default function Books() {
                                             {book.title}
                                         </h3>
                                         <p className="text-gray-500 text-sm mt-1">
-                                            {book.authors.length > 0 ? book.authors.join(', ') : book.author}
+                                            {book.authors?.length > 0 ? book.authors.join(', ') : 'Không rõ tác giả'}
                                         </p>
                                     </div>
                                     <span
-                                        className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${book.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                        className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${book.availableCopies > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                                             }`}
                                     >
-                                        {book.quantity > 0 ? `Còn ${book.quantity}` : 'Hết sách'}
+                                        {book.availableCopies > 0 ? `Còn ${book.availableCopies}` : 'Hết sách'}
                                     </span>
                                 </div>
 
@@ -290,8 +290,8 @@ export default function Books() {
                                     className="w-full h-36 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mb-4 flex items-center justify-center border border-gray-100 cursor-pointer hover:from-gray-100 hover:to-gray-150 transition-colors"
                                     onClick={() => navigate(`/books/${book.id}`)}
                                 >
-                                    {book.coverUrl ? (
-                                        <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover rounded-lg" />
+                                    {book.coverImageUrl ? (
+                                        <img src={book.coverImageUrl} alt={book.title} className="w-full h-full object-cover rounded-lg" />
                                     ) : (
                                         <Library className="w-10 h-10 text-gray-300" />
                                     )}
@@ -299,20 +299,20 @@ export default function Books() {
 
                                 {/* Meta info */}
                                 <div className="flex flex-wrap gap-2 mb-4">
-                                    {book.category && (
+                                    {book.categories?.length > 0 && book.categories.map(cat => (
+                                        <span key={cat} className="text-xs bg-gray-50 text-gray-500 px-2 py-1 rounded-md">
+                                            {cat}
+                                        </span>
+                                    ))}
+                                    {book.publishedYear && (
                                         <span className="text-xs bg-gray-50 text-gray-500 px-2 py-1 rounded-md">
-                                            {book.category}
+                                            {book.publishedYear}
                                         </span>
                                     )}
-                                    {book.publishYear && (
-                                        <span className="text-xs bg-gray-50 text-gray-500 px-2 py-1 rounded-md">
-                                            {book.publishYear}
-                                        </span>
-                                    )}
-                                    {book.rating > 0 && (
+                                    {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
                                         <span className="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded-md flex items-center gap-1 font-medium">
                                             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                            {book.rating.toFixed(1)}
+                                            {Number(book.ratingAvg).toFixed(1)}
                                         </span>
                                     )}
                                 </div>
@@ -331,10 +331,10 @@ export default function Books() {
                                     <Button
                                         variant="brand"
                                         className="w-full"
-                                        disabled={book.quantity <= 0}
+                                        disabled={book.availableCopies <= 0}
                                         onClick={() => setConfirmBook(book)}
                                     >
-                                        {book.quantity > 0 ? 'Mượn sách' : 'Không khả dụng'}
+                                        {book.availableCopies > 0 ? 'Mượn sách' : 'Không khả dụng'}
                                     </Button>
                                 )}
                             </div>
@@ -355,7 +355,7 @@ export default function Books() {
                     >
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Xác nhận mượn sách</h2>
                         <p className="text-gray-500 mb-6">
-                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors.length > 0 ? confirmBook.authors.join(', ') : confirmBook.author}?
+                            Bạn muốn mượn cuốn <strong className="text-gray-800">"{confirmBook.title}"</strong> của {confirmBook.authors?.length > 0 ? confirmBook.authors.join(', ') : 'tác giả'}?
                             <br />
                             <span className="text-sm mt-2 block text-gray-400">
                                 Thời hạn mượn: 14 ngày kể từ hôm nay.

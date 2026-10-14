@@ -17,12 +17,12 @@ export default function Dashboard() {
 
     // Upcoming due dates (active loans sorted by due date, soonest first)
     const upcomingDue = [...activeLoans]
-        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
         .slice(0, 5);
 
     const today = new Date();
-    const getDaysUntilDue = (dueDate: string) => {
-        const due = new Date(dueDate);
+    const getDaysUntilDue = (dueAt: string) => {
+        const due = new Date(dueAt);
         return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     };
 
@@ -126,7 +126,7 @@ export default function Dashboard() {
                     </div>
                     <div className="divide-y divide-gray-50">
                         {upcomingDue.map(loan => {
-                            const daysLeft = getDaysUntilDue(loan.dueDate);
+                            const daysLeft = getDaysUntilDue(loan.dueAt);
                             const isUrgent = daysLeft <= 3;
 
                             return (
@@ -134,7 +134,7 @@ export default function Dashboard() {
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium text-gray-800 truncate">{loan.bookTitle || 'Không rõ'}</p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            Mượn ngày {formatDate(loan.borrowDate)}
+                                            Mượn ngày {formatDate(loan.borrowedAt)}
                                         </p>
                                     </div>
                                     <span className={`shrink-0 text-sm font-medium px-3 py-1 rounded-full ${
