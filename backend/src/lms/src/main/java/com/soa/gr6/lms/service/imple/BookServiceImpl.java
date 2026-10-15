@@ -12,6 +12,7 @@ import com.soa.gr6.lms.service.BookService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,16 +39,40 @@ public class BookServiceImpl implements BookService {
     @Transactional(readOnly = true)
     public Page<BookResponse> searchBooks(String q, String category, String availability, Pageable pageable) {
         Pageable unpagedSort = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        boolean hasQuery = q != null && !q.trim().isBlank();
+        String sortCode = resolveSortCode(pageable, hasQuery);
         Page<Book> page;
-        if (q != null && !q.trim().isBlank()) {
-            page = bookRepository.searchBooks(q.trim(), category, availability, unpagedSort);
-        } else if ((category != null && !category.isBlank())
-                || (availability != null && !availability.isBlank() && !"all".equalsIgnoreCase(availability))) {
-            page = bookRepository.filterBooks(category, availability, unpagedSort);
+        if (hasQuery) {
+            page = bookRepository.searchBooks(q.trim(), category, availability, sortCode, unpagedSort);
         } else {
-            page = bookRepository.findByStatus(BookStatus.ACTIVE, pageable);
+            page = bookRepository.filterBooks(category, availability, sortCode, unpagedSort);
         }
         return page.map(bookMapper::toResponse);
+    }
+
+    private String resolveSortCode(Pageable pageable, boolean hasQuery) {
+        if (pageable != null && pageable.getSort() != null && pageable.getSort().isSorted()) {
+            for (Sort.Order order : pageable.getSort()) {
+                String prop = order.getProperty().toLowerCase().replace("_", "");
+                boolean isAsc = order.isAscending();
+                if ("title".equals(prop)) {
+                    return isAsc ? "title_asc" : "title_desc";
+                }
+                if ("ratingavg".equals(prop) || "rating".equals(prop)) {
+                    return isAsc ? "rating_asc" : "rating_desc";
+                }
+                if ("ratingcount".equals(prop)) {
+                    return isAsc ? "rating_count_asc" : "rating_count_desc";
+                }
+                if ("publishedyear".equals(prop) || "year".equals(prop)) {
+                    return isAsc ? "year_asc" : "year_desc";
+                }
+                if ("relevance".equals(prop) || "score".equals(prop)) {
+                    return "relevance";
+                }
+            }
+        }
+        return hasQuery ? "relevance" : "title_asc";
     }
 
     @Override

@@ -5,6 +5,8 @@ import { Button } from "../components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Library, Search, X, CheckCircle, AlertCircle, BookOpen, Loader2, Star } from "lucide-react";
 
+import SortDropdown from "@/components/layouts/SortDropdown";
+
 type FilterStatus = 'all' | 'available' | 'unavailable';
 type ToastType = { message: string; type: 'success' | 'error' } | null;
 
@@ -17,6 +19,7 @@ export default function Books() {
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || '');
+    const [sortBy, setSortBy] = useState<string>(searchParams.get('sort') || '');
 
     // Backend results states (no frontend filtering!)
     const [books, setBooks] = useState<BookResponse[]>([]);
@@ -52,12 +55,14 @@ export default function Books() {
     useEffect(() => {
         const qParam = searchParams.get('q') || '';
         const catParam = searchParams.get('category') || '';
+        const sortParam = searchParams.get('sort') || '';
         setSearchQuery(prev => (prev !== qParam ? qParam : prev));
         setCategoryFilter(prev => (prev !== catParam ? catParam : prev));
+        setSortBy(prev => (prev !== sortParam ? sortParam : prev));
     }, [searchParams]);
 
     // Query backend API with debounce for user search
-    const executeSearch = useCallback(async (q: string, category: string, availability: FilterStatus) => {
+    const executeSearch = useCallback(async (q: string, category: string, availability: FilterStatus, sort: string) => {
         const curId = ++requestIdRef.current;
         setLoading(true);
         setError(null);
@@ -67,6 +72,7 @@ export default function Books() {
                 q: q.trim() || undefined,
                 category: category || undefined,
                 availability: availability !== 'all' ? availability : undefined,
+                sort: sort || undefined,
                 size: 60,
             });
 
@@ -86,20 +92,21 @@ export default function Books() {
         }
     }, []);
 
-    // Debounce search query changes; trigger immediately on filter changes
+    // Debounce search query changes; trigger immediately on filter/sort changes
     useEffect(() => {
         const timer = setTimeout(() => {
-            executeSearch(searchQuery, categoryFilter, filterStatus);
+            executeSearch(searchQuery, categoryFilter, filterStatus, sortBy);
 
             // Update URL search params
             const newParams = new URLSearchParams();
             if (searchQuery.trim()) newParams.set('q', searchQuery.trim());
             if (categoryFilter) newParams.set('category', categoryFilter);
+            if (sortBy) newParams.set('sort', sortBy);
             setSearchParams(newParams, { replace: true });
         }, 250);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, categoryFilter, filterStatus, executeSearch, setSearchParams]);
+    }, [searchQuery, categoryFilter, filterStatus, sortBy, executeSearch, setSearchParams]);
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
@@ -115,7 +122,7 @@ export default function Books() {
         if (result.success === true) {
             showToast(`Mượn "${confirmBook.title}" thành công!`, 'success');
             // Refresh current results from backend
-            executeSearch(searchQuery, categoryFilter, filterStatus);
+            executeSearch(searchQuery, categoryFilter, filterStatus, sortBy);
         } else {
             showToast(result.message, 'error');
         }
@@ -155,8 +162,8 @@ export default function Books() {
                 </div>
             </div>
 
-            {/* Search & Filter Bar */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            {/* Search, Filter & Sort Bar */}
+            <div className="flex flex-col lg:flex-row gap-3 mb-6">
                 <div className="relative flex-1">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Search className="h-4 w-4 text-gray-400" />
@@ -179,23 +186,33 @@ export default function Books() {
                         </button>
                     )}
                 </div>
-                <div className="flex gap-2">
-                    {([
-                        ['all', 'Tất cả'],
-                        ['available', 'Còn sách'],
-                        ['unavailable', 'Hết sách'],
-                    ] as const).map(([value, label]) => (
-                        <button
-                            key={value}
-                            onClick={() => setFilterStatus(value)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${filterStatus === value
-                                ? 'bg-[#e60023] text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                        >
-                            {label}
-                        </button>
-                    ))}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex gap-1.5">
+                        {([
+                            ['all', 'Tất cả'],
+                            ['available', 'Còn sách'],
+                            ['unavailable', 'Hết sách'],
+                        ] as const).map(([value, label]) => (
+                            <button
+                                key={value}
+                                onClick={() => setFilterStatus(value)}
+                                className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-colors ${filterStatus === value
+                                    ? 'bg-[#e60023] text-white shadow-sm'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="group relative flex items-center bg-gray-100 hover:bg-gray-200/80 rounded-xl transition-colors duration-200 cursor-pointer">
+                        <SortDropdown
+                            sortBy={sortBy}
+                            setSortBy={setSortBy}
+                            searchQuery={searchQuery}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -228,7 +245,7 @@ export default function Books() {
                     <AlertCircle className="w-16 h-16 text-red-200 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-gray-600 mb-2">Lỗi tải dữ liệu</h3>
                     <p className="text-gray-400 text-sm mb-4">{error}</p>
-                    <Button variant="outline" onClick={() => executeSearch(searchQuery, categoryFilter, filterStatus)}>
+                    <Button variant="outline" onClick={() => executeSearch(searchQuery, categoryFilter, filterStatus, sortBy)}>
                         Thử lại
                     </Button>
                 </div>
@@ -252,6 +269,7 @@ export default function Books() {
                             setSearchQuery('');
                             setFilterStatus('all');
                             setCategoryFilter('');
+                            setSortBy('');
                         }}
                     >
                         Xóa bộ lọc
@@ -305,14 +323,18 @@ export default function Books() {
                                         </span>
                                     ))}
                                     {book.publishedYear && (
-                                        <span className="text-xs bg-gray-50 text-gray-500 px-2 py-1 rounded-md">
+                                        <span className="text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded-md font-medium">
                                             {book.publishedYear}
                                         </span>
                                     )}
-                                    {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
-                                        <span className="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded-md flex items-center gap-1 font-medium">
-                                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                            {Number(book.ratingAvg).toFixed(1)}
+                                    {((book.ratingAvg != null && Number(book.ratingAvg) > 0) || (book.ratingCount != null && book.ratingCount > 0)) && (
+                                        <span
+                                            className="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium border border-amber-200/60"
+                                            title={`${book.ratingCount || 0} lượt đánh giá`}
+                                        >
+                                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                                            <span>{Number(book.ratingAvg || 0).toFixed(1)}</span>
+                                            <span className="text-amber-600/70 text-[11px]">({book.ratingCount || 0})</span>
                                         </span>
                                     )}
                                 </div>

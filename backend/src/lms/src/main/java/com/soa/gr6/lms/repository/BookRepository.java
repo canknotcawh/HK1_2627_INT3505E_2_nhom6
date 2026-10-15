@@ -60,7 +60,20 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
               )
             GROUP BY b2.id
         ) ranked ON b.id = ranked.id
-        ORDER BY ranked.score DESC, b.title ASC
+        ORDER BY
+            CASE WHEN :sort = 'title_asc' THEN b.title END ASC NULLS LAST,
+            CASE WHEN :sort = 'title_desc' THEN b.title END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_desc' THEN b.rating_avg END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_desc' THEN b.rating_count END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_asc' THEN b.rating_avg END ASC NULLS LAST,
+            CASE WHEN :sort = 'rating_count_desc' THEN b.rating_count END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_count_desc' THEN b.rating_avg END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_count_asc' THEN b.rating_count END ASC NULLS LAST,
+            CASE WHEN :sort = 'year_desc' THEN b.published_year END DESC NULLS LAST,
+            CASE WHEN :sort = 'year_asc' THEN b.published_year END ASC NULLS LAST,
+            CASE WHEN :sort = 'relevance' OR :sort IS NULL OR :sort = '' THEN ranked.score END DESC NULLS LAST,
+            b.title ASC,
+            b.id ASC
         """,
         countQuery = """
         SELECT COUNT(DISTINCT b2.id)
@@ -86,45 +99,71 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
                   OR (a2.name IS NOT NULL AND word_similarity(immutable_unaccent(:q), immutable_unaccent(a2.name)) > 0.35)
               ))
           )
+          AND (:sort IS NULL OR 1=1)
         """,
         nativeQuery = true)
     Page<Book> searchBooks(
             @Param("q") String q,
             @Param("category") String category,
             @Param("availability") String availability,
+            @Param("sort") String sort,
             Pageable pageable);
 
     @Query(value = """
-        SELECT DISTINCT b.*
+        SELECT b.*
         FROM book b
-        LEFT JOIN book_category bc ON b.id = bc.book_id
-        LEFT JOIN category c ON bc.category_id = c.id
         WHERE b.status = 'ACTIVE'
-          AND (:category IS NULL OR :category = '' OR c.name = :category)
+          AND (
+              :category IS NULL OR :category = ''
+              OR EXISTS (
+                  SELECT 1 FROM book_category bc
+                  JOIN category c ON bc.category_id = c.id
+                  WHERE bc.book_id = b.id AND c.name = :category
+              )
+          )
           AND (
               :availability IS NULL OR :availability = '' OR :availability = 'all'
               OR (:availability = 'available' AND b.available_copies > 0)
               OR (:availability = 'unavailable' AND b.available_copies <= 0)
           )
-        ORDER BY b.title ASC
+        ORDER BY
+            CASE WHEN :sort = 'title_asc' THEN b.title END ASC NULLS LAST,
+            CASE WHEN :sort = 'title_desc' THEN b.title END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_desc' THEN b.rating_avg END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_desc' THEN b.rating_count END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_asc' THEN b.rating_avg END ASC NULLS LAST,
+            CASE WHEN :sort = 'rating_count_desc' THEN b.rating_count END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_count_desc' THEN b.rating_avg END DESC NULLS LAST,
+            CASE WHEN :sort = 'rating_count_asc' THEN b.rating_count END ASC NULLS LAST,
+            CASE WHEN :sort = 'year_desc' THEN b.published_year END DESC NULLS LAST,
+            CASE WHEN :sort = 'year_asc' THEN b.published_year END ASC NULLS LAST,
+            b.title ASC,
+            b.id ASC
         """,
         countQuery = """
-        SELECT COUNT(DISTINCT b.id)
+        SELECT COUNT(*)
         FROM book b
-        LEFT JOIN book_category bc ON b.id = bc.book_id
-        LEFT JOIN category c ON bc.category_id = c.id
         WHERE b.status = 'ACTIVE'
-          AND (:category IS NULL OR :category = '' OR c.name = :category)
+          AND (
+              :category IS NULL OR :category = ''
+              OR EXISTS (
+                  SELECT 1 FROM book_category bc
+                  JOIN category c ON bc.category_id = c.id
+                  WHERE bc.book_id = b.id AND c.name = :category
+              )
+          )
           AND (
               :availability IS NULL OR :availability = '' OR :availability = 'all'
               OR (:availability = 'available' AND b.available_copies > 0)
               OR (:availability = 'unavailable' AND b.available_copies <= 0)
           )
+          AND (:sort IS NULL OR 1=1)
         """,
         nativeQuery = true)
     Page<Book> filterBooks(
             @Param("category") String category,
             @Param("availability") String availability,
+            @Param("sort") String sort,
             Pageable pageable);
 
     @Query("SELECT DISTINCT c.name FROM Book b JOIN b.categories c WHERE b.status = 'ACTIVE' ORDER BY c.name")

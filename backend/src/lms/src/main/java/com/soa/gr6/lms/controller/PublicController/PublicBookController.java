@@ -28,7 +28,7 @@ public class PublicBookController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String availability,
-            @PageableDefault(size = 20, sort = "title") Pageable pageable) {
+            @PageableDefault(size = 20) Pageable pageable) {
         return bookService.searchBooks(q, category, availability, pageable);
     }
 
