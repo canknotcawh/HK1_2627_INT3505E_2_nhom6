@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Ban, Check, ChevronLeft, ChevronRight, LoaderCircle, Search, Shield, ShieldOff, UserRound } from "lucide-react";
+import { isAxiosError } from "axios";
 import apiClient from "../lib/api-client";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -21,6 +22,44 @@ type Page<T> = {
 
 const PAGE_SIZE = 10;
 
+type UserAction = "suspend" | "reactivate" | "promote" | "demote";
+
+function actionErrorMessage(error: unknown) {
+  if (!isAxiosError<{ code?: string; message?: string }>(error)) {
+    return "Không cập nhật được tài khoản. Vui lòng thử lại.";
+  }
+
+  const code = error.response?.data?.code;
+  if (code === "CANNOT_SUSPEND_SELF" || code === "CANNOT_DEMOTE_SELF") {
+    return "Bạn không thể tự khóa hoặc tự hạ quyền tài khoản đang đăng nhập.";
+  }
+  if (code === "CANNOT_SUSPEND_LAST_ACTIVE_ADMIN" || code === "CANNOT_DEMOTE_LAST_ACTIVE_ADMIN") {
+    return "Cần giữ lại ít nhất một admin đang hoạt động.";
+  }
+  if (error.response?.status === 401 || error.response?.status === 403) {
+    return "Phiên đăng nhập không còn quyền quản trị. Hãy đăng nhập lại bằng tài khoản admin.";
+  }
+  return error.response?.data?.message || "Không cập nhật được tài khoản. Vui lòng thử lại.";
+}
+
+function listErrorMessage(error: unknown) {
+  if (!isAxiosError<{ code?: string; message?: string }>(error)) {
+    return "Không tải được danh sách người dùng. Vui lòng tải lại trang.";
+  }
+
+  if (error.response?.status === 401) {
+    return "Phiên đăng nhập hết hạn. Hãy đăng xuất rồi đăng nhập lại.";
+  }
+  if (error.response?.status === 403) {
+    return "Backend từ chối quyền xem danh sách. Hãy đăng nhập bằng tài khoản ADMIN.";
+  }
+  if (error.response) {
+    const detail = error.response.data?.message || error.response.data?.code;
+    return `Backend trả lỗi HTTP ${error.response.status}${detail ? `: ${detail}` : "."}`;
+  }
+  return "Không kết nối được backend tại API đã cấu hình. Kiểm tra backend, cổng 8080 và cấu hình CORS.";
+}
+
 export default function UserPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -31,7 +70,7 @@ export default function UserPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [workingUserId, setWorkingUserId] = useState<string | null>(null);
+  const [workingUserIds, setWorkingUserIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -51,9 +90,12 @@ export default function UserPage() {
       setUsers(response.data.content);
       setTotalPages(response.data.totalPages);
       setTotalElements(response.data.totalElements);
+      if (response.data.totalPages > 0 && page >= response.data.totalPages) {
+        setPage(response.data.totalPages - 1);
+      }
     } catch (requestError) {
       console.error("Không thể tải danh sách người dùng:", requestError);
-      setError("Không tải được danh sách người dùng. Kiểm tra backend rồi thử lại.");
+      setError(listErrorMessage(requestError));
     } finally {
       setLoading(false);
     }
@@ -63,7 +105,7 @@ export default function UserPage() {
     void loadUsers();
   }, [loadUsers]);
 
-  const performAction = async (target: ManagedUser, action: "suspend" | "reactivate" | "promote" | "demote") => {
+  const performAction = async (target: ManagedUser, action: UserAction) => {
     const labels = {
       suspend: "tạm khóa",
       reactivate: "mở khóa",
@@ -72,7 +114,7 @@ export default function UserPage() {
     };
     if (!window.confirm(`Bạn có chắc muốn ${labels[action]} ${target.email}?`)) return;
 
-    setWorkingUserId(target.id);
+    setWorkingUserIds((current) => new Set(current).add(target.id));
     setError(null);
     setNotice(null);
     try {
@@ -81,9 +123,13 @@ export default function UserPage() {
       await loadUsers();
     } catch (requestError) {
       console.error("Không thể cập nhật người dùng:", requestError);
-      setError("Không cập nhật được tài khoản. Quyền admin có thể đã thay đổi hoặc backend từ chối thao tác.");
+      setError(actionErrorMessage(requestError));
     } finally {
-      setWorkingUserId(null);
+      setWorkingUserIds((current) => {
+        const next = new Set(current);
+        next.delete(target.id);
+        return next;
+      });
     }
   };
 
@@ -156,7 +202,12 @@ export default function UserPage() {
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-neutral-500"><LoaderCircle className="mr-2 inline size-4 animate-spin" />Đang tải…</td></tr>
               ) : users.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-neutral-500">Không tìm thấy tài khoản phù hợp.</td></tr>
-              ) : users.map((item) => (
+              ) : users.map((item) => {
+                const isWorking = workingUserIds.has(item.id);
+                const isCurrentAdmin = item.id === currentUser?.id;
+                const actionButtonClass = "inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45";
+
+                return (
                 <tr key={item.id} className="hover:bg-neutral-50/70">
                   <td className="px-4 py-3">
                     <div className="font-medium">{item.fullName}</div>
@@ -178,24 +229,48 @@ export default function UserPage() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       {item.status === "ACTIVE" ? (
-                        <button disabled={workingUserId === item.id} onClick={() => void performAction(item, "suspend")} className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-neutral-100 disabled:opacity-50">Tạm khóa</button>
+                        <button
+                          type="button"
+                          disabled={isWorking || isCurrentAdmin}
+                          title={isCurrentAdmin ? "Không thể tự khóa tài khoản đang dùng" : "Tạm khóa tài khoản"}
+                          onClick={() => void performAction(item, "suspend")}
+                          className={actionButtonClass}
+                        >
+                          {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <Ban className="size-3.5" />}
+                          Tạm khóa
+                        </button>
                       ) : (
-                        <button disabled={workingUserId === item.id} onClick={() => void performAction(item, "reactivate")} className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-neutral-100 disabled:opacity-50">Mở khóa</button>
+                        <button
+                          type="button"
+                          disabled={isWorking}
+                          onClick={() => void performAction(item, "reactivate")}
+                          className={actionButtonClass}
+                        >
+                          {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                          Mở khóa
+                        </button>
                       )}
                       {item.role === "ADMIN" ? (
                         <button
-                          disabled={workingUserId === item.id || item.id === currentUser?.id}
-                          title={item.id === currentUser?.id ? "Không thể tự hạ quyền tài khoản đang dùng" : undefined}
+                          type="button"
+                          disabled={isWorking || isCurrentAdmin}
+                          title={isCurrentAdmin ? "Không thể tự hạ quyền tài khoản đang dùng" : "Hạ quyền admin"}
                           onClick={() => void performAction(item, "demote")}
-                          className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs hover:bg-neutral-100 disabled:opacity-50"
+                          className={actionButtonClass}
                         ><ShieldOff className="size-3.5" />Hạ quyền</button>
                       ) : (
-                        <button disabled={workingUserId === item.id} onClick={() => void performAction(item, "promote")} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs hover:bg-neutral-100 disabled:opacity-50"><Shield className="size-3.5" />Cấp admin</button>
+                        <button
+                          type="button"
+                          disabled={isWorking}
+                          onClick={() => void performAction(item, "promote")}
+                          className={actionButtonClass}
+                        ><Shield className="size-3.5" />Cấp admin</button>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

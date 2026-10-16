@@ -65,6 +65,9 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "bootstrap_admin_granted", nullable = false)
+    private boolean bootstrapAdminGranted;
+
     public User(String keycloakSubject, String email, String fullName) {
         this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
         this.email = requireValue(email, "email");
@@ -95,6 +98,10 @@ public class User {
 
     public void demoteToUser() {
         role = UserRole.USER;
+    }
+
+    public void markBootstrapAdminGranted() {
+        bootstrapAdminGranted = true;
     }
 
     public boolean isActive() {
