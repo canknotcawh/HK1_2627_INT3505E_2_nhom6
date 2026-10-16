@@ -103,7 +103,7 @@ export default function Books() {
             if (categoryFilter) newParams.set('category', categoryFilter);
             if (sortBy) newParams.set('sort', sortBy);
             setSearchParams(newParams, { replace: true });
-        }, 250);
+        }, 360);
 
         return () => clearTimeout(timer);
     }, [searchQuery, categoryFilter, filterStatus, sortBy, executeSearch, setSearchParams]);
@@ -173,7 +173,7 @@ export default function Books() {
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023] transition-all text-sm"
-                        placeholder="Tìm kiếm theo tên sách hoặc tác giả (hỗ trợ gõ dở, không dấu, sai chính tả)..."
+                        placeholder="Tìm kiếm theo tên sách hoặc tác giả..."
                         aria-label="Tìm kiếm sách"
                     />
                     {searchQuery && (

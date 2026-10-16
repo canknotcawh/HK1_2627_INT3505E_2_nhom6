@@ -45,7 +45,7 @@ export default function NavBar() {
                             value={searchValue}
                             onChange={e => setSearchValue(e.target.value)}
                             className="block w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023] transition-all text-sm"
-                            placeholder="Tìm kiếm sách, tác giả..."
+                            placeholder="Tìm kiếm theo tên sách hoặc tác giả..."
                             aria-label="Tìm kiếm sách"
                         />
                     </div>
