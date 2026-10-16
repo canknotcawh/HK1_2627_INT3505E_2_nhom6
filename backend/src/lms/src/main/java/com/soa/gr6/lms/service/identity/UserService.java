@@ -78,8 +78,9 @@ public class UserService {
         boolean isBootstrapAdmin = !bootstrapAdminEmail.isBlank()
                 && bootstrapAdminEmail.equalsIgnoreCase(email)
                 && Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified"));
-        if (isBootstrapAdmin && user.getRole() != UserRole.ADMIN) {
+        if (isBootstrapAdmin && !user.isBootstrapAdminGranted()) {
             user.promoteToAdmin();
+            user.markBootstrapAdminGranted();
         }
     }
 
