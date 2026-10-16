@@ -7,6 +7,28 @@ import { Library, ArrowLeft, Star, Calendar, Hash, Tag, CheckCircle, AlertCircle
 
 type ToastType = { message: string; type: 'success' | 'error' } | null;
 
+const LANGUAGE_MAP: Record<string, string> = {
+    vi: 'Tiếng Việt',
+    en: 'Tiếng Anh',
+    fr: 'Tiếng Pháp',
+    ja: 'Tiếng Nhật',
+    ko: 'Tiếng Hàn',
+    zh: 'Tiếng Trung',
+};
+
+function formatLanguage(lang?: string | null): string {
+    if (!lang) return '';
+    const code = lang.trim().toLowerCase();
+    if (LANGUAGE_MAP[code]) {
+        return LANGUAGE_MAP[code];
+    }
+    try {
+        return new Intl.DisplayNames(['vi'], { type: 'language' }).of(code) || lang;
+    } catch {
+        return lang;
+    }
+}
+
 export default function BookDetail() {
     const { id } = useParams<{ id: string }>();
     const { books, booksLoading, role, borrowBook } = useAuth();
@@ -165,7 +187,7 @@ export default function BookDetail() {
                             {book.language && (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                     <span className="text-gray-400">Ngôn ngữ:</span>
-                                    <span className="font-medium">{book.language}</span>
+                                    <span className="font-medium">{formatLanguage(book.language)}</span>
                                 </div>
                             )}
                         </div>
