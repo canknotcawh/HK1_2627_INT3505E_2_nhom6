@@ -52,7 +52,10 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional
     public AdminUserResponse suspendUser(UUID adminId, UUID userId) {
         requireNotSelf(adminId, userId, "CANNOT_SUSPEND_SELF", "admins cannot suspend their own account");
+        List<User> admins = lockAdminAccounts();
         User user = findUser(userId);
+        requireAnotherActiveAdmin(admins, user, "CANNOT_SUSPEND_LAST_ACTIVE_ADMIN",
+                "the last active admin account cannot be suspended");
         user.suspend();
         return AdminUserResponse.from(user);
     }
@@ -60,6 +63,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     @Transactional
     public AdminUserResponse reactivateUser(UUID userId) {
+        lockAdminAccounts();
         User user = findUser(userId);
         user.reactivate();
         return AdminUserResponse.from(user);
@@ -68,6 +72,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     @Transactional
     public AdminUserResponse promoteToAdmin(UUID userId) {
+        lockAdminAccounts();
         User user = findUser(userId);
         user.promoteToAdmin();
         return AdminUserResponse.from(user);
@@ -77,13 +82,29 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional
     public AdminUserResponse demoteToUser(UUID adminId, UUID userId) {
         requireNotSelf(adminId, userId, "CANNOT_DEMOTE_SELF", "admins cannot demote their own account");
+        List<User> admins = lockAdminAccounts();
         User user = findUser(userId);
+        requireAnotherActiveAdmin(admins, user, "CANNOT_DEMOTE_LAST_ACTIVE_ADMIN",
+                "the last active admin account cannot be demoted");
         user.demoteToUser();
         return AdminUserResponse.from(user);
     }
 
     private User findUser(UUID userId) {
         return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private List<User> lockAdminAccounts() {
+        return userRepository.lockAllByRole(UserRole.ADMIN);
+    }
+
+    private static void requireAnotherActiveAdmin(
+            List<User> admins, User target, String code, String message) {
+        boolean targetIsActiveAdmin = target.getRole() == UserRole.ADMIN && target.isActive();
+        long activeAdminCount = admins.stream().filter(User::isActive).count();
+        if (targetIsActiveAdmin && activeAdminCount <= 1) {
+            throw new InvalidDomainStateException(code, message);
+        }
     }
 
     private static void requireNotSelf(UUID adminId, UUID userId, String code, String message) {

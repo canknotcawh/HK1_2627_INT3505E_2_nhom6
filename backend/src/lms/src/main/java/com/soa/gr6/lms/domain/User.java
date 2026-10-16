@@ -36,6 +36,18 @@ public class User {
     @Column(name = "email", length = 255, nullable = false, unique = true)
     private String email;
 
+    public String getEmail() {
+        return email;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
     @Column(name = "full_name", length = 255, nullable = false)
     private String fullName;
 
