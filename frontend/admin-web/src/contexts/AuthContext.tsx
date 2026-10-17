@@ -25,8 +25,9 @@ let initialization: Promise<boolean> | undefined;
 
 function initKeycloak() {
   initialization ??= keycloak.init({
-    onLoad: "check-sso",
-    silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+    // Do not silently reuse main-web's realm SSO session. Admin sign-in must
+    // explicitly authenticate so a user account from another app is not
+    // accidentally carried into this client.
     pkceMethod: "S256",
   });
   return initialization;
@@ -80,7 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = useCallback(async () => {
-    await keycloak.login({ redirectUri: `${window.location.origin}/login` });
+    await keycloak.login({
+      redirectUri: `${window.location.origin}/login`,
+      prompt: "login",
+    });
   }, []);
 
   const logout = useCallback(async () => {
