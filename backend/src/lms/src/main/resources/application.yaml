@@ -14,7 +14,6 @@ spring:
       ddl-auto: update
   flyway:
     enabled: true
-    baseline-on-migrate: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}

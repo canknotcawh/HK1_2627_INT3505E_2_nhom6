@@ -1,8 +1,6 @@
 package com.soa.gr6.lms.dto;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 public record BookResponse(
@@ -19,11 +17,7 @@ public record BookResponse(
         String readerUrl,
         int totalCopies,
         int availableCopies,
-        BigDecimal ratingAvg,
-        int ratingCount,
         String status,
         Instant createdAt,
-        Instant updatedAt,
-        List<String> authors,
-        List<String> categories) {
+        Instant updatedAt) {
 }
