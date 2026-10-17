@@ -36,6 +36,18 @@ public class User {
     @Column(name = "email", length = 255, nullable = false, unique = true)
     private String email;
 
+    public String getEmail() {
+        return email;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
     @Column(name = "full_name", length = 255, nullable = false)
     private String fullName;
 
@@ -53,6 +65,9 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "bootstrap_admin_granted", nullable = false)
+    private boolean bootstrapAdminGranted;
+
     public User(String keycloakSubject, String email, String fullName) {
         this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
         this.email = requireValue(email, "email");
@@ -69,6 +84,10 @@ public class User {
         this.email = requireValue(email, "email");
     }
 
+    public void linkKeycloakSubject(String keycloakSubject) {
+        this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
+    }
+
     public void suspend() {
         status = UserStatus.SUSPENDED;
     }
@@ -83,6 +102,10 @@ public class User {
 
     public void demoteToUser() {
         role = UserRole.USER;
+    }
+
+    public void markBootstrapAdminGranted() {
+        bootstrapAdminGranted = true;
     }
 
     public boolean isActive() {
