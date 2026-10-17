@@ -43,6 +43,10 @@ public class SecurityConfig {
                                 "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Both portals use this endpoint to resolve the signed-in identity.
+                        .requestMatchers("/api/v1/users/me").authenticated()
+                        // Every other private API belongs to the reader portal.
+                        .requestMatchers("/api/v1/**").hasRole("USER")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))

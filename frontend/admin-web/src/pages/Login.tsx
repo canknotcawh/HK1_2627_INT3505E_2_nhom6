@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { LoaderCircle, ShieldCheck } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -7,6 +7,17 @@ import { useAuth } from "../contexts/AuthContext";
 export default function Login() {
   const { initialized, authenticated, user, authError, login, logout, refreshUser } = useAuth();
   const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (!authenticated || !user || user.role === "ADMIN") return;
+
+    const mainWebUrl = new URL(import.meta.env.VITE_MAIN_WEB_URL || window.location.origin);
+    if (!import.meta.env.VITE_MAIN_WEB_URL) mainWebUrl.port = "5173";
+    mainWebUrl.pathname = "/";
+    mainWebUrl.search = "";
+    mainWebUrl.hash = "";
+    window.location.replace(mainWebUrl.toString());
+  }, [authenticated, user]);
 
   const checkAdminAccess = async () => {
     setChecking(true);
@@ -30,6 +41,14 @@ export default function Login() {
 
   if (authenticated && user?.role === "ADMIN") {
     return <Navigate to="/" replace />;
+  }
+
+  if (authenticated && user && user.role !== "ADMIN") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-neutral-100 p-5">
+        <p className="text-sm text-neutral-600">Tài khoản bạn đọc không có quyền quản trị. Đang chuyển về cổng bạn đọc…</p>
+      </main>
+    );
   }
 
   return (
@@ -60,13 +79,6 @@ export default function Login() {
                 Đăng xuất
               </Button>
             </div>
-          </div>
-        ) : authenticated && user && user.role !== "ADMIN" ? (
-          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Tài khoản {user.email} chưa được cấp quyền quản trị.
-            <button type="button" onClick={() => void logout()} className="ml-1 font-semibold underline">
-              Đăng xuất
-            </button>
           </div>
         ) : (
           <Button className="mt-7 h-11 w-full" onClick={() => void login()}>

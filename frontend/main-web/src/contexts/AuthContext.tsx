@@ -5,7 +5,7 @@ import keycloak from '../lib/keycloak';
 import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
 import apiClient from '../lib/api-client';
 
-export type Role = 'guest' | 'user';
+export type Role = 'guest' | 'user' | 'admin' | 'unknown';
 
 export type Book = {
   id: string;
@@ -72,6 +72,7 @@ type BorrowResult = { success: true } | { success: false; message: string };
 interface AuthContextType {
   role: Role;
   initialized: boolean;
+  roleError: string | null;
   username?: string;
 
   books: Book[];
@@ -90,6 +91,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('guest');
   const [initialized, setInitialized] = useState(false);
+  const [roleError, setRoleError] = useState<string | null>(null);
 
   // Initialize Keycloak
   useEffect(() => {
@@ -101,21 +103,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const authenticated = await initKeycloak();
         if (cancelled) return;
 
-        setRole(authenticated ? 'user' : 'guest');
         if (authenticated) {
           refreshTimer = scheduleTokenRefresh();
           // The backend provisions the Keycloak identity while authenticating
           // this request, which makes the account visible to admin-web.
           try {
-            await apiClient.get('/users/me');
+            const response = await apiClient.get<{ role: 'ADMIN' | 'USER' }>('/users/me');
+            if (cancelled) return;
+            setRoleError(null);
+            setRole(response.data.role === 'ADMIN' ? 'admin' : 'user');
           } catch (error) {
             console.error('Could not sync the signed-in account with the backend:', error);
+            if (!cancelled) {
+              const apiError = error as {
+                message?: string;
+                response?: { status?: number; data?: { code?: string; message?: string } };
+              };
+              const status = apiError.response?.status;
+              const code = apiError.response?.data?.code;
+              setRoleError(status
+                ? `Backend trả HTTP ${status}${code ? ` (${code})` : ''}. ${apiError.response?.data?.message ?? ''}`.trim()
+                : `Không kết nối được API ${apiClient.defaults.baseURL}. ${apiError.message ?? ''}`.trim());
+              setRole('unknown');
+            }
           }
+        } else {
+          setRole('guest');
         }
       } catch (error) {
         console.error('Failed to initialize Keycloak:', error);
         if (!cancelled) {
-          setRole('guest');
+          setRole(keycloak.authenticated ? 'unknown' : 'guest');
         }
       } finally {
         if (!cancelled) {
@@ -215,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const username = keycloak.tokenParsed?.preferred_username || keycloak.tokenParsed?.name || keycloak.tokenParsed?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, username, books, loans, login, forgotPassword, logout, borrowBook, requestReturn }}>
+    <AuthContext.Provider value={{ role, initialized, roleError, username, books, loans, login, forgotPassword, logout, borrowBook, requestReturn }}>
       {children}
     </AuthContext.Provider>
   );
