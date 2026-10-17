@@ -17,6 +17,7 @@ interface AuthContextType {
   role: Role;
   initialized: boolean;
   username?: string;
+  userId?: string;
 
   books: Book[];
   booksLoading: boolean;
@@ -197,10 +198,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const username = keycloak.tokenParsed?.preferred_username || keycloak.tokenParsed?.name || keycloak.tokenParsed?.email;
+  const userId = keycloak.tokenParsed?.sub;
 
   return (
     <AuthContext.Provider value={{
-      role, initialized, username,
+      role, initialized, username, userId,
       books, booksLoading, booksError, refetchBooks,
       loans, loansLoading, loansError, refetchLoans,
       login, forgotPassword, logout,
