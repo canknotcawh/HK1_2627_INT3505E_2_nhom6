@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.server.resource.InvalidBearerTokenExc
 
 import com.soa.gr6.lms.domain.User;
 import com.soa.gr6.lms.exception.ApiException;
+import com.soa.gr6.lms.exception.DomainException;
 import com.soa.gr6.lms.service.identity.UserService;
 
 public class UserJwtAuthenticationConverter implements Converter<Jwt, UsernamePasswordAuthenticationToken> {
@@ -30,6 +31,10 @@ public class UserJwtAuthenticationConverter implements Converter<Jwt, UsernamePa
             user = userService.provision(jwt);
         } catch (ApiException e) {
             throw new InvalidBearerTokenException(e.getMessage());
+        } catch (DomainException e) {
+            // Provisioning failures are authentication failures, not unhandled
+            // servlet exceptions (which otherwise surface as HTTP 500).
+            throw new AccountProvisioningAuthenticationException(e.getCode(), e.getMessage(), e);
         }
 
         if (!user.isActive()) {
