@@ -7,12 +7,13 @@ import { Library, Search, X, CheckCircle, AlertCircle, BookOpen, Loader2, Star }
 
 import SortDropdown from "@/components/layouts/SortDropdown";
 import SearchSuggestionsDropdown from "@/components/layouts/SearchSuggestionsDropdown";
+import { getRecentSearches, saveRecentSearch, removeRecentSearch, clearRecentSearches } from "@/lib/search-history";
 
 type FilterStatus = 'all' | 'available' | 'unavailable';
 type ToastType = { message: string; type: 'success' | 'error' } | null;
 
 export default function Books() {
-    const { role, borrowBook } = useAuth();
+    const { role, userId, borrowBook } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -28,8 +29,17 @@ export default function Books() {
     const [suggestions, setSuggestions] = useState<BookResponse[]>([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches(userId));
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const suggestionReqIdRef = useRef(0);
+
+    // Refresh user-scoped search history when user/auth state changes
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setRecentSearches(getRecentSearches(userId));
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [userId, role]);
 
     // Backend results states
     const [books, setBooks] = useState<BookResponse[]>([]);
@@ -200,12 +210,22 @@ export default function Books() {
     }, [categoryFilter, filterStatus, sortBy, executeSearch, setSearchParams]);
 
     // Form submit when user presses Enter
-    const handleSearchSubmit = (e?: React.FormEvent) => {
+    const handleSearchSubmit = (e?: React.FormEvent, customQuery?: string) => {
         if (e) e.preventDefault();
         setIsSuggestionsOpen(false);
-        const trimmed = searchQuery.trim();
+        const targetQuery = customQuery !== undefined ? customQuery : searchQuery;
+        const trimmed = targetQuery.trim();
         appliedQueryRef.current = trimmed;
         setAppliedQuery(trimmed);
+        if (customQuery !== undefined) {
+            setSearchQuery(customQuery);
+        }
+
+        // Only save search history when user presses enter or triggers search
+        if (trimmed) {
+            const updated = saveRecentSearch(trimmed, userId);
+            setRecentSearches(updated);
+        }
 
         const newParams = new URLSearchParams();
         if (trimmed) newParams.set('q', trimmed);
@@ -214,6 +234,20 @@ export default function Books() {
         setSearchParams(newParams, { replace: true });
 
         executeSearch(trimmed, categoryFilter, filterStatus, sortBy);
+    };
+
+    const handleSelectRecentSearch = (term: string) => {
+        handleSearchSubmit(undefined, term);
+    };
+
+    const handleRemoveRecentSearch = (term: string) => {
+        const updated = removeRecentSearch(term, userId);
+        setRecentSearches(updated);
+    };
+
+    const handleClearRecentSearches = () => {
+        clearRecentSearches(userId);
+        setRecentSearches([]);
     };
 
     const handleClearSearch = () => {
@@ -299,9 +333,8 @@ export default function Books() {
                                 setIsSuggestionsOpen(true);
                             }}
                             onFocus={() => {
-                                if (searchQuery.trim()) {
-                                    setIsSuggestionsOpen(true);
-                                }
+                                setRecentSearches(getRecentSearches(userId));
+                                setIsSuggestionsOpen(true);
                             }}
                             className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023] transition-all text-sm"
                             placeholder="Tìm kiếm theo tên sách hoặc tác giả..."
@@ -329,6 +362,10 @@ export default function Books() {
                             setIsSuggestionsOpen(false);
                             navigate(`/books/${bookId}`);
                         }}
+                        recentSearches={recentSearches}
+                        onSelectRecentSearch={handleSelectRecentSearch}
+                        onRemoveRecentSearch={handleRemoveRecentSearch}
+                        onClearRecentSearches={handleClearRecentSearches}
                     />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

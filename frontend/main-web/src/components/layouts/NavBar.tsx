@@ -6,10 +6,11 @@ import { useAuth } from "../../contexts/AuthContext";
 import keycloak from "../../lib/keycloak";
 import { fetchBooks, type BookResponse } from "../../lib/books-api";
 import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
+import { getRecentSearches, saveRecentSearch, removeRecentSearch, clearRecentSearches } from "../../lib/search-history";
 
 export default function NavBar() {
     const navigate = useNavigate();
-    const { role, logout } = useAuth();
+    const { role, userId, logout } = useAuth();
     const [searchValue, setSearchValue] = useState('');
     const [avatarFailed, setAvatarFailed] = useState(false);
     const avatarUrl = typeof keycloak.tokenParsed?.picture === "string" ? keycloak.tokenParsed.picture : "";
@@ -18,8 +19,17 @@ export default function NavBar() {
     const [suggestions, setSuggestions] = useState<BookResponse[]>([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches(userId));
     const searchRef = useRef<HTMLDivElement>(null);
     const reqIdRef = useRef(0);
+
+    // Refresh user-scoped search history when user/auth state changes
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setRecentSearches(getRecentSearches(userId));
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [userId, role]);
 
     // Live search suggestions debounce
     useEffect(() => {
@@ -76,14 +86,35 @@ export default function NavBar() {
         };
     }, []);
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSearch = (e?: React.FormEvent, customQuery?: string) => {
+        if (e) e.preventDefault();
         setIsSuggestionsOpen(false);
-        if (searchValue.trim()) {
-            navigate(`/books?q=${encodeURIComponent(searchValue.trim())}`);
+        const targetQuery = customQuery !== undefined ? customQuery : searchValue;
+        const trimmed = targetQuery.trim();
+        if (customQuery !== undefined) {
+            setSearchValue(customQuery);
+        }
+        if (trimmed) {
+            const updated = saveRecentSearch(trimmed, userId);
+            setRecentSearches(updated);
+            navigate(`/books?q=${encodeURIComponent(trimmed)}`);
         } else {
             navigate('/books');
         }
+    };
+
+    const handleSelectRecentSearch = (term: string) => {
+        handleSearch(undefined, term);
+    };
+
+    const handleRemoveRecentSearch = (term: string) => {
+        const updated = removeRecentSearch(term, userId);
+        setRecentSearches(updated);
+    };
+
+    const handleClearRecentSearches = () => {
+        clearRecentSearches(userId);
+        setRecentSearches([]);
     };
 
     return (
@@ -114,9 +145,8 @@ export default function NavBar() {
                                     setIsSuggestionsOpen(true);
                                 }}
                                 onFocus={() => {
-                                    if (searchValue.trim()) {
-                                        setIsSuggestionsOpen(true);
-                                    }
+                                    setRecentSearches(getRecentSearches(userId));
+                                    setIsSuggestionsOpen(true);
                                 }}
                                 className="block w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023] transition-all text-sm"
                                 placeholder="Tìm kiếm theo tên sách hoặc tác giả..."
@@ -133,6 +163,10 @@ export default function NavBar() {
                             setIsSuggestionsOpen(false);
                             navigate(`/books/${bookId}`);
                         }}
+                        recentSearches={recentSearches}
+                        onSelectRecentSearch={handleSelectRecentSearch}
+                        onRemoveRecentSearch={handleRemoveRecentSearch}
+                        onClearRecentSearches={handleClearRecentSearches}
                     />
                 </div>
 
