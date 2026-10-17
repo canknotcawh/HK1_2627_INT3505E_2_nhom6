@@ -78,12 +78,12 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
                                     setIsOpen(false);
                                 }}
                                 className={`w-full flex items-center justify-between px-3.5 py-2 text-sm text-left transition-colors cursor-pointer ${isSelected
-                                    ? 'bg-blue-50/80 text-blue-600 font-medium'
+                                    ? 'bg-red-50/80 text-red-600 font-medium'
                                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                                     }`}
                             >
                                 <span>{option.label}</span>
-                                {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                                {isSelected && <Check className="w-4 h-4 text-red-600 shrink-0 ml-2" />}
                             </button>
                         );
                     })}
