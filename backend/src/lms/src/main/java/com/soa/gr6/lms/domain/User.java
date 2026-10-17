@@ -84,6 +84,10 @@ public class User {
         this.email = requireValue(email, "email");
     }
 
+    public void linkKeycloakSubject(String keycloakSubject) {
+        this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
+    }
+
     public void suspend() {
         status = UserStatus.SUSPENDED;
     }

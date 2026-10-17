@@ -18,6 +18,7 @@ import com.soa.gr6.lms.domain.enums.UserRole;
 import com.soa.gr6.lms.dto.UserResponse;
 import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.ErrorCode;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import com.soa.gr6.lms.repository.UserRepository;
 
 @Service
@@ -69,6 +70,21 @@ public class UserService {
             promoteBootstrapAdmin(user, email, jwt);
             return user;
         }
+        Optional<User> existingByEmail = userRepository.findByEmail(email);
+        if (existingByEmail.isPresent()) {
+            if (!Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified"))) {
+                throw new InvalidDomainStateException(
+                        "USER_EMAIL_MUST_BE_VERIFIED_TO_LINK",
+                        "verify the email address before linking it to an existing account");
+            }
+
+            User user = existingByEmail.get();
+            user.linkKeycloakSubject(subject);
+            user.updateProfile(fullName);
+            promoteBootstrapAdmin(user, email, jwt);
+            return user;
+        }
+
         User user = new User(subject, email, fullName);
         promoteBootstrapAdmin(user, email, jwt);
         return userRepository.saveAndFlush(user);
