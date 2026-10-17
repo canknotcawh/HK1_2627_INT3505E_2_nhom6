@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -26,15 +25,8 @@ public class PublicBookController {
     @GetMapping
     public Page<BookResponse> searchBooks(
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String availability,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return bookService.searchBooks(q, category, availability, pageable);
-    }
-
-    @GetMapping("/categories")
-    public List<String> getCategories() {
-        return bookService.getCategories();
+            @PageableDefault(size = 20, sort = "title") Pageable pageable) {
+        return bookService.searchBooks(q, pageable);
     }
 
     @GetMapping("/{bookId}")
