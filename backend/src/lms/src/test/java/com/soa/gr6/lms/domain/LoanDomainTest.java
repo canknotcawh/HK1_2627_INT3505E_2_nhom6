@@ -36,6 +36,16 @@ class LoanDomainTest {
     }
 
     @Test
+    void borrowIncrementsBorrowCountAndReturnDoesNotDecreaseIt() {
+        Book book = bookWithCopies(2);
+        Loan loan = new Loan(book, user(), inDays(14));
+        assertThat(book.getBorrowCount()).isEqualTo(1);
+
+        loan.returnBook(Instant.now());
+        assertThat(book.getBorrowCount()).isEqualTo(1);
+    }
+
+    @Test
     void invalidDueDateDoesNotTouchBook() {
         Book book = bookWithCopies(1);
         assertThatThrownBy(() -> new Loan(book, user(), Instant.now().minusSeconds(5)))
