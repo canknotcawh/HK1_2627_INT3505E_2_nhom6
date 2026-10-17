@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import keycloak from '../lib/keycloak';
 import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
+import apiClient from '../lib/api-client';
 
 export type Role = 'guest' | 'user';
 
@@ -103,6 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(authenticated ? 'user' : 'guest');
         if (authenticated) {
           refreshTimer = scheduleTokenRefresh();
+          // The backend provisions the Keycloak identity while authenticating
+          // this request, which makes the account visible to admin-web.
+          try {
+            await apiClient.get('/users/me');
+          } catch (error) {
+            console.error('Could not sync the signed-in account with the backend:', error);
+          }
         }
       } catch (error) {
         console.error('Failed to initialize Keycloak:', error);
