@@ -9,6 +9,7 @@ import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.mapper.BookMapper;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.service.BookService;
+import com.soa.gr6.lms.service.support.PageableSupport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,8 @@ import java.util.UUID;
 
 @Service
 public class BookServiceImpl implements BookService {
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final BookRepository bookRepository;
     private final BookMapper bookMapper;
 
@@ -35,10 +38,11 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public Page<BookResponse> searchBooks(String titleKeyword, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
         Page<Book> page = (titleKeyword == null || titleKeyword.isBlank())
-                ? bookRepository.findByStatus(BookStatus.ACTIVE, pageable)
+                ? bookRepository.findByStatus(BookStatus.ACTIVE, clamped)
                 : bookRepository.findByStatusAndTitleContainingIgnoreCase(
-                        BookStatus.ACTIVE, titleKeyword.trim(), pageable);
+                        BookStatus.ACTIVE, titleKeyword.trim(), clamped);
         return page.map(bookMapper::toResponse);
     }
 
