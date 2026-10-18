@@ -1,12 +1,28 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { LoaderCircle, ShieldCheck } from "lucide-react";
+import { isAxiosError } from "axios";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
 
+function passwordLoginErrorMessage(error: unknown): string {
+  if (!isAxiosError<{ code?: string }>(error)) {
+    return "Có lỗi xảy ra. Vui lòng thử lại.";
+  }
+  if (error.response?.status === 401) {
+    return "Email hoặc mật khẩu không đúng.";
+  }
+  return "Có lỗi xảy ra. Vui lòng thử lại.";
+}
+
 export default function Login() {
-  const { initialized, authenticated, user, authError, login, logout, refreshUser } = useAuth();
+  const { initialized, authenticated, user, authError, loginWithPassword, logout, refreshUser } = useAuth();
   const [checking, setChecking] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !user || user.role === "ADMIN") return;
@@ -27,6 +43,19 @@ export default function Login() {
       // The context keeps the connection error visible for the user.
     } finally {
       setChecking(false);
+    }
+  };
+
+  const handlePasswordLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordError("");
+    setSubmitting(true);
+    try {
+      await loginWithPassword(email, password);
+    } catch (error) {
+      setPasswordError(passwordLoginErrorMessage(error));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -75,15 +104,34 @@ export default function Login() {
               <Button type="button" disabled={checking} onClick={() => void checkAdminAccess()}>
                 {checking ? "Đang kiểm tra…" : "Thử kiểm tra lại"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => void logout()}>
+              <Button type="button" variant="outline" onClick={() => logout()}>
                 Đăng xuất
               </Button>
             </div>
           </div>
         ) : (
-          <Button className="mt-7 h-11 w-full" onClick={() => void login()}>
-            Đăng nhập bằng Keycloak
-          </Button>
+          <form onSubmit={handlePasswordLogin} className="mt-7 flex flex-col gap-3">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Email"
+              className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:border-neutral-500"
+            />
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Mật khẩu"
+              className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:border-neutral-500"
+            />
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? "Đang đăng nhập…" : "Đăng nhập"}
+            </Button>
+            {passwordError && <p className="mt-1 text-sm text-red-600" role="alert">{passwordError}</p>}
+          </form>
         )}
       </section>
     </main>

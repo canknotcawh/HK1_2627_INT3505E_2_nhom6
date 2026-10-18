@@ -6,7 +6,6 @@ import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -21,6 +20,7 @@ import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import com.soa.gr6.lms.repository.UserRepository;
 import com.soa.gr6.lms.service.AdminUserService;
+import com.soa.gr6.lms.service.support.PageableSupport;
 
 @Service
 public class AdminUserServiceImpl implements AdminUserService {
@@ -36,9 +36,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional(readOnly = true)
     public Page<AdminUserResponse> searchUsers(
             String keyword, UserStatus status, UserRole role, Pageable pageable) {
-        Pageable clamped = pageable.getPageSize() > MAX_PAGE_SIZE
-                ? PageRequest.of(pageable.getPageNumber(), MAX_PAGE_SIZE, pageable.getSort())
-                : pageable;
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
         return userRepository.findAll(filter(keyword, status, role), clamped).map(AdminUserResponse::from);
     }
 

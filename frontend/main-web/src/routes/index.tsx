@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
-import ProtecedRoute from "./protected-route";
+import ProtectedRoute from "./protected-route";
 import PublicLayout from "@/components/layouts/PublicLayout";
 import HomePage from "@/pages/PortalPage";
 import UserHomePage from "@/pages/UserHomePage";
@@ -31,7 +31,7 @@ const router = createBrowserRouter([
     },
     {
         path: "/user",
-        element: <ProtecedRoute />,
+        element: <ProtectedRoute />,
         children: [
             { path: "", element: <Dashboard /> },
             { path: "history", element: <History /> },

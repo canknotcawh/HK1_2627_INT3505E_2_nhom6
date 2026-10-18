@@ -25,11 +25,6 @@ export function Sidebar() {
                             )}
                         >
                             {handle.label}
-                            {handle.badge && (
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[11px] font-medium text-white">
-                                {handle.badge}
-                            </span>
-                            )}
                         </span>
                         )}
                     </NavLink>

@@ -18,8 +18,8 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
-    
-    Optional<User> findByKeycloakSubject(String keycloakSubject);
+
+    Optional<User> findByGoogleSubject(String googleSubject);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.role = :role order by u.id")

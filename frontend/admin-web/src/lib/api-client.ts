@@ -1,5 +1,5 @@
 import axios from "axios";
-import keycloak from "./keycloak";
+import { clearTokens, getAccessToken, getRefreshToken, setAccessToken } from "./auth-tokens";
 
 const apiBaseUrl = new URL(
   import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//localhost:8080/api/v1`,
@@ -19,12 +19,53 @@ const apiClient = axios.create({
   baseURL: resolvedBaseUrl,
 });
 
-apiClient.interceptors.request.use(async (config) => {
-  if (keycloak.authenticated) {
-    await keycloak.updateToken(30);
-    config.headers.Authorization = `Bearer ${keycloak.token}`;
+apiClient.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+let refreshing: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  refreshing ??= axios
+    .post(`${apiClient.defaults.baseURL}/public/auth/refresh`, { refreshToken })
+    .then((response) => {
+      const token = response.data.accessToken as string;
+      setAccessToken(token);
+      return token;
+    })
+    .catch(() => {
+      clearTokens();
+      return null;
+    })
+    .finally(() => {
+      refreshing = null;
+    });
+
+  return refreshing;
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const { config, response } = error;
+    if (response?.status === 401 && !config.__isRetry) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        config.__isRetry = true;
+        config.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient.request(config);
+      }
+      clearTokens();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default apiClient;

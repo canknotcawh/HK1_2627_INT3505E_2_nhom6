@@ -2,6 +2,8 @@ package com.soa.gr6.lms.controller.identity;
 
 import java.util.UUID;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -52,14 +54,14 @@ public class UserController {
     @PostMapping("/me/loans")
     @ResponseStatus(HttpStatus.CREATED)
     public LoanResponse borrow(
-            @AuthenticationPrincipal AuthenticatedUser principal, @RequestBody BorrowRequest request) {
+            @AuthenticationPrincipal AuthenticatedUser principal, @Valid @RequestBody BorrowRequest request) {
         return loanService.borrowBook(principal.id(), request.bookId());
     }
 
     @PostMapping("/me/loans/{loanId}/return")
     public LoanResponse returnBook(@AuthenticationPrincipal AuthenticatedUser principal, @PathVariable UUID loanId) {
         requireOwnLoan(principal, loanId);
-        return loanService.returnBook(loanId);
+        return loanService.requestReturn(loanId);
     }
 
     @PostMapping("/me/loans/{loanId}/renew")
@@ -74,6 +76,6 @@ public class UserController {
         }
     }
 
-    public record BorrowRequest(UUID bookId) {
+    public record BorrowRequest(@NotNull UUID bookId) {
     }
 }

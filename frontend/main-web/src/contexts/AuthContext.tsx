@@ -1,144 +1,77 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-import keycloak from '../lib/keycloak';
-import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
 import apiClient from '../lib/api-client';
+import { clearTokens, getAccessToken, setTokens } from '../lib/auth-tokens';
 
 export type Role = 'guest' | 'user' | 'admin' | 'unknown';
 
-export type Book = {
+export type CurrentUser = {
   id: string;
-  title: string;
-  author: string;
-  isbn: string;
-  publishYear: number;
-  rating: number;
-  category: string;
-  quantity: number;
-  coverUrl: string | null;
+  fullName: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
 };
 
-export type LoanStatus = 'active' | 'pending_return' | 'returned' | 'overdue';
-
-export type Loan = {
-  id: string;
-  bookId: string;
-  userId: string;
-  borrowDate: string;
-  dueDate: string;
-  status: LoanStatus;
-};
-
-// mock data
-const INITIAL_BOOKS: Book[] = [
-  { id: '1', title: 'Sapiens: Lược sử loài người', author: 'Yuval Noah Harari', isbn: '978-604-77-2897-1', publishYear: 2011, rating: 4.5, category: 'Khoa học', quantity: 3, coverUrl: null },
-  { id: '2', title: 'Đắc Nhân Tâm', author: 'Dale Carnegie', isbn: '978-604-77-0393-0', publishYear: 1936, rating: 4.7, category: 'Kỹ năng sống', quantity: 5, coverUrl: null },
-  { id: '3', title: 'Nhà Giả Kim', author: 'Paulo Coelho', isbn: '978-604-77-1079-2', publishYear: 1988, rating: 4.3, category: 'Văn học', quantity: 0, coverUrl: null },
-  { id: '4', title: 'Dế Mèn phiêu lưu ký', author: 'Tô Hoài', isbn: '978-604-0-12345-6', publishYear: 1941, rating: 4.6, category: 'Văn học', quantity: 2, coverUrl: null },
-  { id: '5', title: 'Lập trình với Python', author: 'Eric Matthes', isbn: '978-1-59327-584-3', publishYear: 2015, rating: 4.4, category: 'Công nghệ', quantity: 4, coverUrl: null },
-  { id: '6', title: 'Clean Code', author: 'Robert C. Martin', isbn: '978-0-13-235088-4', publishYear: 2008, rating: 4.8, category: 'Công nghệ', quantity: 1, coverUrl: null },
-  { id: '7', title: 'Tôi thấy hoa vàng trên cỏ xanh', author: 'Nguyễn Nhật Ánh', isbn: '978-604-1-05787-3', publishYear: 2010, rating: 4.5, category: 'Văn học', quantity: 3, coverUrl: null },
-  { id: '8', title: 'Homo Deus: Lược sử tương lai', author: 'Yuval Noah Harari', isbn: '978-604-77-3542-9', publishYear: 2015, rating: 4.3, category: 'Khoa học', quantity: 2, coverUrl: null },
-  { id: '9', title: 'Nghĩ giàu làm giàu', author: 'Napoleon Hill', isbn: '978-604-77-0112-7', publishYear: 1937, rating: 4.1, category: 'Kỹ năng sống', quantity: 0, coverUrl: null },
-  { id: '10', title: 'Design Patterns', author: 'Gang of Four', isbn: '978-0-201-63361-0', publishYear: 1994, rating: 4.6, category: 'Công nghệ', quantity: 2, coverUrl: null },
-];
-
-const today = new Date();
-const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
-// still mock data (at history page)
-const INITIAL_LOANS: Loan[] = [
-  {
-    id: 'l1',
-    bookId: '3',
-    userId: 'user-1',
-    borrowDate: formatDate(new Date(today.getTime() - 20 * 24 * 60 * 60 * 1000)),
-    dueDate: formatDate(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)),
-    status: 'overdue',
-  },
-  {
-    id: 'l2',
-    bookId: '7',
-    userId: 'user-1',
-    borrowDate: formatDate(new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000)),
-    dueDate: formatDate(new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000)),
-    status: 'active',
-  },
-];
-
-type BorrowResult = { success: true } | { success: false; message: string };
+function roleFromUser(currentUser: CurrentUser): Role {
+  return currentUser.role === 'ADMIN' ? 'admin' : 'user';
+}
 
 interface AuthContextType {
   role: Role;
   initialized: boolean;
   roleError: string | null;
   username?: string;
+  user?: CurrentUser;
 
-  books: Book[];
-  loans: Loan[];
-
-  login: (idpHint?: string) => Promise<void>;
-  forgotPassword: () => Promise<void>;
-  logout: () => Promise<void>;
-
-  borrowBook: (bookId: string) => BorrowResult;
-  requestReturn: (loanId: string) => BorrowResult;
+  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
+  loginWithPassword: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
+  logout: () => void;
 }
+
+type AuthPayload = { accessToken: string; refreshToken: string; user: CurrentUser };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('guest');
-  const [initialized, setInitialized] = useState(false);
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [user, setUser] = useState<CurrentUser | undefined>(undefined);
+  const [initialized, setInitialized] = useState(false);
 
-  // Initialize Keycloak
+  // Restore session from a previously stored access token
   useEffect(() => {
-    let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
 
     const initialize = async () => {
-      try {
-        const authenticated = await initKeycloak();
-        if (cancelled) return;
+      const token = getAccessToken();
+      if (!token) {
+        if (!cancelled) setInitialized(true);
+        return;
+      }
 
-        if (authenticated) {
-          refreshTimer = scheduleTokenRefresh();
-          // The backend provisions the Keycloak identity while authenticating
-          // this request, which makes the account visible to admin-web.
-          try {
-            const response = await apiClient.get<{ role: 'ADMIN' | 'USER' }>('/users/me');
-            if (cancelled) return;
-            setRoleError(null);
-            setRole(response.data.role === 'ADMIN' ? 'admin' : 'user');
-          } catch (error) {
-            console.error('Could not sync the signed-in account with the backend:', error);
-            if (!cancelled) {
-              const apiError = error as {
-                message?: string;
-                response?: { status?: number; data?: { code?: string; message?: string } };
-              };
-              const status = apiError.response?.status;
-              const code = apiError.response?.data?.code;
-              setRoleError(status
-                ? `Backend trả HTTP ${status}${code ? ` (${code})` : ''}. ${apiError.response?.data?.message ?? ''}`.trim()
-                : `Không kết nối được API ${apiClient.defaults.baseURL}. ${apiError.message ?? ''}`.trim());
-              setRole('unknown');
-            }
-          }
-        } else {
-          setRole('guest');
-        }
+      try {
+        const response = await apiClient.get<CurrentUser>('/api/v1/users/me');
+        if (cancelled) return;
+        setRoleError(null);
+        setUser(response.data);
+        setRole(roleFromUser(response.data));
       } catch (error) {
-        console.error('Failed to initialize Keycloak:', error);
-        if (!cancelled) {
-          setRole(keycloak.authenticated ? 'unknown' : 'guest');
+        console.error('Failed to restore session:', error);
+        if (cancelled) return;
+        if (!getAccessToken()) {
+          // The api-client interceptor already tried a refresh and cleared the
+          // tokens, so this session is genuinely gone.
+          setRole('guest');
+        } else {
+          // Tokens are still present; the backend just couldn't be reached.
+          const message = error instanceof Error ? error.message : undefined;
+          setRoleError(message ? `Không kết nối được API. ${message}` : 'Không kết nối được API.');
+          setRole('unknown');
         }
       } finally {
-        if (!cancelled) {
-          setInitialized(true);
-        }
+        if (!cancelled) setInitialized(true);
       }
     };
 
@@ -146,94 +79,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-      }
     };
   }, []);
 
-  // Login by Keycloak
-  const login = useCallback(async (idpHint?: string) => {
-    await keycloak.login({
-      redirectUri: `${window.location.origin}/`,
-      ...(idpHint ? { idpHint } : {}),
-    });
+  const applyAuthPayload = useCallback((payload: AuthPayload) => {
+    setTokens(payload.accessToken, payload.refreshToken);
+    setRoleError(null);
+    setUser(payload.user);
+    setRole(roleFromUser(payload.user));
   }, []);
 
-  const forgotPassword = useCallback(async () => {
-    const resetUrl = new URL(await keycloak.createLoginUrl({
-      redirectUri: `${window.location.origin}/login`,
-    }));
-    const authorizationPath = '/protocol/openid-connect/auth';
+  // Login with the Google ID token obtained from Google Identity Services
+  const loginWithGoogleToken = useCallback(async (googleIdToken: string) => {
+    const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/google', { idToken: googleIdToken });
+    applyAuthPayload(response.data);
+  }, [applyAuthPayload]);
 
-    if (!resetUrl.pathname.endsWith(authorizationPath)) {
-      throw new Error('Không thể tạo đường dẫn quên mật khẩu Keycloak.');
-    }
+  const loginWithPassword = useCallback(async (email: string, password: string) => {
+    const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/login', { email, password });
+    applyAuthPayload(response.data);
+  }, [applyAuthPayload]);
 
-    resetUrl.pathname = `${resetUrl.pathname.slice(0, -authorizationPath.length)}/protocol/openid-connect/forgot-credentials`;
-    window.location.assign(resetUrl.toString());
-  }, []);
+  const register = useCallback(async (email: string, password: string, fullName: string) => {
+    const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/register', { email, password, fullName });
+    applyAuthPayload(response.data);
+  }, [applyAuthPayload]);
 
-  // Logout by Keycloak
-  const logout = useCallback(async () => {
-    await keycloak.logout({
-      redirectUri: `${window.location.origin}/`,
-    });
+  const logout = useCallback(() => {
+    clearTokens();
+    setUser(undefined);
+    setRoleError(null);
     setRole('guest');
   }, []);
 
-  const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
-  const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
-
-  const borrowBook = useCallback((bookId: string): BorrowResult => {
-    if (role !== 'user') {
-      return { success: false, message: 'Bạn cần đăng nhập để mượn sách.' };
-    }
-
-    const book = books.find(b => b.id === bookId);
-    if (!book) {
-      return { success: false, message: 'Không tìm thấy sách.' };
-    }
-    if (book.quantity <= 0) {
-      return { success: false, message: 'Sách đã hết, vui lòng quay lại sau.' };
-    }
-
-    // quantity decreased
-    setBooks(prev => prev.map(b => b.id === bookId ? { ...b, quantity: b.quantity - 1 } : b));
-
-    // add loan record
-    const newLoan: Loan = {
-      id: `l${Date.now()}`,
-      bookId,
-      userId: 'user-1',
-      borrowDate: formatDate(new Date()),
-      dueDate: formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
-      status: 'active',
-    };
-    setLoans(prev => [...prev, newLoan]);
-
-    return { success: true };
-  }, [role, books]);
-
-  const requestReturn = useCallback((loanId: string): BorrowResult => {
-    const loan = loans.find(l => l.id === loanId);
-    if (!loan) {
-      return { success: false, message: 'Không tìm thấy khoản mượn.' };
-    }
-    if (loan.status !== 'active' && loan.status !== 'overdue') {
-      return { success: false, message: 'Khoản mượn này không thể trả.' };
-    }
-
-    // pending_return
-    setLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: 'pending_return' as LoanStatus } : l));
-
-    return { success: true };
-  }, [loans]);
-
-  const username = keycloak.tokenParsed?.preferred_username || keycloak.tokenParsed?.name || keycloak.tokenParsed?.email;
+  const username = user?.fullName ?? user?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, roleError, username, books, loans, login, forgotPassword, logout, borrowBook, requestReturn }}>
+    <AuthContext.Provider value={{ role, initialized, roleError, username, user, loginWithGoogleToken, loginWithPassword, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

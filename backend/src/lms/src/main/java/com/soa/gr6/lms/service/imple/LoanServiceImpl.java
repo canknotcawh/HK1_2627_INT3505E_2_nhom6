@@ -15,6 +15,7 @@ import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.repository.LoanRepository;
 import com.soa.gr6.lms.repository.UserRepository;
 import com.soa.gr6.lms.service.LoanService;
+import com.soa.gr6.lms.service.support.PageableSupport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,9 @@ import java.util.UUID;
 @Service
 public class LoanServiceImpl implements LoanService {
     static final Duration LOAN_PERIOD = Duration.ofDays(14);
-    private static final EnumSet<LoanStatus> OPEN_STATUSES = EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
+    static final int MAX_PAGE_SIZE = 100;
+    private static final EnumSet<LoanStatus> OPEN_STATUSES =
+            EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE, LoanStatus.PENDING_RETURN);
 
     private final LoanRepository loanRepository;
     private final BookRepository bookRepository;
@@ -70,6 +73,22 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     @Transactional
+    public LoanResponse requestReturn(UUID loanId) {
+        Loan loan = findLoan(loanId);
+        loan.requestReturn();
+        return loanMapper.toResponse(loan);
+    }
+
+    @Override
+    @Transactional
+    public LoanResponse rejectReturnRequest(UUID loanId) {
+        Loan loan = findLoan(loanId);
+        loan.rejectReturnRequest(Instant.now());
+        return loanMapper.toResponse(loan);
+    }
+
+    @Override
+    @Transactional
     public LoanResponse renewLoan(UUID loanId) {
         Loan loan = findLoan(loanId);
         loan.renew(loan.getDueAt().plus(LOAN_PERIOD));
@@ -101,9 +120,20 @@ public class LoanServiceImpl implements LoanService {
     @Override
     @Transactional(readOnly = true)
     public Page<LoanResponse> listUserLoans(UUID userId, LoanStatus status, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
         Page<Loan> page = status == null
-                ? loanRepository.findByUserId(userId, pageable)
-                : loanRepository.findByUserIdAndStatus(userId, status, pageable);
+                ? loanRepository.findByUserId(userId, clamped)
+                : loanRepository.findByUserIdAndStatus(userId, status, clamped);
+        return page.map(loanMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<LoanResponse> listLoans(LoanStatus status, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
+        Page<Loan> page = status == null
+                ? loanRepository.findAll(clamped)
+                : loanRepository.findByStatus(status, clamped);
         return page.map(loanMapper::toResponse);
     }
 
