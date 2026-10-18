@@ -10,8 +10,13 @@ if (["localhost", "127.0.0.1"].includes(apiBaseUrl.hostname)
   apiBaseUrl.hostname = window.location.hostname;
 }
 
+let resolvedBaseUrl = apiBaseUrl.toString().replace(/\/$/, "");
+if (!resolvedBaseUrl.endsWith("/api/v1")) {
+  resolvedBaseUrl += "/api/v1";
+}
+
 const apiClient = axios.create({
-  baseURL: apiBaseUrl.toString().replace(/\/$/, ""),
+  baseURL: resolvedBaseUrl,
 });
 
 apiClient.interceptors.request.use(async (config) => {
