@@ -22,7 +22,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: http://localhost:5173,http://localhost:5175,http://localhost:3000
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5175,http://localhost:3000}
   bootstrap-admin-emails: ${APP_BOOTSTRAP_ADMIN_EMAILS:}
   jwt:
     secret: ${JWT_SECRET:dev-only-change-me-32-bytes-minimum-secret}
