@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-import keycloak from '../lib/keycloak';
-import { initKeycloak, scheduleTokenRefresh } from '../lib/auth';
+import apiClient from '../lib/api-client';
+import { clearTokens, getAccessToken, setTokens } from '../lib/auth-tokens';
 
 export type Role = 'guest' | 'user';
 
@@ -68,17 +68,24 @@ const INITIAL_LOANS: Loan[] = [
 
 type BorrowResult = { success: true } | { success: false; message: string };
 
+type CurrentUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
+};
+
 interface AuthContextType {
   role: Role;
   initialized: boolean;
   username?: string;
+  user?: CurrentUser;
 
   books: Book[];
   loans: Loan[];
 
-  login: (idpHint?: string) => Promise<void>;
-  forgotPassword: () => Promise<void>;
-  logout: () => Promise<void>;
+  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
+  logout: () => void;
 
   borrowBook: (bookId: string) => BorrowResult;
   requestReturn: (loanId: string) => BorrowResult;
@@ -88,31 +95,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('guest');
+  const [user, setUser] = useState<CurrentUser | undefined>(undefined);
   const [initialized, setInitialized] = useState(false);
 
-  // Initialize Keycloak
+  // Restore session from a previously stored access token
   useEffect(() => {
-    let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
 
     const initialize = async () => {
-      try {
-        const authenticated = await initKeycloak();
-        if (cancelled) return;
+      const token = getAccessToken();
+      if (!token) {
+        if (!cancelled) setInitialized(true);
+        return;
+      }
 
-        setRole(authenticated ? 'user' : 'guest');
-        if (authenticated) {
-          refreshTimer = scheduleTokenRefresh();
-        }
+      try {
+        const response = await apiClient.get<CurrentUser>('/api/v1/users/me');
+        if (cancelled) return;
+        setUser(response.data);
+        setRole('user');
       } catch (error) {
-        console.error('Failed to initialize Keycloak:', error);
+        console.error('Failed to restore session:', error);
         if (!cancelled) {
+          clearTokens();
           setRole('guest');
         }
       } finally {
-        if (!cancelled) {
-          setInitialized(true);
-        }
+        if (!cancelled) setInitialized(true);
       }
     };
 
@@ -120,39 +129,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-      }
     };
   }, []);
 
-  // Login by Keycloak
-  const login = useCallback(async (idpHint?: string) => {
-    await keycloak.login({
-      redirectUri: `${window.location.origin}/`,
-      ...(idpHint ? { idpHint } : {}),
-    });
+  // Login with the Google ID token obtained from Google Identity Services
+  const loginWithGoogleToken = useCallback(async (googleIdToken: string) => {
+    const response = await apiClient.post<{ accessToken: string; refreshToken: string; user: CurrentUser }>(
+      '/api/v1/public/auth/google',
+      { idToken: googleIdToken }
+    );
+    setTokens(response.data.accessToken, response.data.refreshToken);
+    setUser(response.data.user);
+    setRole('user');
   }, []);
 
-  const forgotPassword = useCallback(async () => {
-    const resetUrl = new URL(await keycloak.createLoginUrl({
-      redirectUri: `${window.location.origin}/login`,
-    }));
-    const authorizationPath = '/protocol/openid-connect/auth';
-
-    if (!resetUrl.pathname.endsWith(authorizationPath)) {
-      throw new Error('Không thể tạo đường dẫn quên mật khẩu Keycloak.');
-    }
-
-    resetUrl.pathname = `${resetUrl.pathname.slice(0, -authorizationPath.length)}/protocol/openid-connect/forgot-credentials`;
-    window.location.assign(resetUrl.toString());
-  }, []);
-
-  // Logout by Keycloak
-  const logout = useCallback(async () => {
-    await keycloak.logout({
-      redirectUri: `${window.location.origin}/`,
-    });
+  const logout = useCallback(() => {
+    clearTokens();
+    setUser(undefined);
     setRole('guest');
   }, []);
 
@@ -204,10 +197,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   }, [loans]);
 
-  const username = keycloak.tokenParsed?.preferred_username || keycloak.tokenParsed?.name || keycloak.tokenParsed?.email;
+  const username = user?.fullName ?? user?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, username, books, loans, login, forgotPassword, logout, borrowBook, requestReturn }}>
+    <AuthContext.Provider value={{ role, initialized, username, user, books, loans, loginWithGoogleToken, logout, borrowBook, requestReturn }}>
       {children}
     </AuthContext.Provider>
   );
