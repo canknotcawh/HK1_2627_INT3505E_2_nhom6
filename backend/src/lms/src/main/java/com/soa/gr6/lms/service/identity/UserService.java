@@ -1,9 +1,11 @@
 package com.soa.gr6.lms.service.identity;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -12,15 +14,19 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.soa.gr6.lms.domain.User;
+import com.soa.gr6.lms.domain.enums.UserRole;
 import com.soa.gr6.lms.dto.UserResponse;
 import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.ErrorCode;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import com.soa.gr6.lms.repository.UserRepository;
 
 @Service
 public class UserService {
     private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
+    @Value("${app.bootstrap-admin-email:}")
+    private String bootstrapAdminEmail = "";
 
     public UserService(UserRepository userRepository, PlatformTransactionManager transactionManager) {
         this.userRepository = userRepository;
@@ -37,7 +43,7 @@ public class UserService {
         String fullName = resolveFullName(jwt, normalizedEmail);
 
         try {
-            return transactionTemplate.execute(status -> findOrCreate(subject, normalizedEmail, fullName));
+            return transactionTemplate.execute(status -> findOrCreate(subject, normalizedEmail, fullName, jwt));
         } catch (DataIntegrityViolationException e) {
 
             return transactionTemplate.execute(status ->
@@ -51,7 +57,7 @@ public class UserService {
         return UserResponse.from(user);
     }
 
-    private User findOrCreate(String subject, String email, String fullName) {
+    private User findOrCreate(String subject, String email, String fullName, Jwt jwt) {
         Optional<User> existing = userRepository.findByKeycloakSubject(subject);
         if (existing.isPresent()) {
             User user = existing.get();
@@ -61,9 +67,37 @@ public class UserService {
             if(!user.getFullName().equals(fullName)) {
                 user.updateProfile(fullName);
             }
+            promoteBootstrapAdmin(user, email, jwt);
             return user;
         }
-        return userRepository.saveAndFlush(new User(subject, email, fullName));
+        Optional<User> existingByEmail = userRepository.findByEmail(email);
+        if (existingByEmail.isPresent()) {
+            if (!Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified"))) {
+                throw new InvalidDomainStateException(
+                        "USER_EMAIL_MUST_BE_VERIFIED_TO_LINK",
+                        "verify the email address before linking it to an existing account");
+            }
+
+            User user = existingByEmail.get();
+            user.linkKeycloakSubject(subject);
+            user.updateProfile(fullName);
+            promoteBootstrapAdmin(user, email, jwt);
+            return user;
+        }
+
+        User user = new User(subject, email, fullName);
+        promoteBootstrapAdmin(user, email, jwt);
+        return userRepository.saveAndFlush(user);
+    }
+
+    private void promoteBootstrapAdmin(User user, String email, Jwt jwt) {
+        boolean isBootstrapAdmin = !bootstrapAdminEmail.isBlank()
+                && bootstrapAdminEmail.equalsIgnoreCase(email)
+                && Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified"));
+        if (isBootstrapAdmin && !user.isBootstrapAdminGranted()) {
+            user.promoteToAdmin();
+            user.markBootstrapAdminGranted();
+        }
     }
 
     private String resolveFullName(Jwt jwt, String email) {
