@@ -6,16 +6,38 @@ Spring Boot 4 (Java 25) + PostgreSQL · React 19 (Vite) × 2 (độc giả / qu�
 JWT tự ký ở backend + đăng nhập Google OAuth2 (xem ADR-0006).
 
 ## Chạy nhanh
+
+Cần một Google OAuth2 Client ID (Google Cloud Console → APIs & Services → Credentials →
+Create OAuth client ID → Web application; thêm `http://localhost:5173` và
+`http://localhost:5175` vào Authorized JavaScript origins) để đăng nhập thật. Không có thì
+vẫn chạy được, chỉ không bấm "Đăng nhập" thành công.
+
+**1. Backend**
 ```powershell
 cd backend/src/lms
-docker compose up -d                      # postgres, mailpit, redis
-$env:APP_BOOTSTRAP_ADMIN_EMAILS = "admin@lms.local"
-$env:GOOGLE_CLIENT_ID = "<google-oauth-client-id>"
-./mvnw spring-boot:run                    # API :8080  (Swagger: /swagger-ui.html)
-cd ../../../frontend/main-web  ; npm i ; npm run dev    # :5173
-cd ../admin-web                ; npm i ; npm run dev    # :5175
+copy .env.example .env   # rồi điền GOOGLE_CLIENT_ID (và sửa APP_BOOTSTRAP_ADMIN_EMAILS nếu cần)
+docker compose up -d                      # postgres, mailpit
+./run-dev.sh                              # hoặc: ./mvnw spring-boot:run — API :8080 (Swagger: /swagger-ui.html)
 ```
-Đăng nhập bằng tài khoản Google có email trong `APP_BOOTSTRAP_ADMIN_EMAILS` để được cấp quyền admin · Mailpit: http://localhost:8025.
+
+**2. Frontend — bạn đọc** (`main-web`, cổng 5173)
+```powershell
+cd frontend/main-web
+copy .env.example .env   # rồi điền VITE_GOOGLE_CLIENT_ID = cùng Client ID ở trên
+npm install
+npm run dev
+```
+
+**3. Frontend — quản trị** (`admin-web`, cổng 5175)
+```powershell
+cd frontend/admin-web
+copy .env.example .env   # rồi điền VITE_GOOGLE_CLIENT_ID = cùng Client ID ở trên
+npm install
+npm run dev
+```
+
+Đăng nhập bằng tài khoản Google có email trong `APP_BOOTSTRAP_ADMIN_EMAILS` để được cấp
+quyền admin · Mailpit: http://localhost:8025.
 
 ## Tài liệu (`doc/`)
 | File | Nội dung |
