@@ -3,12 +3,42 @@ import { Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { Library, Loader2 } from "lucide-react"
 import { loadGoogleIdentityScript } from "../lib/google-identity"
+import { isAxiosError } from "axios"
+import { Button } from "../components/ui/button"
+
+type Mode = 'login' | 'register';
+
+function authErrorMessage(error: unknown): string {
+    if (!isAxiosError<{ code?: string }>(error)) {
+        return "Có lỗi xảy ra. Vui lòng thử lại.";
+    }
+    const code = error.response?.data?.code;
+    if (code === "GOOGLE_ACCOUNT_ONLY") {
+        return "Email này đăng nhập bằng Google, hãy dùng nút Google ở trên.";
+    }
+    if (code === "EMAIL_ALREADY_REGISTERED") {
+        return "Email đã được đăng ký, hãy đăng nhập.";
+    }
+    if (code === "EMAIL_REGISTERED_WITH_PASSWORD") {
+        return "Email này đã đăng ký bằng mật khẩu, hãy đăng nhập bằng mật khẩu.";
+    }
+    if (error.response?.status === 401) {
+        return "Email hoặc mật khẩu không đúng.";
+    }
+    return "Có lỗi xảy ra. Vui lòng thử lại.";
+}
 
 export default function Login() {
-    const { loginWithGoogleToken, role, initialized } = useAuth();
+    const { loginWithGoogleToken, loginWithPassword, register, role, initialized } = useAuth();
     const from = (useLocation().state as { from?: { pathname: string; search?: string } } | null)?.from;
     const buttonRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState("");
+
+    const [mode, setMode] = useState<Mode>('login');
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [fullName, setFullName] = useState("");
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (!initialized || role === 'user') return;
@@ -22,8 +52,8 @@ export default function Login() {
                 window.google.accounts.id.initialize({
                     client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
                     callback: (response) => {
-                        loginWithGoogleToken(response.credential).catch(() => {
-                            setError("Đăng nhập bằng Google không thành công. Vui lòng thử lại.");
+                        loginWithGoogleToken(response.credential).catch((e) => {
+                            setError(authErrorMessage(e));
                         });
                     },
                 });
@@ -40,6 +70,23 @@ export default function Login() {
             cancelled = true;
         };
     }, [initialized, role, loginWithGoogleToken]);
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError("");
+        setSubmitting(true);
+        try {
+            if (mode === 'login') {
+                await loginWithPassword(email, password);
+            } else {
+                await register(email, password, fullName);
+            }
+        } catch (submitError) {
+            setError(authErrorMessage(submitError));
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     // Show loading spinner while checking authentication status
     if (!initialized) {
@@ -82,6 +129,54 @@ export default function Login() {
 
         {/* Google Sign-In */}
         <div ref={buttonRef} />
+
+        <div className="flex items-center gap-3 w-full my-5">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400">hoặc</span>
+            <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {/* Email/password form */}
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-3">
+            {mode === 'register' && (
+                <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="Họ và tên"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023]"
+                />
+            )}
+            <input
+                type="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023]"
+            />
+            <input
+                type="password"
+                required
+                minLength={mode === 'register' ? 8 : undefined}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Mật khẩu"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023]"
+            />
+            <Button type="submit" variant="brand" className="w-full" disabled={submitting}>
+                {submitting ? "Đang xử lý..." : mode === 'login' ? "Đăng nhập" : "Đăng ký"}
+            </Button>
+        </form>
+
+        <button
+            type="button"
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(""); }}
+            className="mt-3 text-sm font-medium text-[#e60023] hover:underline"
+        >
+            {mode === 'login' ? "Chưa có tài khoản? Đăng ký" : "Đã có tài khoản? Đăng nhập"}
+        </button>
 
         {error && <p className="mt-3 text-sm text-red-600" role="alert">{error}</p>}
 
