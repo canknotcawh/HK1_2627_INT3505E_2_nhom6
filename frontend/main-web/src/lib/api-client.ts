@@ -46,11 +46,15 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshing;
 }
 
+function isAuthEndpoint(url?: string): boolean {
+  return !!url && url.includes("/api/v1/public/auth/");
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const { config, response } = error;
-    if (response?.status === 401 && !config.__isRetry) {
+    if (response?.status === 401 && !config.__isRetry && !isAuthEndpoint(config.url)) {
       const newToken = await refreshAccessToken();
       if (newToken) {
         config.__isRetry = true;
