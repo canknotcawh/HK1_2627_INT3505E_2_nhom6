@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import apiClient from "../lib/api-client";
-import keycloak from "../lib/keycloak";
+import { clearTokens, getAccessToken, setTokens } from "../lib/auth-tokens";
 
 export type AdminUser = {
   id: string;
@@ -15,23 +15,12 @@ type AuthContextValue = {
   authenticated: boolean;
   user: AdminUser | null;
   authError: string | null;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
+  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
+  logout: () => void;
   refreshUser: () => Promise<AdminUser>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-let initialization: Promise<boolean> | undefined;
-
-function initKeycloak() {
-  initialization ??= keycloak.init({
-    // Do not silently reuse main-web's realm SSO session. Admin sign-in must
-    // explicitly authenticate so a user account from another app is not
-    // accidentally carried into this client.
-    pkceMethod: "S256",
-  });
-  return initialization;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
@@ -43,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.get<AdminUser>("/users/me");
       setUser(response.data);
+      setAuthenticated(true);
       setAuthError(null);
       return response.data;
     } catch (error) {
@@ -55,19 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const initialize = async () => {
-      try {
-        const isAuthenticated = await initKeycloak();
-        if (cancelled) return;
+      const token = getAccessToken();
+      if (!token) {
+        if (!cancelled) setInitialized(true);
+        return;
+      }
 
-        setAuthenticated(isAuthenticated);
-        if (isAuthenticated) {
-          await refreshUser();
-        }
+      try {
+        await refreshUser();
       } catch (error) {
         console.error("Không thể khởi tạo phiên quản trị:", error);
-        if (!cancelled) {
-          setAuthenticated(Boolean(keycloak.authenticated));
-          setAuthError("Không thể kiểm tra quyền admin. Hãy kiểm tra backend và đăng nhập lại.");
+        if (!cancelled && !getAccessToken()) {
+          // The api-client interceptor already tried a refresh and cleared
+          // the tokens, so this session is genuinely gone.
+          setAuthenticated(false);
+          setAuthError(null);
         }
       } finally {
         if (!cancelled) setInitialized(true);
@@ -80,21 +72,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshUser]);
 
-  const login = useCallback(async () => {
-    await keycloak.login({
-      redirectUri: `${window.location.origin}/login`,
-      prompt: "login",
-    });
+  const loginWithGoogleToken = useCallback(async (googleIdToken: string) => {
+    const response = await apiClient.post<{ accessToken: string; refreshToken: string; user: AdminUser }>(
+      "/public/auth/google",
+      { idToken: googleIdToken }
+    );
+    setTokens(response.data.accessToken, response.data.refreshToken);
+    setUser(response.data.user);
+    setAuthenticated(true);
+    setAuthError(null);
   }, []);
 
-  const logout = useCallback(async () => {
-    await keycloak.logout({ redirectUri: `${window.location.origin}/login` });
+  const logout = useCallback(() => {
+    clearTokens();
     setAuthenticated(false);
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ initialized, authenticated, user, authError, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ initialized, authenticated, user, authError, loginWithGoogleToken, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
