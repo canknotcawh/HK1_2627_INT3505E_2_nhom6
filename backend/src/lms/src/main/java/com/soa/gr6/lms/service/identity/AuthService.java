@@ -114,6 +114,7 @@ public class AuthService {
         User created = new User(subject, email, fullName);
         if (grantAdmin) {
             created.promoteToAdmin();
+            created.markBootstrapAdminGranted();
         }
         return userRepository.saveAndFlush(created);
     }
