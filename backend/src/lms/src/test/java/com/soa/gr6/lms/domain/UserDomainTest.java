@@ -45,4 +45,25 @@ class UserDomainTest {
         assertThatThrownBy(() -> user.changeEmail(null)).isInstanceOf(InvalidDomainStateException.class);
         assertThatThrownBy(() -> new User(null, "a@b.com", "n")).isInstanceOf(InvalidDomainStateException.class);
     }
+
+    @Test
+    void passwordSignupHasNoGoogleIdentity() {
+        User user = User.withPassword("a@b.com", "A B", "hashed");
+        assertThat(user.hasPassword()).isTrue();
+        assertThat(user.getGoogleSubject()).isNull();
+        assertThat(user.isActive()).isTrue();
+    }
+
+    @Test
+    void googleSignupHasNoPassword() {
+        User user = new User("sub", "a@b.com", "A B");
+        assertThat(user.hasPassword()).isFalse();
+    }
+
+    @Test
+    void passwordSignupRejectsBlankFields() {
+        assertThatThrownBy(() -> User.withPassword(null, "A", "hash")).isInstanceOf(InvalidDomainStateException.class);
+        assertThatThrownBy(() -> User.withPassword("a@b.com", " ", "hash")).isInstanceOf(InvalidDomainStateException.class);
+        assertThatThrownBy(() -> User.withPassword("a@b.com", "A", null)).isInstanceOf(InvalidDomainStateException.class);
+    }
 }
