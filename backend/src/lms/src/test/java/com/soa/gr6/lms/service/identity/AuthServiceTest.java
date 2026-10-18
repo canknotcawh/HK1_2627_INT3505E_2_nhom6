@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
@@ -27,6 +28,7 @@ import com.soa.gr6.lms.domain.User;
 import com.soa.gr6.lms.domain.enums.UserRole;
 import com.soa.gr6.lms.dto.AuthResponse;
 import com.soa.gr6.lms.exception.ApiException;
+import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.repository.UserRepository;
 import com.soa.gr6.lms.security.jwt.JwtService;
@@ -46,13 +48,16 @@ class AuthServiceTest {
     private GoogleIdTokenVerifier googleIdTokenVerifier;
     @Mock
     private GoogleIdToken googleIdToken;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        authService = new AuthService(userRepository, transactionManager, jwtService, googleIdTokenVerifier, List.of());
+        authService = new AuthService(
+                userRepository, transactionManager, jwtService, googleIdTokenVerifier, passwordEncoder, List.of());
     }
 
     @Test
@@ -117,7 +122,7 @@ class AuthServiceTest {
     @Test
     void bootstrapAdminEmailBecomesAdminWhenEmailIsVerified() throws Exception {
         authService = new AuthService(userRepository, transactionManager, jwtService, googleIdTokenVerifier,
-                List.of(" Admin@LMS.local "));
+                passwordEncoder, List.of(" Admin@LMS.local "));
         mockGoogleToken("admin@lms.local", "Admin", true);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -132,7 +137,7 @@ class AuthServiceTest {
     @Test
     void bootstrapAdminIsIgnoredWhenEmailIsNotVerified() throws Exception {
         authService = new AuthService(userRepository, transactionManager, jwtService, googleIdTokenVerifier,
-                List.of("admin@lms.local"));
+                passwordEncoder, List.of("admin@lms.local"));
         mockGoogleToken("admin@lms.local", "Admin", false);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -180,6 +185,102 @@ class AuthServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(suspended));
 
         ApiException e = assertThrows(ApiException.class, () -> authService.refresh("refresh-token"));
+
+        assertEquals(ErrorCode.ACCOUNT_DISABLED, e.getErrorCode());
+    }
+
+    @Test
+    void loginWithGoogleRejectsEmailAlreadyRegisteredWithPassword() throws Exception {
+        mockGoogleToken("an@example.com", "Nguyen An", null);
+        when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("an@example.com"))
+                .thenReturn(Optional.of(User.withPassword("an@example.com", "An", "hash")));
+
+        DuplicateResourceException e = assertThrows(DuplicateResourceException.class,
+                () -> authService.loginWithGoogle("google-id-token"));
+
+        assertEquals("EMAIL_REGISTERED_WITH_PASSWORD", e.getCode());
+    }
+
+    @Test
+    void registerCreatesUserWithHashedPassword() {
+        when(userRepository.existsByEmail("an@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("secret123")).thenReturn("hashed");
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(i -> i.getArgument(0));
+        when(jwtService.generateAccessToken(any())).thenReturn("access");
+        when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+
+        AuthResponse response = authService.register("An@Example.com", "secret123", "Nguyen An");
+
+        assertEquals("an@example.com", response.user().email());
+        assertEquals(UserRole.USER, response.user().role());
+    }
+
+    @Test
+    void registerRejectsDuplicateEmail() {
+        when(userRepository.existsByEmail("an@example.com")).thenReturn(true);
+
+        DuplicateResourceException e = assertThrows(DuplicateResourceException.class,
+                () -> authService.register("an@example.com", "secret123", "Nguyen An"));
+
+        assertEquals("EMAIL_ALREADY_REGISTERED", e.getCode());
+    }
+
+    @Test
+    void loginWithPasswordSucceedsForMatchingCredentials() {
+        User user = User.withPassword("an@example.com", "Nguyen An", "hashed");
+        when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
+        when(jwtService.generateAccessToken(user)).thenReturn("access");
+        when(jwtService.generateRefreshToken(user)).thenReturn("refresh");
+
+        AuthResponse response = authService.loginWithPassword("an@example.com", "secret123");
+
+        assertEquals("access", response.accessToken());
+    }
+
+    @Test
+    void loginWithPasswordRejectsWrongPassword() {
+        User user = User.withPassword("an@example.com", "Nguyen An", "hashed");
+        when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        ApiException e = assertThrows(ApiException.class,
+                () -> authService.loginWithPassword("an@example.com", "wrong"));
+
+        assertEquals(ErrorCode.UNAUTHORIZED, e.getErrorCode());
+    }
+
+    @Test
+    void loginWithPasswordRejectsUnknownEmail() {
+        when(userRepository.findByEmail("nope@example.com")).thenReturn(Optional.empty());
+
+        ApiException e = assertThrows(ApiException.class,
+                () -> authService.loginWithPassword("nope@example.com", "secret123"));
+
+        assertEquals(ErrorCode.UNAUTHORIZED, e.getErrorCode());
+    }
+
+    @Test
+    void loginWithPasswordRejectsGoogleOnlyAccount() throws Exception {
+        User googleUser = new User(SUBJECT, "an@example.com", "Nguyen An");
+        when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(googleUser));
+
+        ApiException e = assertThrows(ApiException.class,
+                () -> authService.loginWithPassword("an@example.com", "secret123"));
+
+        assertEquals(ErrorCode.GOOGLE_ACCOUNT_ONLY, e.getErrorCode());
+    }
+
+    @Test
+    void loginWithPasswordRejectsSuspendedUser() {
+        User user = User.withPassword("an@example.com", "Nguyen An", "hashed");
+        user.suspend();
+        when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
+
+        ApiException e = assertThrows(ApiException.class,
+                () -> authService.loginWithPassword("an@example.com", "secret123"));
 
         assertEquals(ErrorCode.ACCOUNT_DISABLED, e.getErrorCode());
     }

@@ -30,8 +30,11 @@ public class User {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "google_subject", length = 64, nullable = false, unique = true)
+    @Column(name = "google_subject", length = 64, unique = true)
     private String googleSubject;
+
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
 
     @Column(name = "email", length = 255, nullable = false, unique = true)
     private String email;
@@ -62,6 +65,21 @@ public class User {
         this.fullName = requireValue(fullName, "fullName");
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
+    }
+
+    /** Password-based signup; the account has no Google identity. */
+    public static User withPassword(String email, String fullName, String passwordHash) {
+        User user = new User();
+        user.email = requireValue(email, "email");
+        user.fullName = requireValue(fullName, "fullName");
+        user.passwordHash = requireValue(passwordHash, "passwordHash");
+        user.createdAt = Instant.now();
+        user.updatedAt = user.createdAt;
+        return user;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null;
     }
 
     public void updateProfile(String fullName) {

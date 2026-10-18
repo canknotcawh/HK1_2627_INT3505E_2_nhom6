@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.soa.gr6.lms.dto.AccessTokenResponse;
 import com.soa.gr6.lms.dto.AuthResponse;
 import com.soa.gr6.lms.dto.GoogleLoginRequest;
+import com.soa.gr6.lms.dto.PasswordLoginRequest;
 import com.soa.gr6.lms.dto.RefreshRequest;
+import com.soa.gr6.lms.dto.RegisterRequest;
 import com.soa.gr6.lms.service.identity.AuthService;
 
 @RestController
@@ -31,5 +33,15 @@ public class AuthController {
     @PostMapping("/refresh")
     public AccessTokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
         return authService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/register")
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+        return authService.register(request.email(), request.password(), request.fullName());
+    }
+
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody PasswordLoginRequest request) {
+        return authService.loginWithPassword(request.email(), request.password());
     }
 }
