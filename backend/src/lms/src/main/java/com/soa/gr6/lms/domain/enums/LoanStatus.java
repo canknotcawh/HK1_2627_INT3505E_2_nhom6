@@ -4,10 +4,11 @@ public enum LoanStatus {
     ACTIVE,
     RETURNED,
     OVERDUE,
-    LOST;
+    LOST,
+    PENDING_RETURN;
 
-    /** A loan is open while the copy is still out with the borrower. */
+    /** A loan is open while the copy is still out with the borrower, including while a return is pending confirmation. */
     public boolean isOpen() {
-        return this == ACTIVE || this == OVERDUE;
+        return this == ACTIVE || this == OVERDUE || this == PENDING_RETURN;
     }
 }

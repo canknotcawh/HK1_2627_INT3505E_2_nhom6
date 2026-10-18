@@ -25,6 +25,13 @@ public class AdminLoanController {
         this.loanService = loanService;
     }
 
+    @GetMapping("/loans")
+    public Page<LoanResponse> listLoans(
+            @RequestParam(required = false) LoanStatus status,
+            @PageableDefault(size = 20, sort = "borrowedAt") Pageable pageable) {
+        return loanService.listLoans(status, pageable);
+    }
+
     @GetMapping("/loans/{loanId}")
     public LoanResponse getLoan(@PathVariable UUID loanId) {
         return loanService.getLoan(loanId);
@@ -41,6 +48,11 @@ public class AdminLoanController {
     @PostMapping("/loans/{loanId}/return")
     public LoanResponse returnBook(@PathVariable UUID loanId) {
         return loanService.returnBook(loanId);
+    }
+
+    @PostMapping("/loans/{loanId}/reject-return")
+    public LoanResponse rejectReturn(@PathVariable UUID loanId) {
+        return loanService.rejectReturnRequest(loanId);
     }
 
     @PostMapping("/loans/{loanId}/lost")

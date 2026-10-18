@@ -69,6 +69,38 @@ class LoanDomainTest {
     }
 
     @Test
+    void requestReturnLeavesCopyCheckedOutUntilConfirmed() {
+        Book book = bookWithCopies(1);
+        Loan loan = new Loan(book, user(), inDays(14));
+        loan.requestReturn();
+        assertThat(loan.getStatus()).isEqualTo(LoanStatus.PENDING_RETURN);
+        assertThat(book.getAvailableCopies()).isEqualTo(0);
+
+        loan.returnBook(Instant.now());
+        assertThat(loan.getStatus()).isEqualTo(LoanStatus.RETURNED);
+        assertThat(book.getAvailableCopies()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectingReturnRequestRestoresOpenStatusByDueDate() {
+        Loan notYetDue = new Loan(bookWithCopies(1), user(), inDays(14));
+        notYetDue.requestReturn();
+        notYetDue.rejectReturnRequest(Instant.now());
+        assertThat(notYetDue.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+
+        Loan pastDue = new Loan(bookWithCopies(1), user(), inDays(1));
+        pastDue.requestReturn();
+        pastDue.rejectReturnRequest(inDays(2));
+        assertThat(pastDue.getStatus()).isEqualTo(LoanStatus.OVERDUE);
+    }
+
+    @Test
+    void rejectReturnRequestFailsWhenNotPending() {
+        Loan loan = new Loan(bookWithCopies(1), user(), inDays(14));
+        assertThatThrownBy(() -> loan.rejectReturnRequest(Instant.now())).isNotNull();
+    }
+
+    @Test
     void lostLoanWritesOffCopyAndRecoveryRestoresIt() {
         Book book = bookWithCopies(2);
         Loan loan = new Loan(book, user(), inDays(14));
