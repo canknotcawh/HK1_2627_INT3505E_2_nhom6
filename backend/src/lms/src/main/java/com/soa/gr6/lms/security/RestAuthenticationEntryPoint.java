@@ -10,6 +10,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.ErrorCode;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,6 +30,11 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
                          AuthenticationException authException) {
         if (authException instanceof DisabledException) {
             resolver.resolveException(request, response, null, new ApiException(ErrorCode.ACCOUNT_DISABLED));
+            return;
+        }
+        if (authException instanceof AccountProvisioningAuthenticationException provisioningException) {
+            resolver.resolveException(request, response, null,
+                    new InvalidDomainStateException(provisioningException.getCode(), provisioningException.getMessage()));
             return;
         }
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");

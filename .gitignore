@@ -37,6 +37,7 @@ Desktop.ini
 outputs/
 .presentation_workspaces/
 .security-review/
+/scripts/
 
 # Personal development principles and agent skills
 /backend/development-principles/

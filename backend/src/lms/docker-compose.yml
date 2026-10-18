@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: lms
       POSTGRES_PASSWORD: lms
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,18 +18,28 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.0
     command: start-dev --import-realm
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set KC_BOOTSTRAP_ADMIN_PASSWORD in .env}
+      KC_HOSTNAME: ${KC_HOSTNAME:-http://localhost:8081}
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: lms
+      KC_DB_PASSWORD: lms
     ports:
       - "8081:8080"
     volumes:
-      - ./src/keycloak/realm-lms.json:/opt/keycloak/data/import/realm-lms.json:ro
+      - ${KEYCLOAK_IMPORT_DIR:-./src/keycloak}:/opt/keycloak/data/import:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
