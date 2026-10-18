@@ -1,15 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { LoaderCircle, ShieldCheck } from "lucide-react";
+import { isAxiosError } from "axios";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
-import { loadGoogleIdentityScript } from "../lib/google-identity";
+
+function passwordLoginErrorMessage(error: unknown): string {
+  if (!isAxiosError<{ code?: string }>(error)) {
+    return "Có lỗi xảy ra. Vui lòng thử lại.";
+  }
+  if (error.response?.status === 401) {
+    return "Email hoặc mật khẩu không đúng.";
+  }
+  return "Có lỗi xảy ra. Vui lòng thử lại.";
+}
 
 export default function Login() {
-  const { initialized, authenticated, user, authError, loginWithGoogleToken, logout, refreshUser } = useAuth();
+  const { initialized, authenticated, user, authError, loginWithPassword, logout, refreshUser } = useAuth();
   const [checking, setChecking] = useState(false);
-  const [googleError, setGoogleError] = useState("");
-  const buttonRef = useRef<HTMLDivElement>(null);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !user || user.role === "ADMIN") return;
@@ -22,37 +35,6 @@ export default function Login() {
     window.location.replace(mainWebUrl.toString());
   }, [authenticated, user]);
 
-  useEffect(() => {
-    if (!initialized || authenticated) return;
-
-    let cancelled = false;
-
-    loadGoogleIdentityScript()
-      .then(() => {
-        if (cancelled || !buttonRef.current || !window.google) return;
-
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          callback: (response) => {
-            loginWithGoogleToken(response.credential).catch(() => {
-              setGoogleError("Đăng nhập bằng Google không thành công. Vui lòng thử lại.");
-            });
-          },
-        });
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: "outline",
-          size: "large",
-          width: 300,
-          text: "signin_with",
-        });
-      })
-      .catch(() => setGoogleError("Không thể tải Google Sign-In. Vui lòng thử lại."));
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initialized, authenticated, loginWithGoogleToken]);
-
   const checkAdminAccess = async () => {
     setChecking(true);
     try {
@@ -61,6 +43,19 @@ export default function Login() {
       // The context keeps the connection error visible for the user.
     } finally {
       setChecking(false);
+    }
+  };
+
+  const handlePasswordLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordError("");
+    setSubmitting(true);
+    try {
+      await loginWithPassword(email, password);
+    } catch (error) {
+      setPasswordError(passwordLoginErrorMessage(error));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -93,7 +88,7 @@ export default function Login() {
         </div>
         <h1 className="text-2xl font-semibold">Cổng quản trị thư viện</h1>
         <p className="mt-2 text-sm leading-6 text-neutral-600">
-          Đăng nhập bằng tài khoản Google được cấp quyền admin trong hệ thống.
+          Đăng nhập bằng tài khoản được cấp quyền admin trong hệ thống.
         </p>
 
         {authError && (
@@ -115,10 +110,28 @@ export default function Login() {
             </div>
           </div>
         ) : (
-          <div className="mt-7">
-            <div ref={buttonRef} />
-            {googleError && <p className="mt-3 text-sm text-red-600" role="alert">{googleError}</p>}
-          </div>
+          <form onSubmit={handlePasswordLogin} className="mt-7 flex flex-col gap-3">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Email"
+              className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:border-neutral-500"
+            />
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Mật khẩu"
+              className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:border-neutral-500"
+            />
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? "Đang đăng nhập…" : "Đăng nhập"}
+            </Button>
+            {passwordError && <p className="mt-1 text-sm text-red-600" role="alert">{passwordError}</p>}
+          </form>
         )}
       </section>
     </main>

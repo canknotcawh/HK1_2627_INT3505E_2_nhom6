@@ -15,7 +15,7 @@ type AuthContextValue = {
   authenticated: boolean;
   user: AdminUser | null;
   authError: string | null;
-  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
+  loginWithPassword: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<AdminUser>;
 };
@@ -72,10 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshUser]);
 
-  const loginWithGoogleToken = useCallback(async (googleIdToken: string) => {
+  const loginWithPassword = useCallback(async (email: string, password: string) => {
     const response = await apiClient.post<{ accessToken: string; refreshToken: string; user: AdminUser }>(
-      "/public/auth/google",
-      { idToken: googleIdToken }
+      "/public/auth/login",
+      { email, password }
     );
     setTokens(response.data.accessToken, response.data.refreshToken);
     setUser(response.data.user);
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ initialized, authenticated, user, authError, loginWithGoogleToken, logout, refreshUser }}>
+    <AuthContext.Provider value={{ initialized, authenticated, user, authError, loginWithPassword, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
