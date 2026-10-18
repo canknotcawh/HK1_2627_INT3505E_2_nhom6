@@ -88,6 +88,20 @@ public class Loan {
         this.status = LoanStatus.RETURNED;
     }
 
+    /** Borrower-initiated return; the copy stays checked out until an admin confirms it via {@link #returnBook}. */
+    public void requestReturn() {
+        requireOpen();
+        status = LoanStatus.PENDING_RETURN;
+    }
+
+    /** Admin disputes a return request; the loan goes back to its open state based on the due date. */
+    public void rejectReturnRequest(Instant now) {
+        if (status != LoanStatus.PENDING_RETURN) {
+            throw new LoanStateException("LOAN_NOT_PENDING_RETURN", "only pending-return loans can be rejected");
+        }
+        status = (now != null && now.isAfter(dueAt)) ? LoanStatus.OVERDUE : LoanStatus.ACTIVE;
+    }
+
     public void markOverdue(Instant now) {
         if (status != LoanStatus.ACTIVE) {
             throw new LoanStateException("LOAN_NOT_ACTIVE", "only active loans can become overdue");

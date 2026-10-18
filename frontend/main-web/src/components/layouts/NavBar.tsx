@@ -27,7 +27,7 @@ export default function NavBar() {
                         <Library className="w-5 h-5 text-white" />
                     </div>
                     <span className="font-bold text-xl tracking-tight hidden sm:block">
-                        Thư viện j đó
+                        Thư viện điện tử
                     </span>
                 </div>
 
@@ -64,11 +64,11 @@ export default function NavBar() {
                                 <button
                                     type="button"
                                     onClick={() => navigate("/user/profile")}
-                                    className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-[#e60023] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]"
+                                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#e60023] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]"
                                     aria-label="Mở hồ sơ cá nhân"
                                     title="Hồ sơ cá nhân"
                                 >
-                                    <UserCircle className="w-7 h-7" />
+                                    <UserCircle className="h-7 w-7" />
                                 </button>
                                 <Button
                                     variant="ghost"

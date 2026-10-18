@@ -1,37 +1,59 @@
-import { useAuth } from "../contexts/AuthContext";
-import { BookOpen, Clock, CheckCircle, AlertTriangle, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { listMyLoans } from "../lib/loans";
+import type { LoanDto } from "../lib/loans";
+import { BookOpen, Clock, CheckCircle, AlertTriangle, ArrowRight, LoaderCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 
 export default function Dashboard() {
-    const { loans, books } = useAuth();
     const navigate = useNavigate();
+    const [loans, setLoans] = useState<LoanDto[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    const activeLoans = loans.filter(l => l.status === 'active');
-    const returnedLoans = loans.filter(l => l.status === 'returned');
-    const overdueLoans = loans.filter(l => l.status === 'overdue');
-    const pendingLoans = loans.filter(l => l.status === 'pending_return');
+    useEffect(() => {
+        let cancelled = false;
+        listMyLoans()
+            .then(result => { if (!cancelled) setLoans(result.content); })
+            .catch(requestError => {
+                console.error("Không tải được số liệu:", requestError);
+                if (!cancelled) setError("Không tải được số liệu mượn sách.");
+            })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, []);
 
-    // Upcoming due dates (active loans sorted by due date, soonest first)
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500" role="status">
+                <LoaderCircle className="h-5 w-5 animate-spin" /> Đang tải...
+            </div>
+        );
+    }
+
+    const activeLoans = loans.filter(l => l.status === 'ACTIVE');
+    const returnedLoans = loans.filter(l => l.status === 'RETURNED');
+    const overdueLoans = loans.filter(l => l.status === 'OVERDUE');
+    const pendingLoans = loans.filter(l => l.status === 'PENDING_RETURN');
+
     const upcomingDue = [...activeLoans]
-        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
         .slice(0, 5);
 
-    const today = new Date();
-    const getDaysUntilDue = (dueDate: string) => {
-        const due = new Date(dueDate);
-        return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const getDaysUntilDue = (dueAt: string) => {
+        const due = new Date(dueAt);
+        return Math.ceil((due.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     };
 
     return (
         <div className="space-y-6">
-            {/* Welcome */}
             <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100">
                 <h1 className="text-3xl font-bold text-gray-800">Xin chào! 👋</h1>
                 <p className="text-gray-500 mt-2">Chào mừng bạn quay lại hệ thống thư viện.</p>
             </div>
 
-            {/* Stats */}
+            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/50 flex items-start gap-3">
                     <div className="p-2.5 bg-blue-100 rounded-lg text-blue-600 shrink-0">
@@ -74,7 +96,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Overdue warning */}
             {overdueLoans.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
@@ -95,7 +116,6 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* Upcoming due dates */}
             {upcomingDue.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                     <div className="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -112,16 +132,15 @@ export default function Dashboard() {
                     </div>
                     <div className="divide-y divide-gray-50">
                         {upcomingDue.map(loan => {
-                            const book = books.find(b => b.id === loan.bookId);
-                            const daysLeft = getDaysUntilDue(loan.dueDate);
+                            const daysLeft = getDaysUntilDue(loan.dueAt);
                             const isUrgent = daysLeft <= 3;
 
                             return (
                                 <div key={loan.id} className="px-5 py-4 flex items-center justify-between gap-4">
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-gray-800 truncate">{book?.title || 'Không rõ'}</p>
+                                        <p className="font-medium text-gray-800 truncate">{loan.bookTitle}</p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            Mượn ngày {loan.borrowDate}
+                                            Mượn ngày {new Date(loan.borrowedAt).toLocaleDateString('vi-VN')}
                                         </p>
                                     </div>
                                     <span className={`shrink-0 text-sm font-medium px-3 py-1 rounded-full ${
@@ -143,7 +162,6 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* Quick actions */}
             <div className="p-5 bg-gray-50 rounded-xl border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
                     <h3 className="text-base font-bold text-gray-800">Khám phá thêm sách mới</h3>

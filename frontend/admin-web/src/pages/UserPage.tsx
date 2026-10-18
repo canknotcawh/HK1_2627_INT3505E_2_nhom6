@@ -3,6 +3,8 @@ import { Ban, Check, ChevronLeft, ChevronRight, LoaderCircle, Search, Shield, Sh
 import { isAxiosError } from "axios";
 import apiClient from "../lib/api-client";
 import { useAuth } from "../contexts/AuthContext";
+import { actionErrorMessage as sharedActionErrorMessage, listErrorMessage } from "../lib/http-errors";
+import type { Page } from "../lib/page";
 
 type ManagedUser = {
   id: string;
@@ -13,51 +15,21 @@ type ManagedUser = {
   createdAt: string;
 };
 
-type Page<T> = {
-  content: T[];
-  number: number;
-  totalPages: number;
-  totalElements: number;
-};
-
 const PAGE_SIZE = 10;
 
 type UserAction = "suspend" | "reactivate" | "promote" | "demote";
 
 function actionErrorMessage(error: unknown) {
-  if (!isAxiosError<{ code?: string; message?: string }>(error)) {
-    return "Không cập nhật được tài khoản. Vui lòng thử lại.";
+  if (isAxiosError<{ code?: string; message?: string }>(error)) {
+    const code = error.response?.data?.code;
+    if (code === "CANNOT_SUSPEND_SELF" || code === "CANNOT_DEMOTE_SELF") {
+      return "Bạn không thể tự khóa hoặc tự hạ quyền tài khoản đang đăng nhập.";
+    }
+    if (code === "CANNOT_SUSPEND_LAST_ACTIVE_ADMIN" || code === "CANNOT_DEMOTE_LAST_ACTIVE_ADMIN") {
+      return "Cần giữ lại ít nhất một admin đang hoạt động.";
+    }
   }
-
-  const code = error.response?.data?.code;
-  if (code === "CANNOT_SUSPEND_SELF" || code === "CANNOT_DEMOTE_SELF") {
-    return "Bạn không thể tự khóa hoặc tự hạ quyền tài khoản đang đăng nhập.";
-  }
-  if (code === "CANNOT_SUSPEND_LAST_ACTIVE_ADMIN" || code === "CANNOT_DEMOTE_LAST_ACTIVE_ADMIN") {
-    return "Cần giữ lại ít nhất một admin đang hoạt động.";
-  }
-  if (error.response?.status === 401 || error.response?.status === 403) {
-    return "Phiên đăng nhập không còn quyền quản trị. Hãy đăng nhập lại bằng tài khoản admin.";
-  }
-  return error.response?.data?.message || "Không cập nhật được tài khoản. Vui lòng thử lại.";
-}
-
-function listErrorMessage(error: unknown) {
-  if (!isAxiosError<{ code?: string; message?: string }>(error)) {
-    return "Không tải được danh sách người dùng. Vui lòng tải lại trang.";
-  }
-
-  if (error.response?.status === 401) {
-    return "Phiên đăng nhập hết hạn. Hãy đăng xuất rồi đăng nhập lại.";
-  }
-  if (error.response?.status === 403) {
-    return "Backend từ chối quyền xem danh sách. Hãy đăng nhập bằng tài khoản ADMIN.";
-  }
-  if (error.response) {
-    const detail = error.response.data?.message || error.response.data?.code;
-    return `Backend trả lỗi HTTP ${error.response.status}${detail ? `: ${detail}` : "."}`;
-  }
-  return "Không kết nối được backend tại API đã cấu hình. Kiểm tra backend, cổng 8080 và cấu hình CORS.";
+  return sharedActionErrorMessage(error, "Không cập nhật được tài khoản. Vui lòng thử lại.");
 }
 
 export default function UserPage() {

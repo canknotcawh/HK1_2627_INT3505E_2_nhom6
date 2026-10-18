@@ -8,7 +8,8 @@ public enum ErrorCode {
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "account is disabled"),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "not authenticated or invalid token"),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user not found"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "access denied");
+    FORBIDDEN(HttpStatus.FORBIDDEN, "access denied"),
+    GOOGLE_ACCOUNT_ONLY(HttpStatus.CONFLICT, "this account signs in with Google");
 
     private final HttpStatus status;
     private final String message;

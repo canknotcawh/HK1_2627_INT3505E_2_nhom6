@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,7 +37,10 @@ class AdminUserServiceImplTest {
 
     @Test
     void promoteThenDemote() {
+        User anotherActiveAdmin = new User("sub-2", "other-admin@b.com", "Other Admin");
+        anotherActiveAdmin.promoteToAdmin();
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.lockAllByRole(UserRole.ADMIN)).thenReturn(List.of(user, anotherActiveAdmin));
 
         assertThat(service.promoteToAdmin(userId).role()).isEqualTo(UserRole.ADMIN);
         assertThat(service.demoteToUser(adminId, userId).role()).isEqualTo(UserRole.USER);

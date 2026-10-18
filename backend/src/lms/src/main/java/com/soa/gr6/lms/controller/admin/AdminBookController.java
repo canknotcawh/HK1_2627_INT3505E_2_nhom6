@@ -3,6 +3,8 @@ package com.soa.gr6.lms.controller.admin;
 import com.soa.gr6.lms.dto.BookRequest;
 import com.soa.gr6.lms.dto.BookResponse;
 import com.soa.gr6.lms.service.BookService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,17 +28,17 @@ public class AdminBookController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public BookResponse createBook(@RequestBody BookRequest request) {
+    public BookResponse createBook(@Valid @RequestBody BookRequest request) {
         return bookService.createBook(request);
     }
 
     @PutMapping("/{bookId}")
-    public BookResponse updateBook(@PathVariable UUID bookId, @RequestBody BookRequest request) {
+    public BookResponse updateBook(@PathVariable UUID bookId, @Valid @RequestBody BookRequest request) {
         return bookService.updateBook(bookId, request);
     }
 
     @PatchMapping("/{bookId}/copies")
-    public BookResponse updateCopyCounts(@PathVariable UUID bookId, @RequestBody CopyCountsRequest request) {
+    public BookResponse updateCopyCounts(@PathVariable UUID bookId, @Valid @RequestBody CopyCountsRequest request) {
         return bookService.updateCopyCounts(bookId, request.totalCopies(), request.availableCopies());
     }
 
@@ -50,6 +52,6 @@ public class AdminBookController {
         return bookService.activateBook(bookId);
     }
 
-    public record CopyCountsRequest(int totalCopies, int availableCopies) {
+    public record CopyCountsRequest(@Min(0) int totalCopies, @Min(0) int availableCopies) {
     }
 }

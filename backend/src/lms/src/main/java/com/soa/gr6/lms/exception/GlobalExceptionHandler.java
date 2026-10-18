@@ -29,6 +29,7 @@ public class GlobalExceptionHandler {
     private static HttpStatus statusOf(DomainException e) {
         return switch (e) {
             case LoanNotFoundException ignored -> HttpStatus.NOT_FOUND;
+            case BookNotFoundException ignored -> HttpStatus.NOT_FOUND;
             case DuplicateResourceException ignored -> HttpStatus.CONFLICT;
             case LoanStateException ignored -> HttpStatus.CONFLICT;
             case UserSuspendedException ignored -> HttpStatus.FORBIDDEN;

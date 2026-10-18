@@ -30,23 +30,14 @@ public class User {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "keycloak_subject", length = 64, nullable = false, unique = true)
-    private String keycloakSubject;
+    @Column(name = "google_subject", length = 64, unique = true)
+    private String googleSubject;
+
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
 
     @Column(name = "email", length = 255, nullable = false, unique = true)
     private String email;
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public UserRole getRole() {
-        return role;
-    }
 
     @Column(name = "full_name", length = 255, nullable = false)
     private String fullName;
@@ -68,12 +59,27 @@ public class User {
     @Column(name = "bootstrap_admin_granted", nullable = false)
     private boolean bootstrapAdminGranted;
 
-    public User(String keycloakSubject, String email, String fullName) {
-        this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
+    public User(String googleSubject, String email, String fullName) {
+        this.googleSubject = requireValue(googleSubject, "googleSubject");
         this.email = requireValue(email, "email");
         this.fullName = requireValue(fullName, "fullName");
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
+    }
+
+    /** Password-based signup; the account has no Google identity. */
+    public static User withPassword(String email, String fullName, String passwordHash) {
+        User user = new User();
+        user.email = requireValue(email, "email");
+        user.fullName = requireValue(fullName, "fullName");
+        user.passwordHash = requireValue(passwordHash, "passwordHash");
+        user.createdAt = Instant.now();
+        user.updatedAt = user.createdAt;
+        return user;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null;
     }
 
     public void updateProfile(String fullName) {
@@ -82,10 +88,6 @@ public class User {
 
     public void changeEmail(String email) {
         this.email = requireValue(email, "email");
-    }
-
-    public void linkKeycloakSubject(String keycloakSubject) {
-        this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
     }
 
     public void suspend() {
