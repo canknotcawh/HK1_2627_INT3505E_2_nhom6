@@ -1,4 +1,4 @@
-package com.soa.gr6.lms.controller.PublicController;
+package com.soa.gr6.lms.controller.publicapi;
 
 import com.soa.gr6.lms.dto.BookResponse;
 import com.soa.gr6.lms.service.BookService;
