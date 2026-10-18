@@ -61,7 +61,15 @@ export default function NavBar() {
                                 <span className="hidden md:inline">Lịch sử</span>
                             </Button>
                             <div className="flex items-center gap-1 ml-1 pl-2 border-l border-gray-200">
-                                <UserCircle className="w-7 h-7 text-gray-400 hidden sm:block" />
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/user/profile")}
+                                    className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-[#e60023] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]"
+                                    aria-label="Mở hồ sơ cá nhân"
+                                    title="Hồ sơ cá nhân"
+                                >
+                                    <UserCircle className="w-7 h-7" />
+                                </button>
                                 <Button
                                     variant="ghost"
                                     size="sm"
