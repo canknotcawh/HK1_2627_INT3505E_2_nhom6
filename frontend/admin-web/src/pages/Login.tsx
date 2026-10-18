@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { LoaderCircle, ShieldCheck } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
+import { loadGoogleIdentityScript } from "../lib/google-identity";
 
 export default function Login() {
-  const { initialized, authenticated, user, authError, login, logout, refreshUser } = useAuth();
+  const { initialized, authenticated, user, authError, loginWithGoogleToken, logout, refreshUser } = useAuth();
   const [checking, setChecking] = useState(false);
+  const [googleError, setGoogleError] = useState("");
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authenticated || !user || user.role === "ADMIN") return;
@@ -18,6 +21,37 @@ export default function Login() {
     mainWebUrl.hash = "";
     window.location.replace(mainWebUrl.toString());
   }, [authenticated, user]);
+
+  useEffect(() => {
+    if (!initialized || authenticated) return;
+
+    let cancelled = false;
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !buttonRef.current || !window.google) return;
+
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: (response) => {
+            loginWithGoogleToken(response.credential).catch(() => {
+              setGoogleError("Đăng nhập bằng Google không thành công. Vui lòng thử lại.");
+            });
+          },
+        });
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 300,
+          text: "signin_with",
+        });
+      })
+      .catch(() => setGoogleError("Không thể tải Google Sign-In. Vui lòng thử lại."));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized, authenticated, loginWithGoogleToken]);
 
   const checkAdminAccess = async () => {
     setChecking(true);
@@ -59,7 +93,7 @@ export default function Login() {
         </div>
         <h1 className="text-2xl font-semibold">Cổng quản trị thư viện</h1>
         <p className="mt-2 text-sm leading-6 text-neutral-600">
-          Đăng nhập bằng tài khoản được cấp quyền admin trong hệ thống.
+          Đăng nhập bằng tài khoản Google được cấp quyền admin trong hệ thống.
         </p>
 
         {authError && (
@@ -75,15 +109,16 @@ export default function Login() {
               <Button type="button" disabled={checking} onClick={() => void checkAdminAccess()}>
                 {checking ? "Đang kiểm tra…" : "Thử kiểm tra lại"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => void logout()}>
+              <Button type="button" variant="outline" onClick={() => logout()}>
                 Đăng xuất
               </Button>
             </div>
           </div>
         ) : (
-          <Button className="mt-7 h-11 w-full" onClick={() => void login()}>
-            Đăng nhập bằng Keycloak
-          </Button>
+          <div className="mt-7">
+            <div ref={buttonRef} />
+            {googleError && <p className="mt-3 text-sm text-red-600" role="alert">{googleError}</p>}
+          </div>
         )}
       </section>
     </main>
