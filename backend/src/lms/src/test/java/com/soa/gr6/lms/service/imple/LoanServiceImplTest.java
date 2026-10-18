@@ -148,6 +148,32 @@ class LoanServiceImplTest {
     }
 
     @Test
+    void listLoansFiltersByStatusOnlyWhenGiven() throws Exception {
+        Loan loan = storedLoan();
+        when(loanRepository.findAll(page)).thenReturn(new PageImpl<>(List.of(loan)));
+        when(loanRepository.findByStatus(LoanStatus.PENDING_RETURN, page))
+                .thenReturn(new PageImpl<>(List.of()));
+        assertThat(service.listLoans(null, page).getContent()).hasSize(1);
+        assertThat(service.listLoans(LoanStatus.PENDING_RETURN, page).getContent()).isEmpty();
+    }
+
+    @Test
+    void requestReturnMovesLoanToPendingWithoutTouchingTheBook() throws Exception {
+        Loan loan = storedLoan();
+        var response = service.requestReturn(loan.getId());
+        assertThat(response.status()).isEqualTo("PENDING_RETURN");
+        assertThat(book.getAvailableCopies()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectReturnRequestSendsLoanBackToActive() throws Exception {
+        Loan loan = storedLoan();
+        loan.requestReturn();
+        var response = service.rejectReturnRequest(loan.getId());
+        assertThat(response.status()).isEqualTo("ACTIVE");
+    }
+
+    @Test
     void markOverdueFlagsLateActiveLoans() throws Exception {
         Loan late = new Loan(book, user, Instant.now().plusSeconds(60));
         setField(late, "dueAt", Instant.now().minusSeconds(60));

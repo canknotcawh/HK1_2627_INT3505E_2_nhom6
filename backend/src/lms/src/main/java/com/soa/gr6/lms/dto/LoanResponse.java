@@ -8,6 +8,8 @@ public record LoanResponse(
         UUID bookId,
         String bookTitle,
         UUID userId,
+        String userEmail,
+        String userFullName,
         Instant borrowedAt,
         Instant dueAt,
         Instant returnedAt,

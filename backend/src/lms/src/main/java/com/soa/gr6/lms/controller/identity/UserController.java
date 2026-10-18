@@ -61,7 +61,7 @@ public class UserController {
     @PostMapping("/me/loans/{loanId}/return")
     public LoanResponse returnBook(@AuthenticationPrincipal AuthenticatedUser principal, @PathVariable UUID loanId) {
         requireOwnLoan(principal, loanId);
-        return loanService.returnBook(loanId);
+        return loanService.requestReturn(loanId);
     }
 
     @PostMapping("/me/loans/{loanId}/renew")
