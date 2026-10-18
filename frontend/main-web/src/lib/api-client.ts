@@ -1,8 +1,17 @@
 import axios from "axios";
 import { clearTokens, getAccessToken, getRefreshToken, setAccessToken } from "./auth-tokens";
 
+const apiBaseUrl = new URL(
+  import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//localhost:8080`,
+  window.location.origin,
+);
+if (["localhost", "127.0.0.1"].includes(apiBaseUrl.hostname)
+    && !["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+  apiBaseUrl.hostname = window.location.hostname;
+}
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: apiBaseUrl.toString().replace(/\/$/, ""),
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -20,7 +29,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   refreshing ??= axios
-    .post(`${import.meta.env.VITE_API_BASE_URL}/api/v1/public/auth/refresh`, { refreshToken })
+    .post(`${apiClient.defaults.baseURL}/api/v1/public/auth/refresh`, { refreshToken })
     .then((response) => {
       const token = response.data.accessToken as string;
       setAccessToken(token);

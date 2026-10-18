@@ -53,6 +53,9 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "bootstrap_admin_granted", nullable = false)
+    private boolean bootstrapAdminGranted;
+
     public User(String googleSubject, String email, String fullName) {
         this.googleSubject = requireValue(googleSubject, "googleSubject");
         this.email = requireValue(email, "email");
@@ -83,6 +86,10 @@ public class User {
 
     public void demoteToUser() {
         role = UserRole.USER;
+    }
+
+    public void markBootstrapAdminGranted() {
+        bootstrapAdminGranted = true;
     }
 
     public boolean isActive() {

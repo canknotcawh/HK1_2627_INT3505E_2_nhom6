@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import apiClient from '../lib/api-client';
 import { clearTokens, getAccessToken, setTokens } from '../lib/auth-tokens';
 
-export type Role = 'guest' | 'user';
+export type Role = 'guest' | 'user' | 'admin' | 'unknown';
 
 export type Book = {
   id: string;
@@ -75,9 +75,14 @@ type CurrentUser = {
   role: 'USER' | 'ADMIN';
 };
 
+function roleFromUser(currentUser: CurrentUser): Role {
+  return currentUser.role === 'ADMIN' ? 'admin' : 'user';
+}
+
 interface AuthContextType {
   role: Role;
   initialized: boolean;
+  roleError: string | null;
   username?: string;
   user?: CurrentUser;
 
@@ -95,6 +100,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('guest');
+  const [roleError, setRoleError] = useState<string | null>(null);
   const [user, setUser] = useState<CurrentUser | undefined>(undefined);
   const [initialized, setInitialized] = useState(false);
 
@@ -112,13 +118,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const response = await apiClient.get<CurrentUser>('/api/v1/users/me');
         if (cancelled) return;
+        setRoleError(null);
         setUser(response.data);
-        setRole('user');
+        setRole(roleFromUser(response.data));
       } catch (error) {
         console.error('Failed to restore session:', error);
-        if (!cancelled) {
-          clearTokens();
+        if (cancelled) return;
+        if (!getAccessToken()) {
+          // The api-client interceptor already tried a refresh and cleared the
+          // tokens, so this session is genuinely gone.
           setRole('guest');
+        } else {
+          // Tokens are still present; the backend just couldn't be reached.
+          const message = error instanceof Error ? error.message : undefined;
+          setRoleError(message ? `Không kết nối được API. ${message}` : 'Không kết nối được API.');
+          setRole('unknown');
         }
       } finally {
         if (!cancelled) setInitialized(true);
@@ -139,13 +153,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { idToken: googleIdToken }
     );
     setTokens(response.data.accessToken, response.data.refreshToken);
+    setRoleError(null);
     setUser(response.data.user);
-    setRole('user');
+    setRole(roleFromUser(response.data.user));
   }, []);
 
   const logout = useCallback(() => {
     clearTokens();
     setUser(undefined);
+    setRoleError(null);
     setRole('guest');
   }, []);
 
@@ -200,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const username = user?.fullName ?? user?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, username, user, books, loans, loginWithGoogleToken, logout, borrowBook, requestReturn }}>
+    <AuthContext.Provider value={{ role, initialized, roleError, username, user, books, loans, loginWithGoogleToken, logout, borrowBook, requestReturn }}>
       {children}
     </AuthContext.Provider>
   );
