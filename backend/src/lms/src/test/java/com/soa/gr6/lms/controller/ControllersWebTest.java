@@ -28,14 +28,16 @@ import org.springframework.security.web.method.annotation.AuthenticationPrincipa
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import com.soa.gr6.lms.controller.PublicController.PublicBookController;
+import com.soa.gr6.lms.controller.publicapi.PublicBookController;
 import com.soa.gr6.lms.controller.admin.AdminBookController;
 import com.soa.gr6.lms.controller.admin.AdminLoanController;
 import com.soa.gr6.lms.controller.admin.AdminUserController;
+import com.soa.gr6.lms.controller.identity.AuthController;
 import com.soa.gr6.lms.controller.identity.UserController;
 import com.soa.gr6.lms.domain.enums.UserRole;
 import com.soa.gr6.lms.domain.enums.UserStatus;
 import com.soa.gr6.lms.dto.AdminUserResponse;
+import com.soa.gr6.lms.dto.AuthResponse;
 import com.soa.gr6.lms.dto.BookResponse;
 import com.soa.gr6.lms.dto.LoanResponse;
 import com.soa.gr6.lms.dto.UserResponse;
@@ -49,6 +51,7 @@ import com.soa.gr6.lms.security.AuthenticatedUser;
 import com.soa.gr6.lms.service.AdminUserService;
 import com.soa.gr6.lms.service.BookService;
 import com.soa.gr6.lms.service.LoanService;
+import com.soa.gr6.lms.service.identity.AuthService;
 import com.soa.gr6.lms.service.identity.UserService;
 
 class ControllersWebTest {
@@ -56,6 +59,7 @@ class ControllersWebTest {
     private final LoanService loanService = mock(LoanService.class);
     private final AdminUserService adminUserService = mock(AdminUserService.class);
     private final UserService userService = mock(UserService.class);
+    private final AuthService authService = mock(AuthService.class);
 
     private final UUID userId = UUID.randomUUID();
     private final UUID bookId = UUID.randomUUID();
@@ -72,7 +76,8 @@ class ControllersWebTest {
                         new AdminBookController(bookService),
                         new AdminLoanController(loanService),
                         new AdminUserController(adminUserService),
-                        new UserController(userService, loanService))
+                        new UserController(userService, loanService),
+                        new AuthController(authService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(
                         new PageableHandlerMethodArgumentResolver(), new AuthenticationPrincipalArgumentResolver())
@@ -95,8 +100,8 @@ class ControllersWebTest {
     }
 
     private LoanResponse loan(UUID owner) {
-        return new LoanResponse(loanId, bookId, "Clean Code", owner, Instant.now(), Instant.now().plusSeconds(60),
-                null, "ACTIVE", 0);
+        return new LoanResponse(loanId, bookId, "Clean Code", owner, "a@b.com", "A", Instant.now(),
+                Instant.now().plusSeconds(60), null, "ACTIVE", 0);
     }
 
     private AdminUserResponse adminUser() {
@@ -181,16 +186,22 @@ class ControllersWebTest {
     void adminLoanOperations() throws Exception {
         when(loanService.getLoan(loanId)).thenReturn(loan(userId));
         when(loanService.listUserLoans(eq(userId), any(), any())).thenReturn(paged(loan(userId)));
+        when(loanService.listLoans(any(), any())).thenReturn(paged(loan(userId)));
         when(loanService.returnBook(loanId)).thenReturn(loan(userId));
+        when(loanService.rejectReturnRequest(loanId)).thenReturn(loan(userId));
         when(loanService.markLost(loanId)).thenReturn(loan(userId));
         when(loanService.recoverLostLoan(loanId)).thenReturn(loan(userId));
         when(loanService.markOverdueLoans()).thenReturn(2);
 
+        mvc.perform(get("/api/v1/admin/loans").param("status", "PENDING_RETURN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].bookTitle").value("Clean Code"));
         mvc.perform(get("/api/v1/admin/loans/{id}", loanId)).andExpect(status().isOk());
         mvc.perform(get("/api/v1/admin/users/{id}/loans", userId).param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].bookTitle").value("Clean Code"));
         mvc.perform(post("/api/v1/admin/loans/{id}/return", loanId)).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/admin/loans/{id}/reject-return", loanId)).andExpect(status().isOk());
         mvc.perform(post("/api/v1/admin/loans/{id}/lost", loanId)).andExpect(status().isOk());
         mvc.perform(post("/api/v1/admin/loans/{id}/recover", loanId)).andExpect(status().isOk());
         mvc.perform(post("/api/v1/admin/loans/mark-overdue"))
@@ -235,7 +246,7 @@ class ControllersWebTest {
         when(loanService.listUserLoans(eq(userId), any(), any())).thenReturn(paged(loan(userId)));
         when(loanService.borrowBook(userId, bookId)).thenReturn(loan(userId));
         when(loanService.getLoan(loanId)).thenReturn(loan(userId));
-        when(loanService.returnBook(loanId)).thenReturn(loan(userId));
+        when(loanService.requestReturn(loanId)).thenReturn(loan(userId));
         when(loanService.renewLoan(loanId)).thenReturn(loan(userId));
 
         mvc.perform(get("/api/v1/users/me/loans")).andExpect(status().isOk());
@@ -276,5 +287,43 @@ class ControllersWebTest {
 
         org.mockito.Mockito.doThrow(new LoanNotFoundException(loanId)).when(loanService).getLoan(loanId);
         mvc.perform(post("/api/v1/users/me/loans/{id}/return", loanId)).andExpect(status().isNotFound());
+    }
+
+    // ---- password auth ----
+
+    @Test
+    void registerAndLoginWithPassword() throws Exception {
+        AuthResponse authResponse = new AuthResponse("access", "refresh",
+                new UserResponse(userId, "A", "a@b.com", UserRole.USER));
+        when(authService.register("a@b.com", "secret123", "A")).thenReturn(authResponse);
+        when(authService.loginWithPassword("a@b.com", "secret123")).thenReturn(authResponse);
+
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"secret123\",\"fullName\":\"A\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access"));
+
+        mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"secret123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access"));
+    }
+
+    @Test
+    void registerRejectsShortPassword() throws Exception {
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"short\",\"fullName\":\"A\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void duplicateEmailRegistrationIsConflict() throws Exception {
+        when(authService.register(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new DuplicateResourceException("EMAIL_ALREADY_REGISTERED", "dup"));
+
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"secret123\",\"fullName\":\"A\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"));
     }
 }
