@@ -1,10 +1,45 @@
-import { Navigate } from "react-router-dom"
-import { Button } from "../components/ui/button"
+import { useEffect, useRef, useState } from "react"
+import { Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
-import { Library, Mail, Loader2 } from "lucide-react"
+import { Library, Loader2 } from "lucide-react"
+import { loadGoogleIdentityScript } from "../lib/google-identity"
 
 export default function Login() {
-    const { login, forgotPassword, role, initialized } = useAuth();
+    const { loginWithGoogleToken, role, initialized } = useAuth();
+    const from = (useLocation().state as { from?: { pathname: string; search?: string } } | null)?.from;
+    const buttonRef = useRef<HTMLDivElement>(null);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (!initialized || role === 'user') return;
+
+        let cancelled = false;
+
+        loadGoogleIdentityScript()
+            .then(() => {
+                if (cancelled || !buttonRef.current || !window.google) return;
+
+                window.google.accounts.id.initialize({
+                    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                    callback: (response) => {
+                        loginWithGoogleToken(response.credential).catch(() => {
+                            setError("Đăng nhập bằng Google không thành công. Vui lòng thử lại.");
+                        });
+                    },
+                });
+                window.google.accounts.id.renderButton(buttonRef.current, {
+                    theme: "outline",
+                    size: "large",
+                    width: 300,
+                    text: "signin_with",
+                });
+            })
+            .catch(() => setError("Không thể tải Google Sign-In. Vui lòng thử lại."));
+
+        return () => {
+            cancelled = true;
+        };
+    }, [initialized, role, loginWithGoogleToken]);
 
     // Show loading spinner while checking authentication status
     if (!initialized) {
@@ -23,10 +58,9 @@ export default function Login() {
 
     // Redirect to user dashboard if already logged in
     if (role === 'user') {
-        return <Navigate to="/user" replace />;
+        return <Navigate to={from ? `${from.pathname}${from.search ?? ""}` : "/user"} replace />;
     }
 
-    // Redirect to admin dashboard if already logged in
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="p-8 bg-white shadow-lg rounded-2xl max-w-sm w-full flex flex-col items-center border border-gray-100">
@@ -46,44 +80,17 @@ export default function Login() {
           và quản lý khoản mượn.
         </p>
 
-        {/* Email login */}
-        <Button
-          variant="brand"
-          className="w-full py-2.5 rounded-xl text-base"
-          onClick={() => login()}
-        >
-          <Mail className="w-4 h-4 mr-2" />
-          Đăng nhập bằng email
-        </Button>
+        {/* Google Sign-In */}
+        <div ref={buttonRef} />
 
-        <button
-          type="button"
-          onClick={() => void forgotPassword()}
-          className="mt-3 text-sm font-medium text-[#e60023] hover:underline"
-        >
-          Quên mật khẩu?
-        </button>
-
-        <Button
-          variant="outline"
-          className="w-full py-2.5 rounded-xl text-base mt-3"
-          onClick={() => login("facebook")}
-        >
-          <span className="mr-2 text-lg font-bold text-[#1877F2]">f</span>
-          Tiếp tục với Facebook
-        </Button>
-
-        <p className="text-xs text-gray-400 mt-6 text-center">
-          Đăng nhập email và mật khẩu qua Keycloak. Facebook cần được cấu hình
-          trong Keycloak trước khi sử dụng.
-        </p>
+        {error && <p className="mt-3 text-sm text-red-600" role="alert">{error}</p>}
 
         {/* Back */}
         <button
           onClick={() => {
             window.location.href = "/";
           }}
-          className="mt-4 text-sm text-gray-500 hover:text-[#e60023] transition-colors"
+          className="mt-6 text-sm text-gray-500 hover:text-[#e60023] transition-colors"
         >
           ← Quay lại trang chủ
         </button>

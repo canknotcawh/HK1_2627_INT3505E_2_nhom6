@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,22 +26,23 @@ import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.service.identity.UserService;
 
 @ExtendWith(MockitoExtension.class)
-class UserJwtAuthenticationConverterTest {
+class AppJwtAuthenticationConverterTest {
 
     @Mock
     private UserService userService;
 
-    private UserJwtAuthenticationConverter converter;
-    private final Jwt jwt = Jwt.withTokenValue("test-token").header("alg", "none").subject("sub-1").build();
+    private AppJwtAuthenticationConverter converter;
+    private final UUID userId = UUID.randomUUID();
+    private final Jwt jwt = Jwt.withTokenValue("test-token").header("alg", "none").subject(userId.toString()).build();
 
     @BeforeEach
     void setUp() {
-        converter = new UserJwtAuthenticationConverter(userService);
+        converter = new AppJwtAuthenticationConverter(userService);
     }
 
     @Test
     void activeUserGetsAuthorityFromDatabaseRole() {
-        when(userService.provision(jwt)).thenReturn(new User("sub-1", "an@example.com", "Nguyen An"));
+        when(userService.getById(userId)).thenReturn(new User("sub-1", "an@example.com", "Nguyen An"));
 
         UsernamePasswordAuthenticationToken token = converter.convert(jwt);
 
@@ -55,7 +57,7 @@ class UserJwtAuthenticationConverterTest {
     void adminGetsAdminAuthority() {
         User admin = new User("sub-1", "an@example.com", "Nguyen An");
         admin.promoteToAdmin();
-        when(userService.provision(jwt)).thenReturn(admin);
+        when(userService.getById(userId)).thenReturn(admin);
 
         assertEquals(List.of("ROLE_ADMIN"), authorities(converter.convert(jwt)));
     }
@@ -64,16 +66,23 @@ class UserJwtAuthenticationConverterTest {
     void suspendedUserIsRejected() {
         User suspended = new User("sub-1", "an@example.com", "Nguyen An");
         suspended.suspend();
-        when(userService.provision(jwt)).thenReturn(suspended);
+        when(userService.getById(userId)).thenReturn(suspended);
 
         assertThrows(DisabledException.class, () -> converter.convert(jwt));
     }
 
     @Test
-    void tokenMissingRequiredClaimIsRejectedAsInvalidToken() {
-        when(userService.provision(jwt)).thenThrow(new ApiException(ErrorCode.UNAUTHORIZED));
+    void tokenReferencingUnknownUserIsRejectedAsInvalidToken() {
+        when(userService.getById(userId)).thenThrow(new ApiException(ErrorCode.UNAUTHORIZED));
 
         assertThrows(InvalidBearerTokenException.class, () -> converter.convert(jwt));
+    }
+
+    @Test
+    void tokenWithNonUuidSubjectIsRejectedAsInvalidToken() {
+        Jwt badSubject = Jwt.withTokenValue("t").header("alg", "none").subject("not-a-uuid").build();
+
+        assertThrows(InvalidBearerTokenException.class, () -> converter.convert(badSubject));
     }
 
     private List<String> authorities(UsernamePasswordAuthenticationToken token) {

@@ -12,5 +12,5 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
 
     boolean existsByEmail(String email);
     
-    Optional<User> findByKeycloakSubject(String keycloakSubject);
+    Optional<User> findByGoogleSubject(String googleSubject);
 }

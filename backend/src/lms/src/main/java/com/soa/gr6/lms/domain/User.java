@@ -30,8 +30,8 @@ public class User {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "keycloak_subject", length = 64, nullable = false, unique = true)
-    private String keycloakSubject;
+    @Column(name = "google_subject", length = 64, nullable = false, unique = true)
+    private String googleSubject;
 
     @Column(name = "email", length = 255, nullable = false, unique = true)
     private String email;
@@ -53,8 +53,8 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public User(String keycloakSubject, String email, String fullName) {
-        this.keycloakSubject = requireValue(keycloakSubject, "keycloakSubject");
+    public User(String googleSubject, String email, String fullName) {
+        this.googleSubject = requireValue(googleSubject, "googleSubject");
         this.email = requireValue(email, "email");
         this.fullName = requireValue(fullName, "fullName");
         this.createdAt = Instant.now();

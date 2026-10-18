@@ -3,14 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
-import keycloak from "../../lib/keycloak";
 
 export default function NavBar() {
     const navigate = useNavigate();
     const { role, logout } = useAuth();
     const [searchValue, setSearchValue] = useState('');
-    const [avatarFailed, setAvatarFailed] = useState(false);
-    const avatarUrl = typeof keycloak.tokenParsed?.picture === "string" ? keycloak.tokenParsed.picture : "";
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -71,16 +68,7 @@ export default function NavBar() {
                                     aria-label="Mở hồ sơ cá nhân"
                                     title="Hồ sơ cá nhân"
                                 >
-                                    {avatarUrl && !avatarFailed ? (
-                                        <img
-                                            src={avatarUrl}
-                                            alt=""
-                                            className="h-full w-full rounded-full object-cover"
-                                            onError={() => setAvatarFailed(true)}
-                                        />
-                                    ) : (
-                                        <UserCircle className="h-7 w-7" />
-                                    )}
+                                    <UserCircle className="h-7 w-7" />
                                 </button>
                                 <Button
                                     variant="ghost"

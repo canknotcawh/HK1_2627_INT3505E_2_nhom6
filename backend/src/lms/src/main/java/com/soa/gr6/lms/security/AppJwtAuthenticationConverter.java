@@ -1,9 +1,9 @@
 package com.soa.gr6.lms.security;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -15,19 +15,26 @@ import com.soa.gr6.lms.domain.User;
 import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.service.identity.UserService;
 
-public class UserJwtAuthenticationConverter implements Converter<Jwt, UsernamePasswordAuthenticationToken> {
+public class AppJwtAuthenticationConverter implements Converter<Jwt, UsernamePasswordAuthenticationToken> {
 
     private final UserService userService;
 
-    public UserJwtAuthenticationConverter(UserService userService) {
+    public AppJwtAuthenticationConverter(UserService userService) {
         this.userService = userService;
     }
 
     @Override
     public UsernamePasswordAuthenticationToken convert(Jwt jwt) {
+        UUID userId;
+        try {
+            userId = UUID.fromString(jwt.getSubject());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidBearerTokenException("invalid subject");
+        }
+
         User user;
         try {
-            user = userService.provision(jwt);
+            user = userService.getById(userId);
         } catch (ApiException e) {
             throw new InvalidBearerTokenException(e.getMessage());
         }
