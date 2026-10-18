@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: lms
       POSTGRES_PASSWORD: lms
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.0
