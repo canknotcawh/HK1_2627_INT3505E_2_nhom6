@@ -14,9 +14,6 @@ spring:
       ddl-auto: update
   flyway:
     enabled: true
-    # Existing local databases may have been created by Hibernate before
-    # Flyway was enabled. Baseline those non-empty schemas at V1, then apply
-    # the remaining migrations without recreating their tables or data.
     baseline-on-migrate: true
   data:
     redis:
