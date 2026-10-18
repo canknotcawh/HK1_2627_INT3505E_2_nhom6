@@ -8,6 +8,7 @@ import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
 import Books from "@/pages/Books";
 import BookDetail from "@/pages/BookDetail";
+import Profile from "@/pages/Profile";
 import { useAuth } from "@/contexts/AuthContext";
 
 function HomeRouter() {
@@ -33,7 +34,8 @@ const router = createBrowserRouter([
         element: <ProtecedRoute />,
         children: [
             { path: "", element: <Dashboard /> },
-            { path: "history", element: <History /> }
+            { path: "history", element: <History /> },
+            { path: "profile", element: <Profile /> }
         ]
     }
 ]);
