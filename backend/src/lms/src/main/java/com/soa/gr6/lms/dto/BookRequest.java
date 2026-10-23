@@ -15,5 +15,13 @@ public record BookRequest(
         @Size(max = 1000) String coverImageUrl,
         @Size(max = 1000) String previewUrl,
         @Size(max = 1000) String readerUrl,
-        @Min(0) int totalCopies) {
+        @Min(0) int totalCopies,
+        @Size(min = 12, max = 12) String ggId) {
+
+    public BookRequest(String isbn13, String title, String subtitle, String description,
+            String language, Integer publishedYear, Integer pageCount, String coverImageUrl,
+            String previewUrl, String readerUrl, int totalCopies) {
+        this(isbn13, title, subtitle, description, language, publishedYear, pageCount,
+                coverImageUrl, previewUrl, readerUrl, totalCopies, null);
+    }
 }

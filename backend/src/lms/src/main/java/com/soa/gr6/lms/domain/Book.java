@@ -45,6 +45,9 @@ public class Book {
     @Column(name = "subtitle", length = 500)
     private String subtitle;
 
+    @Column(name = "gg_id", length = 12)
+    private String ggId;
+
     @Column(name = "description", columnDefinition = "text")
     private String description;
 
@@ -139,17 +142,8 @@ public class Book {
             Integer publishedYear,
             Integer pageCount,
             String coverImageUrl) {
-        updateMetadata(
-                isbn13,
-                title,
-                subtitle,
-                description,
-                language,
-                publishedYear,
-                pageCount,
-                coverImageUrl,
-                null,
-                null);
+        updateMetadata(isbn13, title, subtitle, description, language, publishedYear,
+                pageCount, coverImageUrl, null, null);
     }
 
     public void updateMetadata(
@@ -178,6 +172,17 @@ public class Book {
         this.coverImageUrl = coverImageUrl;
         this.previewUrl = previewUrl;
         this.readerUrl = readerUrl;
+    }
+
+    public void updateGgId(String ggId) {
+        this.ggId = requireValidGgId(ggId);
+    }
+
+    private static String requireValidGgId(String ggId) {
+        if (ggId != null && ggId.length() != 12) {
+            throw new InvalidDomainStateException("GG_ID_INVALID", "ggId must be exactly 12 characters");
+        }
+        return ggId;
     }
 
     public void replaceAuthors(Set<Author> newAuthors) {
