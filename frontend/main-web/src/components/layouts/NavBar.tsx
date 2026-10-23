@@ -175,8 +175,18 @@ export default function NavBar() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                    {role === 'user' ? (
+                    {role === 'user' || role === 'admin' ? (
                         <div className="flex items-center gap-1 md:gap-2">
+                            {role === 'admin' && (
+                                <a
+                                    href={import.meta.env.VITE_ADMIN_WEB_URL || "http://localhost:5175"}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hidden md:inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
+                                >
+                                    Cổng Admin ↗
+                                </a>
+                            )}
                             <Button variant="ghost" size="sm" onClick={() => navigate("/user")} className="flex items-center gap-1.5 text-gray-700">
                                 <LayoutDashboard className="w-4 h-4" />
                                 <span className="hidden md:inline">Tổng quan</span>

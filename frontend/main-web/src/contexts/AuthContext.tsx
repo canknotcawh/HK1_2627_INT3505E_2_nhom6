@@ -17,6 +17,8 @@ function roleFromUser(currentUser: CurrentUser): Role {
   return currentUser.role === 'ADMIN' ? 'admin' : 'user';
 }
 
+export type AuthPayload = { accessToken: string; refreshToken: string; user: CurrentUser };
+
 interface AuthContextType {
   role: Role;
   initialized: boolean;
@@ -24,13 +26,11 @@ interface AuthContextType {
   username?: string;
   user?: CurrentUser;
 
-  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
-  loginWithPassword: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
+  loginWithGoogleToken: (googleIdToken: string) => Promise<AuthPayload>;
+  loginWithPassword: (email: string, password: string) => Promise<AuthPayload>;
+  register: (email: string, password: string, fullName: string) => Promise<AuthPayload>;
   logout: () => void;
 }
-
-type AuthPayload = { accessToken: string; refreshToken: string; user: CurrentUser };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -90,19 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Login with the Google ID token obtained from Google Identity Services
-  const loginWithGoogleToken = useCallback(async (googleIdToken: string) => {
+  const loginWithGoogleToken = useCallback(async (googleIdToken: string): Promise<AuthPayload> => {
     const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/google', { idToken: googleIdToken });
     applyAuthPayload(response.data);
+    return response.data;
   }, [applyAuthPayload]);
 
-  const loginWithPassword = useCallback(async (email: string, password: string) => {
+  const loginWithPassword = useCallback(async (email: string, password: string): Promise<AuthPayload> => {
     const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/login', { email, password });
     applyAuthPayload(response.data);
+    return response.data;
   }, [applyAuthPayload]);
 
-  const register = useCallback(async (email: string, password: string, fullName: string) => {
+  const register = useCallback(async (email: string, password: string, fullName: string): Promise<AuthPayload> => {
     const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/register', { email, password, fullName });
     applyAuthPayload(response.data);
+    return response.data;
   }, [applyAuthPayload]);
 
   const logout = useCallback(() => {
