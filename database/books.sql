@@ -8,17 +8,49 @@ CREATE TABLE IF NOT EXISTS public.book (
     id uuid PRIMARY KEY,
     isbn13 varchar(13) UNIQUE,
     title varchar(500) NOT NULL,
+    subtitle varchar(500),
     gg_id varchar(12),
     description text,
     language varchar(10),
     published_year integer,
     page_count integer,
     cover_image_url varchar(1000),
+    preview_url varchar(1000),
+    reader_url varchar(1000),
     total_copies integer NOT NULL,
     available_copies integer NOT NULL,
+    rating_avg numeric(3,2) NOT NULL DEFAULT 0,
+    rating_count integer NOT NULL DEFAULT 0,
+    borrow_count integer NOT NULL DEFAULT 0,
     status varchar(20) NOT NULL CHECK (status IN ('ACTIVE', 'RETIRED')),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL
+);
+ALTER TABLE public.book
+    ADD COLUMN IF NOT EXISTS subtitle varchar(500),
+    ADD COLUMN IF NOT EXISTS gg_id varchar(12),
+    ADD COLUMN IF NOT EXISTS preview_url varchar(1000),
+    ADD COLUMN IF NOT EXISTS reader_url varchar(1000),
+    ADD COLUMN IF NOT EXISTS rating_avg numeric(3,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS rating_count integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS borrow_count integer NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS public.author (
+    id uuid PRIMARY KEY,
+    name varchar(255) NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS public.category (
+    id uuid PRIMARY KEY,
+    name varchar(100) NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS public.book_author (
+    book_id uuid NOT NULL REFERENCES public.book(id),
+    author_id uuid NOT NULL REFERENCES public.author(id),
+    PRIMARY KEY (book_id, author_id)
+);
+CREATE TABLE IF NOT EXISTS public.book_category (
+    book_id uuid NOT NULL REFERENCES public.book(id),
+    category_id uuid NOT NULL REFERENCES public.category(id),
+    PRIMARY KEY (book_id, category_id)
 );
 CREATE TABLE IF NOT EXISTS public.book_source (
     source_row_id text PRIMARY KEY,
@@ -12249,5 +12281,31 @@ INSERT INTO public.book (id, isbn13, title, gg_id, description, language, publis
 INSERT INTO public.book_source (book_id, source_row_id, row_status, authors, categories, total_copies_formula, available_copies_formula, cached_total_copies, cached_available_copies) SELECT id, '6808', 'accepted', 'Georg Wilhelm Friedrich Hegel', 'History', '=RANDBETWEEN(0,20)', '=RANDBETWEEN(0,20)', 3, 10 FROM public.book WHERE isbn13 = '9789027712059' ON CONFLICT DO NOTHING;
 INSERT INTO public.book (id, isbn13, title, gg_id, description, language, published_year, page_count, cover_image_url, total_copies, available_copies, status, created_at, updated_at) VALUES ('1294d3ac-6a28-50f1-8bf4-f4124c511150', '9789042003408', '''I''m Telling You Stories''', '2lVyRH0TWugC', 'This is a jubilant and rewarding collection of Winterson scholarship--a superb group of essays from a host of fine authors.', 'en', 1998, 136, 'http://books.google.com/books/content?id=2lVyRH0TWugC&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api', 8, 8, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
 INSERT INTO public.book_source (book_id, source_row_id, row_status, authors, categories, total_copies_formula, available_copies_formula, cached_total_copies, cached_available_copies) SELECT id, '6809', 'accepted', 'Helena Grice; Tim Woods', 'Literary Criticism', '=RANDBETWEEN(0,20)', '=RANDBETWEEN(0,20)', 0, 20 FROM public.book WHERE isbn13 = '9789042003408' ON CONFLICT DO NOTHING;
+INSERT INTO public.author (id, name)
+SELECT gen_random_uuid(), name FROM (
+    SELECT DISTINCT btrim(part) AS name
+    FROM public.book_source s
+    CROSS JOIN LATERAL regexp_split_to_table(coalesce(s.authors, ''), ';') AS part
+) names WHERE name <> ''
+ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.category (id, name)
+SELECT gen_random_uuid(), name FROM (
+    SELECT DISTINCT btrim(part) AS name
+    FROM public.book_source s
+    CROSS JOIN LATERAL regexp_split_to_table(coalesce(s.categories, ''), ';') AS part
+) names WHERE name <> ''
+ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.book_author (book_id, author_id)
+SELECT DISTINCT s.book_id, a.id
+FROM public.book_source s
+CROSS JOIN LATERAL regexp_split_to_table(coalesce(s.authors, ''), ';') AS part
+JOIN public.author a ON a.name = btrim(part)
+ON CONFLICT DO NOTHING;
+INSERT INTO public.book_category (book_id, category_id)
+SELECT DISTINCT s.book_id, c.id
+FROM public.book_source s
+CROSS JOIN LATERAL regexp_split_to_table(coalesce(s.categories, ''), ';') AS part
+JOIN public.category c ON c.name = btrim(part)
+ON CONFLICT DO NOTHING;
 COMMIT;
 SELECT count(*) AS seeded_book_rows FROM public.book_source;

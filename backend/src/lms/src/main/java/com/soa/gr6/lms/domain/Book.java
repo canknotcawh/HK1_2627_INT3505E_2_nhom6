@@ -1,5 +1,8 @@
 package com.soa.gr6.lms.domain;
 
+import com.soa.gr6.lms.domain.enums.BookStatus;
+import com.soa.gr6.lms.exception.BookUnavailableException;
+import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,17 +10,20 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import com.soa.gr6.lms.domain.enums.BookStatus;
-import com.soa.gr6.lms.exception.BookUnavailableException;
-import com.soa.gr6.lms.exception.InvalidDomainStateException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.Year;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -35,6 +41,9 @@ public class Book {
 
     @Column(name = "title", length = 500, nullable = false)
     private String title;
+
+    @Column(name = "subtitle", length = 500)
+    private String subtitle;
 
     @Column(name = "gg_id", length = 12)
     private String ggId;
@@ -54,11 +63,40 @@ public class Book {
     @Column(name = "cover_image_url", length = 1000)
     private String coverImageUrl;
 
+    @Column(name = "preview_url", length = 1000)
+    private String previewUrl;
+
+    @Column(name = "reader_url", length = 1000)
+    private String readerUrl;
+
     @Column(name = "total_copies", nullable = false)
     private int totalCopies;
 
     @Column(name = "available_copies", nullable = false)
     private int availableCopies;
+
+    @Column(name = "rating_avg", precision = 3, scale = 2, nullable = false)
+    private BigDecimal ratingAvg = BigDecimal.ZERO;
+
+    @Column(name = "rating_count", nullable = false)
+    private int ratingCount;
+
+    @Column(name = "borrow_count", nullable = false)
+    private int borrowCount;
+
+    @ManyToMany
+    @JoinTable(
+            name = "book_author",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "author_id"))
+    private Set<Author> authors = new LinkedHashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "book_category",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id"))
+    private Set<Category> categories = new LinkedHashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
@@ -98,12 +136,27 @@ public class Book {
     public void updateMetadata(
             String isbn13,
             String title,
-            String ggId,
+            String subtitle,
             String description,
             String language,
             Integer publishedYear,
             Integer pageCount,
             String coverImageUrl) {
+        updateMetadata(isbn13, title, subtitle, description, language, publishedYear,
+                pageCount, coverImageUrl, null, null);
+    }
+
+    public void updateMetadata(
+            String isbn13,
+            String title,
+            String subtitle,
+            String description,
+            String language,
+            Integer publishedYear,
+            Integer pageCount,
+            String coverImageUrl,
+            String previewUrl,
+            String readerUrl) {
         String validTitle = requireTitle(title);
         String validIsbn13 = requireValidIsbn13(isbn13);
         String validLanguage = requireValidLanguage(language);
@@ -111,12 +164,18 @@ public class Book {
         Integer validPageCount = requireNonNegative(pageCount, "pageCount");
         this.isbn13 = validIsbn13;
         this.title = validTitle;
-        this.ggId = requireValidGgId(ggId);
+        this.subtitle = subtitle;
         this.description = description;
         this.language = validLanguage;
         this.publishedYear = validPublishedYear;
         this.pageCount = validPageCount;
         this.coverImageUrl = coverImageUrl;
+        this.previewUrl = previewUrl;
+        this.readerUrl = readerUrl;
+    }
+
+    public void updateGgId(String ggId) {
+        this.ggId = requireValidGgId(ggId);
     }
 
     private static String requireValidGgId(String ggId) {
@@ -124,6 +183,25 @@ public class Book {
             throw new InvalidDomainStateException("GG_ID_INVALID", "ggId must be exactly 12 characters");
         }
         return ggId;
+    }
+
+    public void replaceAuthors(Set<Author> newAuthors) {
+        authors.clear();
+        authors.addAll(newAuthors);
+    }
+
+    public void replaceCategories(Set<Category> newCategories) {
+        categories.clear();
+        categories.addAll(newCategories);
+    }
+
+    public void updateRating(BigDecimal average, int count) {
+        if (average == null || average.signum() < 0 || average.compareTo(BigDecimal.valueOf(5)) > 0 || count < 0) {
+            throw new InvalidDomainStateException(
+                    "RATING_INVALID", "rating average must be between 0 and 5 and count must not be negative");
+        }
+        this.ratingAvg = average;
+        this.ratingCount = count;
     }
 
     public void updateCopyCounts(int totalCopies, int availableCopies) {
@@ -143,6 +221,7 @@ public class Book {
             throw BookUnavailableException.noCopies();
         }
         availableCopies--;
+        borrowCount++;
     }
 
     public void returnCopy() {

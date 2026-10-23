@@ -28,16 +28,20 @@ class BookDomainTest {
     @Test
     void metadataIsApplied() {
         Book book = new Book("old");
-        book.updateMetadata("9780132350884", "Clean Code", "gg1234567890", "desc", "en", 2008, 464, "c");
+        book.updateMetadata("9780132350884", "Clean Code", "subtitle", "desc", "en", 2008, 464, "c");
+        book.updateGgId("gg1234567890");
         assertThat(book.getIsbn13()).isEqualTo("9780132350884");
         assertThat(book.getTitle()).isEqualTo("Clean Code");
+        assertThat(book.getSubtitle()).isEqualTo("subtitle");
         assertThat(book.getGgId()).isEqualTo("gg1234567890");
     }
 
     @Test
     void metadataCanBeCleared() {
         Book book = new Book("t");
+        book.updateGgId("gg1234567890");
         book.updateMetadata(null, "t2", null, null, null, null, null, null);
+        book.updateGgId(null);
         assertThat(book.getTitle()).isEqualTo("t2");
         assertThat(book.getIsbn13()).isNull();
         assertThat(book.getGgId()).isNull();
@@ -58,6 +62,7 @@ class BookDomainTest {
                 .hasMessageContaining("pageCount");
         assertThatThrownBy(() -> book.updateMetadata(null, " ", null, null, null, null, null, null))
                 .hasMessageContaining("title");
+        assertThatThrownBy(() -> book.updateGgId("short")).hasMessageContaining("12 characters");
     }
 
     @Test

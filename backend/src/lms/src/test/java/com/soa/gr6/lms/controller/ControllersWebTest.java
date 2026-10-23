@@ -96,7 +96,7 @@ class ControllersWebTest {
 
     private BookResponse book() {
         return new BookResponse(bookId, null, "Clean Code", null, null, "en", 2008, 464, null,
-                3, 3, "ACTIVE", Instant.now(), Instant.now());
+                null, null, 3, 3, "ACTIVE", Instant.now(), Instant.now());
     }
 
     private LoanResponse loan(UUID owner) {
