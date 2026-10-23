@@ -3,7 +3,9 @@ package com.soa.gr6.lms.service.imple;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -11,12 +13,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import com.soa.gr6.lms.domain.Book;
-import com.soa.gr6.lms.domain.enums.BookStatus;
 import com.soa.gr6.lms.dto.BookRequest;
 import com.soa.gr6.lms.exception.BookNotFoundException;
 import com.soa.gr6.lms.exception.DuplicateResourceException;
@@ -29,7 +32,8 @@ class BookServiceImplTest {
     private final Pageable page = PageRequest.of(0, 10);
 
     private static BookRequest request(String isbn, int copies) {
-        return new BookRequest(isbn, "Clean Code", null, null, "en", 2008, 464, null, copies);
+        return new BookRequest(isbn, "Clean Code", null, null, "en", 2008, 464,
+                null, null, null, copies, "gg1234567890");
     }
 
     private Book existing(UUID id) {
@@ -54,16 +58,39 @@ class BookServiceImplTest {
 
     @Test
     void searchWithoutKeywordListsAllActive() {
-        when(repository.findByStatus(BookStatus.ACTIVE, page)).thenReturn(new PageImpl<>(List.of(new Book("A"))));
+        when(repository.filterBooks(eq(null), eq(null), eq("title_asc"), any()))
+                .thenReturn(new PageImpl<>(List.of(new Book("A"))));
         assertThat(service.searchBooks("  ", page).getContent()).hasSize(1);
         assertThat(service.searchBooks(null, page).getContent()).hasSize(1);
     }
 
     @Test
     void searchWithKeywordTrimsIt() {
-        when(repository.findByStatusAndTitleContainingIgnoreCase(BookStatus.ACTIVE, "clean", page))
+        when(repository.searchBooks(eq("clean"), eq(null), eq(null), eq("relevance"), any()))
                 .thenReturn(new PageImpl<>(List.of(new Book("Clean Code"))));
         assertThat(service.searchBooks(" clean ", page).getContent()).hasSize(1);
+    }
+
+    @Test
+    void searchBooks_withAlphabeticalSort() {
+        Pageable pageableAsc = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "title"));
+        when(repository.filterBooks(any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+        service.searchBooks(null, null, null, pageableAsc);
+
+        ArgumentCaptor<String> sortCaptor = ArgumentCaptor.forClass(String.class);
+        verify(repository).filterBooks(eq(null), eq(null), sortCaptor.capture(), any());
+        assertThat(sortCaptor.getValue()).isEqualTo("title_asc");
+    }
+
+    @Test
+    void searchBooks_withRatingSort() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "ratingAvg"));
+        when(repository.filterBooks(any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+        service.searchBooks(null, null, null, pageable);
+
+        ArgumentCaptor<String> sortCaptor = ArgumentCaptor.forClass(String.class);
+        verify(repository).filterBooks(eq(null), eq(null), sortCaptor.capture(), any());
+        assertThat(sortCaptor.getValue()).isEqualTo("rating_desc");
     }
 
     @Test

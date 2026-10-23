@@ -1,6 +1,6 @@
 # Hướng Dẫn Nạp Dữ Liệu Sách
 
-File `books.sql` chứa 6.109 sách từ `books_clean_dedup_out_text.xlsx`. Script tạo bảng `book` trước khi nhập sách, nên PostgreSQL có thể nạp dữ liệu trước khi Spring Boot chạy. Bảng `book_source` tham chiếu đến `book` và lưu các trường gốc không có trong Entity: `source_row_id`, `row_status`, `authors`, `categories`.
+File `books.sql` chứa 6.109 sách từ `books_clean_dedup_out_text.xlsx`. Script tạo bảng `book` trước khi nhập sách, nên PostgreSQL có thể nạp dữ liệu trước khi Spring Boot chạy. Bảng `book_source` tham chiếu đến `book` và lưu các trường nguồn như `source_row_id`, `row_status`, `authors`, `categories`. Tác giả và thể loại còn được tách vào các bảng `author`, `category`, `book_author`, `book_category` để API hiển thị và tìm kiếm. File Excel không có dữ liệu đánh giá, nên sách mới bắt đầu với `rating_avg = 0` và `rating_count = 0`; rating của sách đã tồn tại không bị ghi đè.
 
 ## 1. Xử lý số lượng sách
 
