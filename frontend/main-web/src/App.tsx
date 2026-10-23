@@ -1,29 +1,12 @@
-import { useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import router from "./routes";
-import { AuthProvider } from "./contexts/AuthContext";
-import { useAuth } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 function MainWebGate() {
   const { role, initialized, roleError, logout } = useAuth();
 
-  useEffect(() => {
-    if (!initialized || role !== "admin") return;
-
-    const adminUrl = new URL(import.meta.env.VITE_ADMIN_WEB_URL || window.location.origin);
-    if (!import.meta.env.VITE_ADMIN_WEB_URL) adminUrl.port = "5175";
-    adminUrl.pathname = "/";
-    adminUrl.search = "";
-    adminUrl.hash = "";
-    window.location.replace(adminUrl.toString());
-  }, [initialized, role]);
-
   if (!initialized) {
     return <main className="flex min-h-screen items-center justify-center text-sm text-neutral-500">Đang kiểm tra quyền truy cập…</main>;
-  }
-
-  if (role === "admin") {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-neutral-500">Đang chuyển tới cổng quản trị…</main>;
   }
 
   if (role === "unknown") {

@@ -16,5 +16,5 @@ export default function ProtectedRoute() {
             </div>
         )
     }
-    return role === 'user' ? <UserLayout /> : <Navigate to="/login" replace state={{ from: location }} />
+    return (role === 'user' || role === 'admin') ? <UserLayout /> : <Navigate to="/login" replace state={{ from: location }} />
 }

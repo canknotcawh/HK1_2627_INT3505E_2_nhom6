@@ -24,6 +24,14 @@ export function Header({ title }: { title: string }) {
                     </div>
                 </div>
 
+                <a
+                    href={import.meta.env.VITE_MAIN_WEB_URL || "http://localhost:5173"}
+                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-muted text-neutral-700"
+                    title="Mở giao diện bạn đọc"
+                >
+                    ← Xem trang bạn đọc
+                </a>
+
                 <button
                     type="button"
                     onClick={() => void logout()}
