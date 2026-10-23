@@ -5,14 +5,12 @@ export type BookDto = {
   id: string;
   isbn13: string | null;
   title: string;
-  subtitle: string | null;
+  ggId: string | null;
   description: string | null;
   language: string | null;
   publishedYear: number | null;
   pageCount: number | null;
   coverImageUrl: string | null;
-  previewUrl: string | null;
-  readerUrl: string | null;
   totalCopies: number;
   availableCopies: number;
   status: "ACTIVE" | "RETIRED";

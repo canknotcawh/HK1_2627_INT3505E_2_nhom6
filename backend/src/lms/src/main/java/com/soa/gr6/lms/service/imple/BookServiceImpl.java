@@ -97,14 +97,12 @@ public class BookServiceImpl implements BookService {
         book.updateMetadata(
                 request.isbn13(),
                 request.title(),
-                request.subtitle(),
+                request.ggId(),
                 request.description(),
                 request.language(),
                 request.publishedYear(),
                 request.pageCount(),
-                request.coverImageUrl(),
-                request.previewUrl(),
-                request.readerUrl());
+                request.coverImageUrl());
     }
 
     private void requireIsbnAvailable(String isbn13, UUID ownBookId) {

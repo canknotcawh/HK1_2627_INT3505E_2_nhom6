@@ -29,7 +29,7 @@ class BookServiceImplTest {
     private final Pageable page = PageRequest.of(0, 10);
 
     private static BookRequest request(String isbn, int copies) {
-        return new BookRequest(isbn, "Clean Code", null, null, "en", 2008, 464, null, null, null, copies);
+        return new BookRequest(isbn, "Clean Code", null, null, "en", 2008, 464, null, copies);
     }
 
     private Book existing(UUID id) {

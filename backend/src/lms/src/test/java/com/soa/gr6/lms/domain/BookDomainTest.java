@@ -28,19 +28,19 @@ class BookDomainTest {
     @Test
     void metadataIsApplied() {
         Book book = new Book("old");
-        book.updateMetadata("9780132350884", "Clean Code", "sub", "desc", "en", 2008, 464, "c", "p", "r");
+        book.updateMetadata("9780132350884", "Clean Code", "gg1234567890", "desc", "en", 2008, 464, "c");
         assertThat(book.getIsbn13()).isEqualTo("9780132350884");
         assertThat(book.getTitle()).isEqualTo("Clean Code");
-        assertThat(book.getReaderUrl()).isEqualTo("r");
+        assertThat(book.getGgId()).isEqualTo("gg1234567890");
     }
 
     @Test
-    void shortMetadataOverloadClearsUrls() {
+    void metadataCanBeCleared() {
         Book book = new Book("t");
         book.updateMetadata(null, "t2", null, null, null, null, null, null);
         assertThat(book.getTitle()).isEqualTo("t2");
         assertThat(book.getIsbn13()).isNull();
-        assertThat(book.getPreviewUrl()).isNull();
+        assertThat(book.getGgId()).isNull();
     }
 
     @Test

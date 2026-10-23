@@ -19,14 +19,14 @@ class MapperAndDtoTest {
     @Test
     void bookMapperCopiesAllFields() {
         Book book = new Book("t");
-        book.updateMetadata("9780132350884", "Clean Code", "s", "d", "en", 2008, 464, "c", "p", "r");
+        book.updateMetadata("9780132350884", "Clean Code", "gg123", "d", "en", 2008, 464, "c");
         book.updateCopyCounts(3, 2);
         var dto = new BookMapper().toResponse(book);
         assertThat(dto.isbn13()).isEqualTo("9780132350884");
         assertThat(dto.totalCopies()).isEqualTo(3);
         assertThat(dto.availableCopies()).isEqualTo(2);
         assertThat(dto.status()).isEqualTo("ACTIVE");
-        assertThat(dto.previewUrl()).isEqualTo("p");
+        assertThat(dto.ggId()).isEqualTo("gg123");
     }
 
     @Test
