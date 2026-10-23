@@ -7,8 +7,10 @@ import { borrowBook as borrowBookApi } from "../lib/loans";
 import { useToast } from "../hooks/useToast";
 import Toast from "../components/Toast";
 import BorrowConfirmDialog from "../components/BorrowConfirmDialog";
+import BookCover from "../components/BookCover";
+import BookPreviewDialog, { preloadGoogleBooksApi } from "../components/BookPreviewDialog";
 import { Button } from "../components/ui/button";
-import { Library, ArrowLeft, Calendar, Hash, Globe, LoaderCircle } from "lucide-react";
+import { Library, ArrowLeft, Calendar, Hash, Globe, LoaderCircle, Eye } from "lucide-react";
 
 export default function BookDetail() {
     const { id } = useParams<{ id: string }>();
@@ -19,6 +21,7 @@ export default function BookDetail() {
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [confirmBook, setConfirmBook] = useState<BookDto | null>(null);
+    const [showPreview, setShowPreview] = useState(false);
     const { toast, showToast } = useToast();
 
     useEffect(() => {
@@ -92,14 +95,18 @@ export default function BookDetail() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                     <div className="w-full md:w-80 h-64 md:h-auto bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 shrink-0">
-                        <Library className="w-20 h-20 text-gray-200" />
+                        <BookCover
+                            imageUrl={book.coverImageUrl}
+                            title={book.title}
+                            imageClassName="h-full w-full p-4 object-contain"
+                            iconClassName="w-20 h-20 text-gray-200"
+                        />
                     </div>
 
                     <div className="flex-1 p-6 md:p-8">
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">{book.title}</h1>
-                                {book.subtitle && <p className="text-gray-500 text-lg">{book.subtitle}</p>}
                             </div>
                             <span className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium ${book.availableCopies > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                                 }`}>
@@ -139,7 +146,7 @@ export default function BookDetail() {
                             )}
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             {role === 'guest' ? (
                                 <Button variant="outline" onClick={() => navigate('/login')} className="w-full sm:w-auto">
                                     Đăng nhập để mượn sách
@@ -154,6 +161,16 @@ export default function BookDetail() {
                                     {book.availableCopies > 0 ? 'Mượn sách này' : 'Sách đã hết'}
                                 </Button>
                             )}
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowPreview(true)}
+                                onPointerEnter={preloadGoogleBooksApi}
+                                onFocus={preloadGoogleBooksApi}
+                                className="w-full sm:w-auto"
+                            >
+                                <Eye aria-hidden="true" />
+                                Preview
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -164,6 +181,13 @@ export default function BookDetail() {
                 onCancel={() => setConfirmBook(null)}
                 onConfirm={handleBorrow}
             />
+            {showPreview && (
+                <BookPreviewDialog
+                    title={book.title}
+                    ggId={book.ggId}
+                    onClose={() => setShowPreview(false)}
+                />
+            )}
         </div>
     );
 }

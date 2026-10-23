@@ -6,6 +6,7 @@ import { borrowBook as borrowBookApi } from "../lib/loans";
 import { useToast } from "../hooks/useToast";
 import Toast from "../components/Toast";
 import BorrowConfirmDialog from "../components/BorrowConfirmDialog";
+import BookCover from "../components/BookCover";
 import { Button } from "../components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -151,7 +152,6 @@ export default function Books() {
                                             >
                                                 {book.title}
                                             </h3>
-                                            {book.subtitle && <p className="text-gray-500 text-sm mt-1 line-clamp-1">{book.subtitle}</p>}
                                         </div>
                                         <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${
                                             book.availableCopies > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
@@ -164,7 +164,12 @@ export default function Books() {
                                         className="w-full h-36 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mb-4 flex items-center justify-center border border-gray-100 cursor-pointer hover:from-gray-100 hover:to-gray-150 transition-colors"
                                         onClick={() => navigate(`/books/${book.id}`)}
                                     >
-                                        <Library className="w-10 h-10 text-gray-300" />
+                                        <BookCover
+                                            imageUrl={book.coverImageUrl}
+                                            title={book.title}
+                                            imageClassName="h-full w-full rounded-lg object-contain"
+                                            iconClassName="w-10 h-10 text-gray-300"
+                                        />
                                     </div>
 
                                     <div className="flex flex-wrap gap-2 mb-4">

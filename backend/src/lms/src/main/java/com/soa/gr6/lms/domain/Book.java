@@ -36,8 +36,8 @@ public class Book {
     @Column(name = "title", length = 500, nullable = false)
     private String title;
 
-    @Column(name = "subtitle", length = 500)
-    private String subtitle;
+    @Column(name = "gg_id", length = 12)
+    private String ggId;
 
     @Column(name = "description", columnDefinition = "text")
     private String description;
@@ -53,12 +53,6 @@ public class Book {
 
     @Column(name = "cover_image_url", length = 1000)
     private String coverImageUrl;
-
-    @Column(name = "preview_url", length = 1000)
-    private String previewUrl;
-
-    @Column(name = "reader_url", length = 1000)
-    private String readerUrl;
 
     @Column(name = "total_copies", nullable = false)
     private int totalCopies;
@@ -104,36 +98,12 @@ public class Book {
     public void updateMetadata(
             String isbn13,
             String title,
-            String subtitle,
+            String ggId,
             String description,
             String language,
             Integer publishedYear,
             Integer pageCount,
             String coverImageUrl) {
-        updateMetadata(
-                isbn13,
-                title,
-                subtitle,
-                description,
-                language,
-                publishedYear,
-                pageCount,
-                coverImageUrl,
-                null,
-                null);
-    }
-
-    public void updateMetadata(
-            String isbn13,
-            String title,
-            String subtitle,
-            String description,
-            String language,
-            Integer publishedYear,
-            Integer pageCount,
-            String coverImageUrl,
-            String previewUrl,
-            String readerUrl) {
         String validTitle = requireTitle(title);
         String validIsbn13 = requireValidIsbn13(isbn13);
         String validLanguage = requireValidLanguage(language);
@@ -141,14 +111,19 @@ public class Book {
         Integer validPageCount = requireNonNegative(pageCount, "pageCount");
         this.isbn13 = validIsbn13;
         this.title = validTitle;
-        this.subtitle = subtitle;
+        this.ggId = requireValidGgId(ggId);
         this.description = description;
         this.language = validLanguage;
         this.publishedYear = validPublishedYear;
         this.pageCount = validPageCount;
         this.coverImageUrl = coverImageUrl;
-        this.previewUrl = previewUrl;
-        this.readerUrl = readerUrl;
+    }
+
+    private static String requireValidGgId(String ggId) {
+        if (ggId != null && ggId.length() != 12) {
+            throw new InvalidDomainStateException("GG_ID_INVALID", "ggId must be exactly 12 characters");
+        }
+        return ggId;
     }
 
     public void updateCopyCounts(int totalCopies, int availableCopies) {
