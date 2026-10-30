@@ -8,6 +8,7 @@ import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.mapper.BookMapper;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.service.BookService;
+import com.soa.gr6.lms.service.support.PageableSupport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @Service
 public class BookServiceImpl implements BookService {
+    private static final int MAX_PAGE_SIZE = 100;
     private final BookRepository bookRepository;
     private final BookMapper bookMapper;
 
@@ -84,6 +86,17 @@ public class BookServiceImpl implements BookService {
     @Transactional(readOnly = true)
     public List<String> getCategories() {
         return bookRepository.findAllActiveCategoryNames();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookResponse> listAdminBooks(String q, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
+        Page<Book> page = q == null || q.trim().isBlank()
+                ? bookRepository.findAll(clamped)
+                : bookRepository.findByTitleContainingIgnoreCaseOrIsbn13ContainingIgnoreCase(
+                        q.trim(), q.trim(), clamped);
+        return page.map(bookMapper::toResponse);
     }
 
     @Override

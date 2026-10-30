@@ -52,8 +52,7 @@ export default function Dashboard() {
     return (
         <section className="space-y-5">
             <div>
-                <h2 className="text-xl font-semibold">Bảng điều khiển</h2>
-                <p className="mt-1 text-sm text-neutral-500">Tổng quan hệ thống thư viện.</p>
+                <p className="text-sm text-neutral-500">Tổng quan hệ thống thư viện.</p>
             </div>
 
             {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
