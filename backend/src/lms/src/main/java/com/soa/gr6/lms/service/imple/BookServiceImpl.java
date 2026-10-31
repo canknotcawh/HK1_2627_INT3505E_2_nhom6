@@ -145,6 +145,7 @@ public class BookServiceImpl implements BookService {
                 request.coverImageUrl(),
                 request.previewUrl(),
                 request.readerUrl());
+        book.updateGgId(request.ggId());
     }
 
     private void requireIsbnAvailable(String isbn13, UUID ownBookId) {

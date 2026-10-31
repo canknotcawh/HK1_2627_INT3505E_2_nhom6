@@ -6,6 +6,7 @@ export type BookDto = {
   isbn13: string | null;
   title: string;
   subtitle: string | null;
+  ggId: string | null;
   description: string | null;
   language: string | null;
   publishedYear: number | null;
