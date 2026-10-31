@@ -17,7 +17,7 @@ vẫn chạy được, chỉ không bấm "Đăng nhập" thành công.
 cd backend/src/lms
 copy .env.example .env   # rồi điền GOOGLE_CLIENT_ID (và sửa APP_BOOTSTRAP_ADMIN_EMAILS nếu cần)
 docker compose up -d                      # postgres, mailpit
-./run-dev.sh                              # hoặc: ./mvnw spring-boot:run — API :8080 (Swagger: /swagger-ui.html)
+./run-dev.sh                              # hoặc: SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run — API :8080
 ```
 
 **2. Frontend — bạn đọc** (`main-web`, cổng 5173)
@@ -37,7 +37,7 @@ npm run dev
 ```
 
 Đăng nhập bằng tài khoản Google có email trong `APP_BOOTSTRAP_ADMIN_EMAILS` để được cấp
-quyền admin · Mailpit: http://localhost:8025.
+quyền admin · Mailpit: http://localhost:8025. Môi trường dev dùng JWT key cục bộ; khi chạy môi trường thật, bật profile không phải `dev` và đặt `JWT_SECRET` riêng tối thiểu 32 byte.
 
 ## Tài liệu (`doc/`)
 | File | Nội dung |

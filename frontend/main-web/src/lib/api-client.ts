@@ -1,5 +1,5 @@
 import axios from "axios";
-import { clearTokens, getAccessToken, getRefreshToken, setAccessToken } from "./auth-tokens";
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth-tokens";
 
 const apiBaseUrl = new URL(
   import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//localhost:8080`,
@@ -32,7 +32,8 @@ async function refreshAccessToken(): Promise<string | null> {
     .post(`${apiClient.defaults.baseURL}/api/v1/public/auth/refresh`, { refreshToken })
     .then((response) => {
       const token = response.data.accessToken as string;
-      setAccessToken(token);
+      const nextRefreshToken = (response.data.refreshToken as string | undefined) ?? refreshToken;
+      setTokens(token, nextRefreshToken);
       return token;
     })
     .catch(() => {

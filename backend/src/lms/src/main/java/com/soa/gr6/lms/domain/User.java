@@ -59,6 +59,12 @@ public class User {
     @Column(name = "bootstrap_admin_granted", nullable = false)
     private boolean bootstrapAdminGranted;
 
+    @Column(name = "profile_name_managed", nullable = false, columnDefinition = "boolean default false")
+    private boolean profileNameManaged = false;
+
+    @Column(name = "password_reset_requested_at")
+    private Instant passwordResetRequestedAt;
+
     public User(String googleSubject, String email, String fullName) {
         this.googleSubject = requireValue(googleSubject, "googleSubject");
         this.email = requireValue(email, "email");
@@ -84,6 +90,25 @@ public class User {
 
     public void updateProfile(String fullName) {
         this.fullName = requireValue(fullName, "fullName");
+        this.profileNameManaged = true;
+    }
+
+    public void syncGoogleProfile(String fullName) {
+        if (!profileNameManaged) {
+            this.fullName = requireValue(fullName, "fullName");
+        }
+    }
+
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = requireValue(passwordHash, "passwordHash");
+    }
+
+    public boolean canRequestPasswordReset(Instant now) {
+        return passwordResetRequestedAt == null || passwordResetRequestedAt.isBefore(now.minusSeconds(60));
+    }
+
+    public void markPasswordResetRequested(Instant now) {
+        passwordResetRequestedAt = now;
     }
 
     public void changeEmail(String email) {

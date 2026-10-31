@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +30,6 @@ import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.repository.UserRepository;
-import com.soa.gr6.lms.security.jwt.JwtService;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -43,7 +41,7 @@ class AuthServiceTest {
     @Mock
     private PlatformTransactionManager transactionManager;
     @Mock
-    private JwtService jwtService;
+    private RefreshSessionService refreshSessionService;
     @Mock
     private GoogleIdTokenVerifier googleIdTokenVerifier;
     @Mock
@@ -56,8 +54,10 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        lenient().when(refreshSessionService.create(any(User.class)))
+                .thenReturn(new RefreshSessionService.SessionTokens("access", "refresh"));
         authService = new AuthService(
-                userRepository, transactionManager, jwtService, googleIdTokenVerifier, passwordEncoder, List.of());
+                userRepository, transactionManager, googleIdTokenVerifier, passwordEncoder, refreshSessionService, List.of());
     }
 
     @Test
@@ -65,8 +65,6 @@ class AuthServiceTest {
         mockGoogleToken("an@example.com", "Nguyen An", null);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtService.generateAccessToken(any())).thenReturn("access");
-        when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
 
         AuthResponse response = authService.loginWithGoogle("google-id-token");
 
@@ -81,8 +79,6 @@ class AuthServiceTest {
         mockGoogleToken("an@example.com", "Nguyen An", null);
         User existing = new User(SUBJECT, "an@example.com", "Nguyen An");
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.of(existing));
-        when(jwtService.generateAccessToken(existing)).thenReturn("access");
-        when(jwtService.generateRefreshToken(existing)).thenReturn("refresh");
 
         authService.loginWithGoogle("google-id-token");
 
@@ -121,13 +117,11 @@ class AuthServiceTest {
 
     @Test
     void bootstrapAdminEmailBecomesAdminWhenEmailIsVerified() throws Exception {
-        authService = new AuthService(userRepository, transactionManager, jwtService, googleIdTokenVerifier,
-                passwordEncoder, List.of(" Admin@LMS.local "));
+        authService = new AuthService(userRepository, transactionManager, googleIdTokenVerifier,
+                passwordEncoder, refreshSessionService, List.of(" Admin@LMS.local "));
         mockGoogleToken("admin@lms.local", "Admin", true);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtService.generateAccessToken(any())).thenReturn("access");
-        when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
 
         AuthResponse response = authService.loginWithGoogle("google-id-token");
 
@@ -136,13 +130,11 @@ class AuthServiceTest {
 
     @Test
     void bootstrapAdminIsIgnoredWhenEmailIsNotVerified() throws Exception {
-        authService = new AuthService(userRepository, transactionManager, jwtService, googleIdTokenVerifier,
-                passwordEncoder, List.of("admin@lms.local"));
+        authService = new AuthService(userRepository, transactionManager, googleIdTokenVerifier,
+                passwordEncoder, refreshSessionService, List.of("admin@lms.local"));
         mockGoogleToken("admin@lms.local", "Admin", false);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtService.generateAccessToken(any())).thenReturn("access");
-        when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
 
         AuthResponse response = authService.loginWithGoogle("google-id-token");
 
@@ -157,8 +149,6 @@ class AuthServiceTest {
                 .thenReturn(Optional.empty(), Optional.of(createdByOtherRequest));
         when(userRepository.saveAndFlush(any(User.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate google_subject"));
-        when(jwtService.generateAccessToken(createdByOtherRequest)).thenReturn("access");
-        when(jwtService.generateRefreshToken(createdByOtherRequest)).thenReturn("refresh");
 
         AuthResponse response = authService.loginWithGoogle("google-id-token");
 
@@ -167,26 +157,20 @@ class AuthServiceTest {
 
     @Test
     void refreshIssuesNewAccessTokenForActiveUser() {
-        UUID userId = UUID.randomUUID();
-        User user = new User(SUBJECT, "an@example.com", "Nguyen An");
-        when(jwtService.requireRefreshToken("refresh-token")).thenReturn(userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(jwtService.generateAccessToken(user)).thenReturn("new-access");
+        when(refreshSessionService.rotate("refresh-token"))
+                .thenReturn(Optional.of(new RefreshSessionService.SessionTokens("new-access", "new-refresh")));
 
         assertEquals("new-access", authService.refresh("refresh-token").accessToken());
+        assertEquals("new-refresh", authService.refresh("refresh-token").refreshToken());
     }
 
     @Test
     void refreshRejectsSuspendedUser() {
-        UUID userId = UUID.randomUUID();
-        User suspended = new User(SUBJECT, "an@example.com", "Nguyen An");
-        suspended.suspend();
-        when(jwtService.requireRefreshToken("refresh-token")).thenReturn(userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(suspended));
+        when(refreshSessionService.rotate("refresh-token")).thenReturn(Optional.empty());
 
         ApiException e = assertThrows(ApiException.class, () -> authService.refresh("refresh-token"));
 
-        assertEquals(ErrorCode.ACCOUNT_DISABLED, e.getErrorCode());
+        assertEquals(ErrorCode.UNAUTHORIZED, e.getErrorCode());
     }
 
     @Test
@@ -207,8 +191,6 @@ class AuthServiceTest {
         when(userRepository.existsByEmail("an@example.com")).thenReturn(false);
         when(passwordEncoder.encode("secret123")).thenReturn("hashed");
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(i -> i.getArgument(0));
-        when(jwtService.generateAccessToken(any())).thenReturn("access");
-        when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
 
         AuthResponse response = authService.register("An@Example.com", "secret123", "Nguyen An");
 
@@ -231,8 +213,6 @@ class AuthServiceTest {
         User user = User.withPassword("an@example.com", "Nguyen An", "hashed");
         when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
-        when(jwtService.generateAccessToken(user)).thenReturn("access");
-        when(jwtService.generateRefreshToken(user)).thenReturn("refresh");
 
         AuthResponse response = authService.loginWithPassword("an@example.com", "secret123");
 

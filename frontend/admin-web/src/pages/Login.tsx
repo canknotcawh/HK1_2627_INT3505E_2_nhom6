@@ -131,6 +131,17 @@ export default function Login() {
               {submitting ? "Đang đăng nhập…" : "Đăng nhập"}
             </Button>
             {passwordError && <p className="mt-1 text-sm text-red-600" role="alert">{passwordError}</p>}
+            <a
+              href={(() => {
+                const url = new URL(import.meta.env.VITE_MAIN_WEB_URL || window.location.origin);
+                if (!import.meta.env.VITE_MAIN_WEB_URL) url.port = "5173";
+                url.pathname = "/reset-password";
+                return url.toString();
+              })()}
+              className="self-center text-xs text-neutral-500 hover:underline"
+            >
+              Quên mật khẩu?
+            </a>
           </form>
         )}
       </section>
