@@ -44,7 +44,11 @@ public class JwtService {
     }
 
     public String generateRefreshToken(User user) {
-        return buildToken(user, TYPE_REFRESH, refreshTokenTtl);
+        return generateRefreshToken(user, UUID.randomUUID());
+    }
+
+    public String generateRefreshToken(User user, UUID sessionId) {
+        return buildToken(user, TYPE_REFRESH, refreshTokenTtl, sessionId);
     }
 
     public UUID requireRefreshToken(String token) {
@@ -55,17 +59,43 @@ public class JwtService {
         return subjectAsUuid(claims);
     }
 
+    public RefreshClaims requireRefreshClaims(String token) {
+        Claims claims = parse(token);
+        if (!TYPE_REFRESH.equals(claims.get(CLAIM_TYPE, String.class))) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+        String tokenId = claims.getId();
+        if (tokenId == null || tokenId.isBlank()) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+        try {
+            return new RefreshClaims(subjectAsUuid(claims), UUID.fromString(tokenId));
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+    }
+
+    public Instant refreshTokenExpiry(String token) {
+        return parse(token).getExpiration().toInstant();
+    }
+
     private String buildToken(User user, String type, Duration ttl) {
+        return buildToken(user, type, ttl, null);
+    }
+
+    private String buildToken(User user, String type, Duration ttl, UUID tokenId) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
                 .claim(CLAIM_TYPE, type)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(ttl)))
-                .signWith(key)
-                .compact();
+                .expiration(Date.from(now.plus(ttl)));
+        if (tokenId != null) {
+            builder.id(tokenId.toString());
+        }
+        return builder.signWith(key).compact();
     }
 
     private Claims parse(String token) {
@@ -82,5 +112,8 @@ public class JwtService {
         } catch (IllegalArgumentException e) {
             throw new ApiException(ErrorCode.UNAUTHORIZED);
         }
+    }
+
+    public record RefreshClaims(UUID userId, UUID sessionId) {
     }
 }

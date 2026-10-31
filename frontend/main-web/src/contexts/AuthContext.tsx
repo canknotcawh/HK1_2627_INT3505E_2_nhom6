@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import type { ReactNode } from 'react';
 
 import apiClient from '../lib/api-client';
-import { clearTokens, getAccessToken, setTokens } from '../lib/auth-tokens';
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../lib/auth-tokens';
 
 export type Role = 'guest' | 'user' | 'admin' | 'unknown';
 
@@ -27,6 +27,8 @@ interface AuthContextType {
   loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
   loginWithPassword: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
+  updateProfile: (fullName: string) => Promise<CurrentUser>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -106,16 +108,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyAuthPayload]);
 
   const logout = useCallback(() => {
+    const refreshToken = getRefreshToken();
     clearTokens();
     setUser(undefined);
     setRoleError(null);
     setRole('guest');
+    if (refreshToken) {
+      void apiClient.post('/api/v1/public/auth/logout', { refreshToken }).catch(() => undefined);
+    }
+  }, []);
+
+  const updateProfile = useCallback(async (fullName: string) => {
+    const response = await apiClient.patch<CurrentUser>('/api/v1/users/me', { fullName });
+    setUser(response.data);
+    setRole(roleFromUser(response.data));
+    return response.data;
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await apiClient.post('/api/v1/users/me/password', { currentPassword, newPassword });
   }, []);
 
   const username = user?.fullName ?? user?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, roleError, username, user, loginWithGoogleToken, loginWithPassword, register, logout }}>
+    <AuthContext.Provider value={{ role, initialized, roleError, username, user, loginWithGoogleToken, loginWithPassword, register, logout, updateProfile, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

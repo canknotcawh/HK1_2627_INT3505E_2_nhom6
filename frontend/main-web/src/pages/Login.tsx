@@ -178,6 +178,12 @@ export default function Login() {
             {mode === 'login' ? "Chưa có tài khoản? Đăng ký" : "Đã có tài khoản? Đăng nhập"}
         </button>
 
+        {mode === 'login' && (
+            <a href="/reset-password" className="mt-2 text-xs text-gray-500 hover:text-[#e60023] hover:underline">
+                Quên mật khẩu?
+            </a>
+        )}
+
         {error && <p className="mt-3 text-sm text-red-600" role="alert">{error}</p>}
 
         {/* Back */}

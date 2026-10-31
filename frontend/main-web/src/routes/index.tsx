@@ -9,6 +9,7 @@ import History from "@/pages/History";
 import Books from "@/pages/Books";
 import BookDetail from "@/pages/BookDetail";
 import Profile from "@/pages/Profile";
+import PasswordReset from "@/pages/PasswordReset";
 import { useAuth } from "@/contexts/AuthContext";
 
 function HomeRouter() {
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
         path: "/login",
         element: <Login />
     },
+    { path: "/reset-password", element: <PasswordReset /> },
     {
         element: <PublicLayout />,
         children: [

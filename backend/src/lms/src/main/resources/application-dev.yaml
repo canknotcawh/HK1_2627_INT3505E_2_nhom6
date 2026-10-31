@@ -1,0 +1,4 @@
+app:
+  jwt:
+    # Development only. Production must set JWT_SECRET and activate a non-dev profile.
+    secret: ${JWT_SECRET:dev-only-change-me-32-bytes-minimum-secret}

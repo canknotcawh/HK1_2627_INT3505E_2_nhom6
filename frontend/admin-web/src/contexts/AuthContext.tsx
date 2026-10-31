@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import apiClient from "../lib/api-client";
-import { clearTokens, getAccessToken, setTokens } from "../lib/auth-tokens";
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "../lib/auth-tokens";
 
 export type AdminUser = {
   id: string;
@@ -84,9 +84,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    const refreshToken = getRefreshToken();
     clearTokens();
     setAuthenticated(false);
     setUser(null);
+    if (refreshToken) {
+      void apiClient.post("/public/auth/logout", { refreshToken }).catch(() => undefined);
+    }
   }, []);
 
   return (

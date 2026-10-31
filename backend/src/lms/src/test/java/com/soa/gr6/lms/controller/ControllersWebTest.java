@@ -3,6 +3,7 @@ package com.soa.gr6.lms.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -53,6 +54,7 @@ import com.soa.gr6.lms.service.BookService;
 import com.soa.gr6.lms.service.LoanService;
 import com.soa.gr6.lms.service.identity.AuthService;
 import com.soa.gr6.lms.service.identity.UserService;
+import com.soa.gr6.lms.service.identity.PasswordManagementService;
 
 class ControllersWebTest {
     private final BookService bookService = mock(BookService.class);
@@ -60,6 +62,7 @@ class ControllersWebTest {
     private final AdminUserService adminUserService = mock(AdminUserService.class);
     private final UserService userService = mock(UserService.class);
     private final AuthService authService = mock(AuthService.class);
+    private final PasswordManagementService passwordManagementService = mock(PasswordManagementService.class);
 
     private final UUID userId = UUID.randomUUID();
     private final UUID bookId = UUID.randomUUID();
@@ -76,8 +79,8 @@ class ControllersWebTest {
                         new AdminBookController(bookService),
                         new AdminLoanController(loanService),
                         new AdminUserController(adminUserService),
-                        new UserController(userService, loanService),
-                        new AuthController(authService))
+                        new UserController(userService, loanService, passwordManagementService),
+                        new AuthController(authService, passwordManagementService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(
                         new PageableHandlerMethodArgumentResolver(), new AuthenticationPrincipalArgumentResolver())
@@ -242,6 +245,26 @@ class ControllersWebTest {
     }
 
     @Test
+    void profileUpdateUsesOnlyAuthenticatedUserAndAllowedField() throws Exception {
+        when(userService.updateFullName(userId, "Updated Name"))
+                .thenReturn(new UserResponse(userId, "Updated Name", "a@b.com", UserRole.USER));
+        mvc.perform(patch("/api/v1/users/me").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Updated Name\",\"role\":\"ADMIN\",\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Updated Name"));
+        verify(userService).updateFullName(userId, "Updated Name");
+    }
+
+    @Test
+    void authenticatedUserCanRequestPasswordChange() throws Exception {
+        mvc.perform(post("/api/v1/users/me/password").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"old-password\",\"newPassword\":\"new-password-123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").exists());
+        verify(passwordManagementService).changePassword(userId, "old-password", "new-password-123");
+    }
+
+    @Test
     void borrowListReturnRenew() throws Exception {
         when(loanService.listUserLoans(eq(userId), any(), any())).thenReturn(paged(loan(userId)));
         when(loanService.borrowBook(userId, bookId)).thenReturn(loan(userId));
@@ -325,5 +348,21 @@ class ControllersWebTest {
                         .content("{\"email\":\"a@b.com\",\"password\":\"secret123\",\"fullName\":\"A\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"));
+    }
+
+    @Test
+    void passwordResetRequestReturnsGenericConfirmation() throws Exception {
+        mvc.perform(post("/api/v1/public/auth/password-reset/request").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("If the account is eligible, password reset instructions will be sent."));
+        verify(passwordManagementService).requestReset("a@b.com");
+    }
+
+    @Test
+    void passwordResetConfirmValidatesNewPasswordLength() throws Exception {
+        mvc.perform(post("/api/v1/public/auth/password-reset/confirm").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"some-token\",\"newPassword\":\"short\"}"))
+                .andExpect(status().isBadRequest());
     }
 }
