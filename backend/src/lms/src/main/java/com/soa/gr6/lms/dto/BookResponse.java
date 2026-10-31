@@ -25,7 +25,8 @@ public record BookResponse(
         Instant createdAt,
         Instant updatedAt,
         List<String> authors,
-        List<String> categories) {
+        List<String> categories,
+        String ggId) {
 
     public BookResponse(
             UUID id,
@@ -46,6 +47,6 @@ public record BookResponse(
             Instant updatedAt) {
         this(id, isbn13, title, subtitle, description, language, publishedYear, pageCount,
                 coverImageUrl, previewUrl, readerUrl, totalCopies, availableCopies,
-                BigDecimal.ZERO, 0, status, createdAt, updatedAt, List.of(), List.of());
+                BigDecimal.ZERO, 0, status, createdAt, updatedAt, List.of(), List.of(), null);
     }
 }

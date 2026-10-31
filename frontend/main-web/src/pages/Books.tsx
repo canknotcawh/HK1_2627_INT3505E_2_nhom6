@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { searchBooks, fetchCategories, type BookDto } from "../lib/books";
 import { borrowBook as borrowBookApi } from "../lib/loans";
+import BookCover from "../components/BookCover";
 import { Button } from "../components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Library, Search, X, BookOpen, Star, LoaderCircle, ChevronLeft, ChevronRight } from "lucide-react";
@@ -510,15 +511,12 @@ export default function Books() {
                                         className="w-full h-40 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl mb-4 flex items-center justify-center border border-gray-100 cursor-pointer overflow-hidden"
                                         onClick={() => navigate(`/books/${book.id}`)}
                                     >
-                                        {book.coverImageUrl ? (
-                                            <img
-                                                src={book.coverImageUrl}
-                                                alt={book.title}
-                                                className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200"
-                                            />
-                                        ) : (
-                                            <Library className="w-10 h-10 text-gray-300" />
-                                        )}
+                                        <BookCover
+                                            imageUrl={book.coverImageUrl}
+                                            title={book.title}
+                                            imageClassName="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200"
+                                            iconClassName="w-10 h-10 text-gray-300"
+                                        />
                                     </div>
 
                                     {/* Meta tags */}
@@ -533,15 +531,10 @@ export default function Books() {
                                                 {book.publishedYear}
                                             </span>
                                         )}
-                                        {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
-                                            <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-medium border border-amber-200/50">
-                                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                                {Number(book.ratingAvg).toFixed(1)}
-                                                {book.ratingCount ? (
-                                                    <span className="text-amber-600/70">({book.ratingCount})</span>
-                                                ) : null}
-                                            </span>
-                                        )}
+                                        <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-medium border border-amber-200/50">
+                                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                            {book.ratingCount ? `${Number(book.ratingAvg ?? 0).toFixed(1)} (${book.ratingCount})` : 'Chưa có đánh giá'}
+                                        </span>
                                     </div>
                                 </div>
 

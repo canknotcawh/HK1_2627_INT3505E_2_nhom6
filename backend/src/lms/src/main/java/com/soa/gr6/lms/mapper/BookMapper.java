@@ -43,6 +43,7 @@ public class BookMapper {
                 book.getCreatedAt(),
                 book.getUpdatedAt(),
                 authors,
-                categories);
+                categories,
+                book.getGgId());
     }
 }
