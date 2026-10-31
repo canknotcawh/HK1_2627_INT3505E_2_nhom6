@@ -96,10 +96,9 @@ export default function Borrow() {
 
     return (
         <section className="space-y-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-xl font-semibold">Quản lý mượn/trả</h2>
-                    <p className="mt-1 text-sm text-neutral-500">Xem và xử lý các khoản mượn đang mở.</p>
+                    <p className="text-sm text-neutral-500">Xem và xử lý các khoản mượn đang mở.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm text-neutral-600">

@@ -13,6 +13,9 @@ function authErrorMessage(error: unknown): string {
         return "Có lỗi xảy ra. Vui lòng thử lại.";
     }
     const code = error.response?.data?.code;
+    if (code === "ACCOUNT_DISABLED" || error.response?.status === 403) {
+        return "Tài khoản của bạn đang bị khóa (Suspended).";
+    }
     if (code === "GOOGLE_ACCOUNT_ONLY") {
         return "Email này đăng nhập bằng Google, hãy dùng nút Google ở trên.";
     }
@@ -28,6 +31,14 @@ function authErrorMessage(error: unknown): string {
     return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
+function redirectToAdminWeb(accessToken: string, refreshToken: string) {
+    const adminUrl = new URL(import.meta.env.VITE_ADMIN_WEB_URL || window.location.origin);
+    if (!import.meta.env.VITE_ADMIN_WEB_URL) adminUrl.port = "5175";
+    adminUrl.pathname = "/";
+    adminUrl.hash = `access_token=${accessToken}&refresh_token=${refreshToken}`;
+    window.location.replace(adminUrl.toString());
+}
+
 export default function Login() {
     const { loginWithGoogleToken, loginWithPassword, register, role, initialized } = useAuth();
     const from = (useLocation().state as { from?: { pathname: string; search?: string } } | null)?.from;
@@ -41,7 +52,7 @@ export default function Login() {
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        if (!initialized || role === 'user') return;
+        if (!initialized || role === 'user' || role === 'admin') return;
 
         let cancelled = false;
 
@@ -52,9 +63,15 @@ export default function Login() {
                 window.google.accounts.id.initialize({
                     client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
                     callback: (response) => {
-                        loginWithGoogleToken(response.credential).catch((e) => {
-                            setError(authErrorMessage(e));
-                        });
+                        loginWithGoogleToken(response.credential)
+                            .then((payload) => {
+                                if (payload.user.role === 'ADMIN') {
+                                    redirectToAdminWeb(payload.accessToken, payload.refreshToken);
+                                }
+                            })
+                            .catch((e) => {
+                                setError(authErrorMessage(e));
+                            });
                     },
                 });
                 window.google.accounts.id.renderButton(buttonRef.current, {
@@ -77,7 +94,11 @@ export default function Login() {
         setSubmitting(true);
         try {
             if (mode === 'login') {
-                await loginWithPassword(email, password);
+                const payload = await loginWithPassword(email, password);
+                if (payload.user.role === 'ADMIN') {
+                    redirectToAdminWeb(payload.accessToken, payload.refreshToken);
+                    return;
+                }
             } else {
                 await register(email, password, fullName);
             }
@@ -104,7 +125,7 @@ export default function Login() {
     }
 
     // Redirect to user dashboard if already logged in
-    if (role === 'user') {
+    if (role === 'user' || role === 'admin') {
         return <Navigate to={from ? `${from.pathname}${from.search ?? ""}` : "/user"} replace />;
     }
 

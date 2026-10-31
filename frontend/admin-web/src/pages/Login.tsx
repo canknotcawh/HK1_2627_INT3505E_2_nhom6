@@ -12,6 +12,9 @@ function passwordLoginErrorMessage(error: unknown): string {
   if (error.response?.status === 401) {
     return "Email hoặc mật khẩu không đúng.";
   }
+  if (error.response?.status === 403) {
+    return "Tài khoản của bạn đang bị khóa (Suspended).";
+  }
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 

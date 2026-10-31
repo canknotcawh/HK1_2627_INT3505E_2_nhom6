@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 function HomeRouter() {
     const { role } = useAuth();
-    return role === 'user' ? <UserHomePage /> : <HomePage />;
+    return (role === 'user' || role === 'admin') ? <UserHomePage /> : <HomePage />;
 }
 
 const router = createBrowserRouter([

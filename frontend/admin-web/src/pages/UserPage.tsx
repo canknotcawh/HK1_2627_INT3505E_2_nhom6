@@ -112,10 +112,9 @@ export default function UserPage() {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">Quản lý người dùng</h2>
-          <p className="mt-1 text-sm text-neutral-500">Tìm kiếm, khóa tài khoản và quản lý quyền truy cập.</p>
+          <p className="text-sm text-neutral-500">Tìm kiếm, khóa tài khoản và quản lý quyền truy cập.</p>
         </div>
         <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm text-neutral-600">
           {totalElements} tài khoản
