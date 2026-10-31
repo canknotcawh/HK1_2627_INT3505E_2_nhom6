@@ -19,6 +19,8 @@ public interface BookService {
 
     List<String> getCategories();
 
+    Page<BookResponse> listAdminBooks(String q, Pageable pageable);
+
     BookResponse createBook(BookRequest request);
 
     BookResponse updateBook(UUID bookId, BookRequest request);

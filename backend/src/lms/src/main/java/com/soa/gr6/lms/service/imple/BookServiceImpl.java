@@ -8,6 +8,7 @@ import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.mapper.BookMapper;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.service.BookService;
+import com.soa.gr6.lms.service.support.PageableSupport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @Service
 public class BookServiceImpl implements BookService {
+    private static final int MAX_PAGE_SIZE = 100;
     private final BookRepository bookRepository;
     private final BookMapper bookMapper;
 
@@ -87,6 +89,17 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<BookResponse> listAdminBooks(String q, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
+        Page<Book> page = q == null || q.trim().isBlank()
+                ? bookRepository.findAll(clamped)
+                : bookRepository.findByTitleContainingIgnoreCaseOrIsbn13ContainingIgnoreCase(
+                        q.trim(), q.trim(), clamped);
+        return page.map(bookMapper::toResponse);
+    }
+
+    @Override
     @Transactional
     public BookResponse createBook(BookRequest request) {
         Book book = new Book(request.title());
@@ -145,7 +158,6 @@ public class BookServiceImpl implements BookService {
                 request.coverImageUrl(),
                 request.previewUrl(),
                 request.readerUrl());
-        book.updateGgId(request.ggId());
     }
 
     private void requireIsbnAvailable(String isbn13, UUID ownBookId) {

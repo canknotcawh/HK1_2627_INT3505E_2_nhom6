@@ -175,7 +175,7 @@ export default function NavBar() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                    {role === 'user' ? (
+                    {role === 'user' || role === 'admin' ? (
                         <div className="flex items-center gap-1 md:gap-2">
                             <Button variant="ghost" size="sm" onClick={() => navigate("/user")} className="flex items-center gap-1.5 text-gray-700">
                                 <LayoutDashboard className="w-4 h-4" />

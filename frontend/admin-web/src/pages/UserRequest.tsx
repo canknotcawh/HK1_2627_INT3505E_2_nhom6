@@ -73,10 +73,9 @@ export default function UserRequest() {
 
     return (
         <section className="space-y-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-xl font-semibold">Yêu cầu trả sách</h2>
-                    <p className="mt-1 text-sm text-neutral-500">Xác nhận hoặc từ chối các yêu cầu trả sách từ bạn đọc.</p>
+                    <p className="text-sm text-neutral-500">Xác nhận hoặc từ chối các yêu cầu trả sách từ bạn đọc.</p>
                 </div>
                 <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm text-neutral-600">
                     {totalElements} yêu cầu

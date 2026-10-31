@@ -45,6 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const initialize = async () => {
+      // Check if tokens were passed via URL hash (e.g. from main-web admin login)
+      if (window.location.hash && window.location.hash.includes("access_token=")) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hashAccessToken = hashParams.get("access_token");
+        const hashRefreshToken = hashParams.get("refresh_token");
+        if (hashAccessToken) {
+          setTokens(hashAccessToken, hashRefreshToken || "");
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      }
+
       const token = getAccessToken();
       if (!token) {
         if (!cancelled) setInitialized(true);
