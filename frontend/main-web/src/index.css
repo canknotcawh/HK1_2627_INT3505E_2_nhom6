@@ -128,3 +128,131 @@
     @apply font-sans;
     }
 }
+
+.book-preview-dialog {
+    width: min(940px, 94vw, calc((92dvh - 56px) * 1.35));
+    max-width: none;
+    max-height: 92dvh;
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 16px;
+    background: white;
+    color: #1f2937;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 28%);
+}
+
+.book-preview-dialog::backdrop {
+    background: rgb(17 24 39 / 58%);
+    backdrop-filter: blur(3px);
+}
+
+.book-preview-dialog__header {
+    display: flex;
+    min-height: 56px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px 8px 20px;
+}
+
+.book-preview-dialog__timer {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.book-preview-dialog__canvas {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.35;
+    overflow: hidden;
+    background: #f3f4f6;
+}
+
+.book-preview-dialog__viewport {
+    position: absolute;
+    inset: 0;
+    user-select: none;
+}
+
+.book-preview-dialog__canvas--expired .book-preview-dialog__viewport {
+    filter: blur(7px);
+}
+
+.book-preview-dialog__expired {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    pointer-events: none;
+    text-align: center;
+}
+
+.book-preview-dialog__expired span {
+    max-width: 100%;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 600;
+    text-shadow: 0 1px 3px white, 0 -1px 3px white;
+}
+
+/* Google Books renders the controls and footer as siblings of the scrolling pages. */
+.book-preview-dialog__viewport > div > div:last-child,
+.book-preview-dialog__viewport > div > div:first-child > div:nth-child(2) {
+    display: none !important;
+}
+
+.book-preview-dialog__viewport > div,
+.book-preview-dialog__viewport > div > div:first-child,
+.book-preview-dialog__viewport .overflow-scrolling {
+    height: 100% !important;
+}
+
+.book-preview-dialog__viewport .overflow-scrolling {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.book-preview-dialog__viewport .overflow-scrolling::-webkit-scrollbar {
+    display: none;
+}
+
+.book-preview-dialog__message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    color: #6b7280;
+    text-align: center;
+    font-size: 14px;
+}
+
+.book-preview-dialog__message--overlay {
+    position: absolute;
+    inset: 0;
+    background: #f9fafb;
+}
+
+@media (max-width: 640px) {
+    .book-preview-dialog {
+        width: min(94vw, calc((90dvh - 58px) * 1.2));
+        max-height: 90dvh;
+        border-radius: 12px;
+    }
+
+    .book-preview-dialog__header {
+        min-height: 52px;
+        padding-left: 14px;
+    }
+
+    .book-preview-dialog__canvas {
+        aspect-ratio: 4 / 5;
+    }
+}

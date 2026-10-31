@@ -7,8 +7,9 @@ import { borrowBook as borrowBookApi } from "../lib/loans";
 import { useToast } from "../hooks/useToast";
 import Toast from "../components/Toast";
 import BorrowConfirmDialog from "../components/BorrowConfirmDialog";
+import BookPreviewDialog, { preloadGoogleBooksApi } from "../components/BookPreviewDialog";
 import { Button } from "../components/ui/button";
-import { Library, ArrowLeft, Calendar, Hash, Globe, Star, Tag, LoaderCircle } from "lucide-react";
+import { Library, ArrowLeft, Calendar, Hash, Globe, Star, Tag, LoaderCircle, Eye } from "lucide-react";
 
 const LANGUAGE_NAMES: Record<string, string> = {
     en: 'Tiếng Anh',
@@ -36,6 +37,7 @@ export default function BookDetail() {
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [confirmBook, setConfirmBook] = useState<BookDto | null>(null);
+    const [showPreview, setShowPreview] = useState(false);
     const [imgError, setImgError] = useState(false);
     const { toast, showToast } = useToast();
 
@@ -176,20 +178,13 @@ export default function BookDetail() {
                                         <span className="font-medium text-gray-800">{book.isbn13}</span>
                                     </div>
                                 )}
-                                {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                        <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
-                                        <span className="text-gray-400">Đánh giá:</span>
-                                        <span className="font-medium text-amber-600">
-                                            {Number(book.ratingAvg).toFixed(1)} / 5
-                                            {book.ratingCount ? (
-                                                <span className="text-gray-400 font-normal ml-1">
-                                                    ({book.ratingCount} lượt)
-                                                </span>
-                                            ) : null}
-                                        </span>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+                                    <span className="text-gray-400">Đánh giá:</span>
+                                    <span className="font-medium text-amber-600">
+                                        {book.ratingCount ? `${Number(book.ratingAvg ?? 0).toFixed(1)} / 5 (${book.ratingCount} lượt)` : 'Chưa có đánh giá'}
+                                    </span>
+                                </div>
                                 {book.pageCount && (
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                         <span className="text-gray-400">Số trang:</span>
@@ -206,7 +201,7 @@ export default function BookDetail() {
                             </div>
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             {role === 'guest' ? (
                                 <Button
                                     variant="outline"
@@ -225,6 +220,16 @@ export default function BookDetail() {
                                     {book.availableCopies > 0 ? 'Mượn sách này' : 'Sách đã hết'}
                                 </Button>
                             )}
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowPreview(true)}
+                                onPointerEnter={preloadGoogleBooksApi}
+                                onFocus={preloadGoogleBooksApi}
+                                className="w-full sm:w-auto rounded-xl"
+                            >
+                                <Eye aria-hidden="true" />
+                                Preview
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -235,6 +240,13 @@ export default function BookDetail() {
                 onCancel={() => setConfirmBook(null)}
                 onConfirm={handleBorrow}
             />
+            {showPreview && (
+                <BookPreviewDialog
+                    title={book.title}
+                    ggId={book.ggId}
+                    onClose={() => setShowPreview(false)}
+                />
+            )}
         </div>
     );
 }
