@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import ProtectedRoute from "./protected-route";
 import PublicLayout from "@/components/layouts/PublicLayout";
 import HomePage from "@/pages/PortalPage";
-import UserHomePage from "@/pages/UserHomePage";
+import Explore from "@/pages/Explore";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
@@ -36,7 +36,7 @@ const router = createBrowserRouter([
         element: <ProtectedRoute />,
         children: [
             { path: "/dashboard", element: <Dashboard /> },
-            { path: "/explore", element: <UserHomePage /> },
+            { path: "/explore", element: <Explore /> },
             { path: "/history", element: <History /> },
             { path: "/profile", element: <Profile /> },
             // Backwards compatibility for old /user routes

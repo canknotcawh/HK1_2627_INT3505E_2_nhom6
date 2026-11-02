@@ -1,5 +1,5 @@
-import { Button } from "./ui/button";
-import type { BookDto } from "../lib/books";
+import { Button } from "../ui/button";
+import type { BookDto } from "../../lib/books";
 
 export default function BorrowConfirmDialog({
   book,

@@ -4,7 +4,7 @@ import type { LoanDto, LoanStatus } from "../lib/loans";
 import { Button } from "../components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
-import Toast from "../components/Toast";
+import Toast from "../components/ui/Toast";
 import { BookOpen, Clock, LoaderCircle } from "lucide-react";
 
 const STATUS_CONFIG: Record<LoanStatus, { label: string; className: string }> = {

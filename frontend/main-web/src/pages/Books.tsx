@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { searchBooks, fetchCategories, type BookDto } from "../lib/books";
 import { borrowBook as borrowBookApi } from "../lib/loans";
-import BookCover from "../components/BookCover";
+import BookCover from "../components/books/BookCover";
 import { Button } from "../components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Library, Search, X, BookOpen, Star, LoaderCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import SortDropdown from "../components/layouts/SortDropdown";
-import CategoryDropdown from "../components/layouts/CategoryDropdown";
-import SearchSuggestionsDropdown from "../components/layouts/SearchSuggestionsDropdown";
+import SortDropdown from "../components/books/SortDropdown";
+import CategoryDropdown from "../components/books/CategoryDropdown";
+import SearchSuggestionsDropdown from "../components/books/SearchSuggestionsDropdown";
 import {
     getRecentSearches,
     saveRecentSearch,
@@ -16,7 +16,7 @@ import {
     clearRecentSearches,
 } from "../lib/search-history";
 import { useToast } from "../hooks/useToast";
-import Toast from "../components/Toast";
+import Toast from "../components/ui/Toast";
 
 type FilterStatus = 'all' | 'available' | 'unavailable';
 
