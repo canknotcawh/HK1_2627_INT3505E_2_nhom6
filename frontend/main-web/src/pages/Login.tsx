@@ -34,7 +34,7 @@ function authErrorMessage(error: unknown): string {
 function redirectToAdminWeb(accessToken: string, refreshToken: string) {
     const adminUrl = new URL(import.meta.env.VITE_ADMIN_WEB_URL || window.location.origin);
     if (!import.meta.env.VITE_ADMIN_WEB_URL) adminUrl.port = "5175";
-    adminUrl.pathname = "/";
+    adminUrl.pathname = "/admin";
     adminUrl.hash = `access_token=${accessToken}&refresh_token=${refreshToken}`;
     window.location.replace(adminUrl.toString());
 }
@@ -126,7 +126,7 @@ export default function Login() {
 
     // Redirect to user dashboard if already logged in
     if (role === 'user' || role === 'admin') {
-        return <Navigate to={from ? `${from.pathname}${from.search ?? ""}` : "/user"} replace />;
+        return <Navigate to={from ? `${from.pathname}${from.search ?? ""}` : "/dashboard"} replace />;
     }
 
   return (

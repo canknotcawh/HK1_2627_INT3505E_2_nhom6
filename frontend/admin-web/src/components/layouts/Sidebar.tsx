@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { Library } from 'lucide-react'
 import { cn } from "../../lib/utils"
 import { adminRoutes } from "../../routes/index"
@@ -7,7 +7,7 @@ export function Sidebar() {
     return (
         <aside className="flex h-dvh w-60 min-w-60 shrink-0 flex-col overflow-y-auto border-r border-gray-100 bg-white text-gray-700">
             <div className="border-b border-gray-100 px-5 py-5">
-                <div className="flex items-center gap-2">
+                <Link to="/admin/dashboard" className="flex items-center gap-2 focus:outline-none">
                     <div className="rounded-lg bg-[#e60023] p-1.5 text-white shadow-sm">
                         <Library className="size-5" />
                     </div>
@@ -15,12 +15,12 @@ export function Sidebar() {
                         <div className="text-base font-bold tracking-tight text-gray-900">Thư viện điện tử</div>
                         <div className="text-xs text-gray-500">Cổng quản trị</div>
                     </div>
-                </div>
+                </Link>
             </div>
 
             <nav className="flex flex-1 flex-col gap-1 p-3">
-                {adminRoutes.map(({ path, handle }) => (
-                    <NavLink key={path} to={path} end={path === "/"}>
+                {adminRoutes.map(({ fullPath, handle }) => (
+                    <NavLink key={fullPath} to={fullPath}>
                         {({ isActive }) => (
                         <span
                             className={cn(

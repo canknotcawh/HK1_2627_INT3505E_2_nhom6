@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import ProtectedRoute from "./protected-route";
 import PublicLayout from "@/components/layouts/PublicLayout";
 import HomePage from "@/pages/PortalPage";
@@ -13,7 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 
 function HomeRouter() {
     const { role } = useAuth();
-    return (role === 'user' || role === 'admin') ? <UserHomePage /> : <HomePage />;
+    if (role === 'user' || role === 'admin') {
+        return <Navigate to="/dashboard" replace />;
+    }
+    return <HomePage />;
 }
 
 const router = createBrowserRouter([
@@ -30,12 +33,16 @@ const router = createBrowserRouter([
         ]
     },
     {
-        path: "/user",
         element: <ProtectedRoute />,
         children: [
-            { path: "", element: <Dashboard /> },
-            { path: "history", element: <History /> },
-            { path: "profile", element: <Profile /> }
+            { path: "/dashboard", element: <Dashboard /> },
+            { path: "/explore", element: <UserHomePage /> },
+            { path: "/history", element: <History /> },
+            { path: "/profile", element: <Profile /> },
+            // Backwards compatibility for old /user routes
+            { path: "/user", element: <Navigate to="/dashboard" replace /> },
+            { path: "/user/history", element: <Navigate to="/history" replace /> },
+            { path: "/user/profile", element: <Navigate to="/profile" replace /> },
         ]
     }
 ]);
