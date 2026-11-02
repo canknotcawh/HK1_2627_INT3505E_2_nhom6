@@ -72,7 +72,7 @@ export default function Login() {
   }
 
   if (authenticated && user?.role === "ADMIN") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   if (authenticated && user && user.role !== "ADMIN") {
