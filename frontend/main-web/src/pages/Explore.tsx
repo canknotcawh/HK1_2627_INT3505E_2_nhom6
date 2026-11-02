@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Library, ChevronLeft, ChevronRight, Star, ArrowRight, LoaderCircle } from "lucide-react";
 import { useToast } from "../hooks/useToast";
-import Toast from "../components/Toast";
+import Toast from "../components/ui/Toast";
 
 // Color palette for category gradients
 const CATEGORY_COLORS: Record<string, { from: string; to: string }> = {
@@ -24,7 +24,7 @@ const SLIDE_COLORS = [
     'from-violet-50 to-purple-50',
 ];
 
-export default function UserHomePage() {
+export default function Explore() {
     const { role } = useAuth();
     const navigate = useNavigate();
     const { toast, showToast } = useToast();

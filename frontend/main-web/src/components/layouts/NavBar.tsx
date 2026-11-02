@@ -4,7 +4,7 @@ import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard, BookOpen, 
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
 import { searchBooks, type BookDto } from "../../lib/books";
-import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
+import SearchSuggestionsDropdown from "../books/SearchSuggestionsDropdown";
 import {
     getRecentSearches,
     saveRecentSearch,

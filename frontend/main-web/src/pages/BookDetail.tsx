@@ -5,9 +5,9 @@ import { getBook } from "../lib/books";
 import type { BookDto } from "../lib/books";
 import { borrowBook as borrowBookApi } from "../lib/loans";
 import { useToast } from "../hooks/useToast";
-import Toast from "../components/Toast";
-import BorrowConfirmDialog from "../components/BorrowConfirmDialog";
-import BookPreviewDialog, { preloadGoogleBooksApi } from "../components/BookPreviewDialog";
+import Toast from "../components/ui/Toast";
+import BorrowConfirmDialog from "../components/loans/BorrowConfirmDialog";
+import BookPreviewDialog, { preloadGoogleBooksApi } from "../components/books/BookPreviewDialog";
 import { Button } from "../components/ui/button";
 import { Library, ArrowLeft, Calendar, Hash, Globe, Star, Tag, LoaderCircle, Eye } from "lucide-react";
 
