@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard, BookOpen, Compass } from "lucide-react";
+import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard, Compass } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
 import { searchBooks, type BookDto } from "../../lib/books";
@@ -100,9 +100,9 @@ export default function NavBar() {
         if (trimmed) {
             const updated = saveRecentSearch(trimmed, userId);
             setRecentSearches(updated);
-            navigate(`/books?q=${encodeURIComponent(trimmed)}`);
+            navigate(`/search?q=${encodeURIComponent(trimmed)}`);
         } else {
-            navigate('/books');
+            navigate('/search');
         }
     };
 
@@ -192,10 +192,6 @@ export default function NavBar() {
                             <Button variant="ghost" size="sm" onClick={() => navigate("/explore")} className="flex items-center gap-1.5 text-gray-700">
                                 <Compass className="w-4 h-4" />
                                 <span className="hidden md:inline">Khám phá</span>
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => navigate("/books")} className="flex items-center gap-1.5 text-gray-700">
-                                <BookOpen className="w-4 h-4" />
-                                <span className="hidden md:inline">Kho sách</span>
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => navigate("/history")} className="flex items-center gap-1.5 text-gray-700">
                                 <Clock className="w-4 h-4" />

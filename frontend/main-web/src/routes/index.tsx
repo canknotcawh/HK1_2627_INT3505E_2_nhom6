@@ -6,7 +6,7 @@ import Explore from "@/pages/Explore";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
-import Books from "@/pages/Books";
+import Search from "@/pages/Search";
 import BookDetail from "@/pages/BookDetail";
 import Profile from "@/pages/Profile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,7 +28,8 @@ const router = createBrowserRouter([
         element: <PublicLayout />,
         children: [
             { path: "/", element: <HomeRouter /> },
-            { path: "/books", element: <Books /> },
+            { path: "/search", element: <Search /> },
+            { path: "/books", element: <Navigate to="/search" replace /> },
             { path: "/books/:id", element: <BookDetail /> },
         ]
     },

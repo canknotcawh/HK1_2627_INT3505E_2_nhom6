@@ -99,7 +99,7 @@ export default function History() {
                     <p className="text-gray-400 text-sm mb-4">
                         Bạn chưa mượn cuốn sách nào. Hãy khám phá danh mục thư viện!
                     </p>
-                    <Button variant="brand" onClick={() => navigate('/books')}>
+                    <Button variant="brand" onClick={() => navigate('/explore')}>
                         Duyệt danh mục sách
                     </Button>
                 </div>
