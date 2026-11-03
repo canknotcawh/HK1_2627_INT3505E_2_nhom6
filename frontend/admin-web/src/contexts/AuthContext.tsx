@@ -16,6 +16,7 @@ type AuthContextValue = {
   user: AdminUser | null;
   authError: string | null;
   loginWithPassword: (email: string, password: string) => Promise<void>;
+  loginWithGoogleToken: (idToken: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<AdminUser>;
 };
@@ -83,6 +84,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
   }, []);
 
+  const loginWithGoogleToken = useCallback(async (idToken: string) => {
+    const response = await apiClient.post<{
+      accessToken: string;
+      refreshToken: string;
+      user: AdminUser;
+    }>("/public/auth/google", { idToken });
+
+    if (response.data.user.role !== "ADMIN") {
+      void apiClient.post("/public/auth/logout", { refreshToken: response.data.refreshToken }).catch(() => undefined);
+      throw new Error("ADMIN_ROLE_REQUIRED");
+    }
+
+    setTokens(response.data.accessToken, response.data.refreshToken);
+    setUser(response.data.user);
+    setAuthenticated(true);
+    setAuthError(null);
+  }, []);
+
   const logout = useCallback(() => {
     const refreshToken = getRefreshToken();
     clearTokens();
@@ -94,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ initialized, authenticated, user, authError, loginWithPassword, logout, refreshUser }}>
+    <AuthContext.Provider value={{ initialized, authenticated, user, authError, loginWithPassword, loginWithGoogleToken, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

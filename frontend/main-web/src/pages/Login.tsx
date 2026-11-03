@@ -43,6 +43,12 @@ export default function Login() {
     useEffect(() => {
         if (!initialized || role === 'user') return;
 
+        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+        if (!googleClientId) {
+            setError("Google Sign-In chưa được cấu hình. Hãy điền VITE_GOOGLE_CLIENT_ID rồi khởi động lại main-web.");
+            return;
+        }
+
         let cancelled = false;
 
         loadGoogleIdentityScript()
@@ -50,7 +56,7 @@ export default function Login() {
                 if (cancelled || !buttonRef.current || !window.google) return;
 
                 window.google.accounts.id.initialize({
-                    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                    client_id: googleClientId,
                     callback: (response) => {
                         loginWithGoogleToken(response.credential).catch((e) => {
                             setError(authErrorMessage(e));

@@ -10,12 +10,22 @@ if (["localhost", "127.0.0.1"].includes(apiBaseUrl.hostname)
   apiBaseUrl.hostname = window.location.hostname;
 }
 
+// API calls below already include /api/v1. Accept either the backend origin
+// or a configured URL that already ends in /api/v1 without duplicating it.
+apiBaseUrl.pathname = apiBaseUrl.pathname
+  .replace(/\/+$/, "")
+  .replace(/\/api\/v1$/i, "");
+apiBaseUrl.search = "";
+apiBaseUrl.hash = "";
+
 const apiClient = axios.create({
   baseURL: apiBaseUrl.toString().replace(/\/$/, ""),
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = getAccessToken();
+  // Public auth endpoints must work even when the browser has an expired or
+  // stale token left from a previous session.
+  const token = isAuthEndpoint(config.url) ? null : getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

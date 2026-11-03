@@ -11,7 +11,9 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+  flyway:
+    enabled: true
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
