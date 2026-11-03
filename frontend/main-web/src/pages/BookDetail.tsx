@@ -86,7 +86,7 @@ export default function BookDetail() {
             <div className="container mx-auto p-4 md:p-8 text-center py-16">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">Không tìm thấy sách</h2>
                 <p className="text-gray-500 mb-6">Cuốn sách bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
-                <Button variant="brand" onClick={() => navigate('/books')}>
+                <Button variant="brand" onClick={() => navigate('/explore')}>
                     Quay lại danh mục sách
                 </Button>
             </div>
@@ -98,11 +98,11 @@ export default function BookDetail() {
             <Toast toast={toast} />
 
             <button
-                onClick={() => navigate('/books')}
+                onClick={() => navigate(-1)}
                 className="flex items-center gap-1 text-gray-500 hover:text-gray-800 mb-6 text-sm transition-colors cursor-pointer"
             >
                 <ArrowLeft className="w-4 h-4" />
-                Quay lại danh mục
+                Quay lại
             </button>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -140,11 +140,10 @@ export default function BookDetail() {
                                             : 'Chưa rõ tác giả'}
                                     </p>
                                 </div>
-                                <span className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold ${
-                                    book.availableCopies > 0
+                                <span className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold ${book.availableCopies > 0
                                         ? 'bg-green-50 text-green-700 border border-green-200/60'
                                         : 'bg-gray-100 text-gray-500'
-                                }`}>
+                                    }`}>
                                     {book.availableCopies > 0 ? `Còn ${book.availableCopies} cuốn` : 'Hết sách'}
                                 </span>
                             </div>

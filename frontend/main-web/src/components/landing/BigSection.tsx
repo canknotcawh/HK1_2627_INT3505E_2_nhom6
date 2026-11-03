@@ -29,7 +29,7 @@ export default function BigSection() {
                     <Button
                         variant="brand"
                         className="px-8 py-6 rounded-full"
-                        onClick={() => navigate("/books")}
+                        onClick={() => navigate(role === 'user' || role === 'admin' ? "/explore" : "/search")}
                     >
                         Khám phá danh mục
                     </Button>

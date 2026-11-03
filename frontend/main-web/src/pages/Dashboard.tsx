@@ -175,10 +175,10 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
                     <Button
                         variant="outline"
-                        onClick={() => navigate('/books')}
+                        onClick={() => navigate('/search')}
                         className="flex-1 sm:flex-initial rounded-xl bg-white/90 hover:bg-white border-gray-200"
                     >
-                        Kho sách
+                        Tra cứu sách
                     </Button>
                     <Button
                         variant="brand"

@@ -4,15 +4,24 @@ import { Library } from "lucide-react";
 type BookCoverProps = {
     imageUrl: string | null;
     title: string;
-    imageClassName: string;
-    iconClassName: string;
+    imageClassName?: string;
+    iconClassName?: string;
 };
 
-export default function BookCover({ imageUrl, title, imageClassName, iconClassName }: BookCoverProps) {
+export default function BookCover({
+    imageUrl,
+    title,
+    imageClassName = "w-full h-full object-cover",
+    iconClassName = "w-8 h-8 text-gray-300"
+}: BookCoverProps) {
     const [imageFailed, setImageFailed] = useState(false);
 
     if (!imageUrl || imageFailed) {
-        return <Library className={iconClassName} aria-hidden="true" />;
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-300">
+                <Library className={iconClassName} aria-hidden="true" />
+            </div>
+        );
     }
 
     return (
