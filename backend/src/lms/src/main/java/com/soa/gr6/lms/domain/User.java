@@ -30,6 +30,10 @@ public class User {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
+    /** Retained only to identify accounts migrated from the former Keycloak-backed schema. */
+    @Column(name = "keycloak_subject", length = 64, unique = true)
+    private String keycloakSubject;
+
     @Column(name = "google_subject", length = 64, unique = true)
     private String googleSubject;
 
@@ -86,6 +90,18 @@ public class User {
 
     public boolean hasPassword() {
         return passwordHash != null;
+    }
+
+    public boolean isUnlinkedLegacyKeycloakAccount() {
+        return keycloakSubject != null && googleSubject == null && passwordHash == null;
+    }
+
+    public void linkGoogleIdentity(String googleSubject) {
+        if (!isUnlinkedLegacyKeycloakAccount()) {
+            throw new InvalidDomainStateException(
+                    "INVALID_IDENTITY_LINK", "Only an unlinked legacy account can be linked to Google");
+        }
+        this.googleSubject = requireValue(googleSubject, "googleSubject");
     }
 
     public void updateProfile(String fullName) {

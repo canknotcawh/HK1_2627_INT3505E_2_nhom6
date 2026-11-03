@@ -13,7 +13,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex flex-1 flex-col gap-1 p-2">
-                {adminRoutes.map(({ path, handle }) => (
+                {adminRoutes.filter(({ handle }) => !handle.hidden).map(({ path, handle }) => (
                     <NavLink key={path} to={path} end={path === "/"}>
                         {({ isActive }) => (
                         <span

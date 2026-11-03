@@ -59,12 +59,13 @@ public class AuthService {
         }
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
         String fullName = resolveFullName(payload, normalizedEmail);
-        boolean grantAdmin = bootstrapAdminEmails.contains(normalizedEmail)
-                && Boolean.TRUE.equals(payload.getEmailVerified());
+        boolean emailVerified = Boolean.TRUE.equals(payload.getEmailVerified());
+        boolean grantAdmin = bootstrapAdminEmails.contains(normalizedEmail) && emailVerified;
 
         User user;
         try {
-            user = transactionTemplate.execute(status -> findOrCreate(subject, normalizedEmail, fullName, grantAdmin));
+            user = transactionTemplate.execute(status ->
+                    findOrCreate(subject, normalizedEmail, fullName, grantAdmin, emailVerified));
         } catch (DataIntegrityViolationException e) {
             user = transactionTemplate.execute(status ->
                     userRepository.findByGoogleSubject(subject).orElseThrow(() -> e));
@@ -139,7 +140,8 @@ public class AuthService {
         return idToken.getPayload();
     }
 
-    private User findOrCreate(String subject, String email, String fullName, boolean grantAdmin) {
+    private User findOrCreate(String subject, String email, String fullName, boolean grantAdmin,
+                              boolean emailVerified) {
         Optional<User> existing = userRepository.findByGoogleSubject(subject);
         if (existing.isPresent()) {
             User user = existing.get();
@@ -149,12 +151,22 @@ public class AuthService {
             user.syncGoogleProfile(fullName);
             return user;
         }
-        if (userRepository.findByEmail(email).isPresent()) {
-            // Deliberately not auto-linked: an unverified password signup must not be able to
-            // absorb the real owner's Google identity just by claiming the same email first.
+        Optional<User> emailMatch = userRepository.findByEmail(email);
+        if (emailMatch.isPresent()) {
+            User emailMatchedUser = emailMatch.get();
+            if (emailVerified && emailMatchedUser.isUnlinkedLegacyKeycloakAccount()) {
+                emailMatchedUser.linkGoogleIdentity(subject);
+                emailMatchedUser.syncGoogleProfile(fullName);
+                return emailMatchedUser;
+            }
+            if (emailMatchedUser.hasPassword()) {
+                // Do not let an unverified password signup absorb the real owner's Google identity.
+                throw new DuplicateResourceException(
+                        "EMAIL_REGISTERED_WITH_PASSWORD",
+                        "this email is already registered with a password; log in with email and password instead");
+            }
             throw new DuplicateResourceException(
-                    "EMAIL_REGISTERED_WITH_PASSWORD",
-                    "this email is already registered with a password; log in with email and password instead");
+                    "EMAIL_ALREADY_REGISTERED", "email is already associated with another sign-in method");
         }
         User created = new User(subject, email, fullName);
         if (grantAdmin) {

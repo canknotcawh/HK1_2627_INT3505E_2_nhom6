@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { LoaderCircle, ShieldCheck } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
+import { loadGoogleIdentityScript } from "../lib/google-identity";
 
 function passwordLoginErrorMessage(error: unknown): string {
   if (!isAxiosError<{ code?: string }>(error)) {
@@ -12,17 +13,60 @@ function passwordLoginErrorMessage(error: unknown): string {
   if (error.response?.status === 401) {
     return "Email hoặc mật khẩu không đúng.";
   }
+  if (error.response?.data?.code === "GOOGLE_ACCOUNT_ONLY") {
+    return "Tài khoản này dùng Google. Hãy chọn nút đăng nhập Google.";
+  }
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
 export default function Login() {
-  const { initialized, authenticated, user, authError, loginWithPassword, logout, refreshUser } = useAuth();
+  const { initialized, authenticated, user, authError, loginWithPassword, loginWithGoogleToken, logout, refreshUser } = useAuth();
   const [checking, setChecking] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!initialized || authenticated) return;
+
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      setPasswordError("Google Sign-In chưa được cấu hình trong admin-web.");
+      return;
+    }
+
+    let cancelled = false;
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !googleButtonRef.current || !window.google) return;
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            loginWithGoogleToken(response.credential).catch((error: unknown) => {
+              if (error instanceof Error && error.message === "ADMIN_ROLE_REQUIRED") {
+                setPasswordError("Tài khoản Google này chưa được cấp quyền quản trị.");
+                return;
+              }
+              setPasswordError(passwordLoginErrorMessage(error));
+            });
+          },
+        });
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 320,
+          text: "signin_with",
+        });
+      })
+      .catch(() => setPasswordError("Không thể tải Google Sign-In. Vui lòng thử lại."));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized, authenticated, loginWithGoogleToken]);
 
   useEffect(() => {
     if (!authenticated || !user || user.role === "ADMIN") return;
@@ -110,7 +154,12 @@ export default function Login() {
             </div>
           </div>
         ) : (
-          <form onSubmit={handlePasswordLogin} className="mt-7 flex flex-col gap-3">
+          <>
+          <div className="mt-7 flex justify-center" ref={googleButtonRef} />
+          <div className="my-4 flex items-center gap-3 text-xs text-neutral-400">
+            <span className="h-px flex-1 bg-neutral-200" />hoặc<span className="h-px flex-1 bg-neutral-200" />
+          </div>
+          <form onSubmit={handlePasswordLogin} className="flex flex-col gap-3">
             <input
               type="email"
               required
@@ -143,6 +192,7 @@ export default function Login() {
               Quên mật khẩu?
             </a>
           </form>
+          </>
         )}
       </section>
     </main>
