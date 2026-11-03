@@ -118,14 +118,16 @@
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+
+    body {
+        @apply bg-background text-foreground;
     }
-  html {
-    @apply font-sans;
+
+    html {
+        @apply font-sans;
     }
 }
 
@@ -203,13 +205,13 @@
 }
 
 /* Google Books renders the controls and footer as siblings of the scrolling pages. */
-.book-preview-dialog__viewport > div > div:last-child,
-.book-preview-dialog__viewport > div > div:first-child > div:nth-child(2) {
+.book-preview-dialog__viewport>div>div:last-child,
+.book-preview-dialog__viewport>div>div:first-child>div:nth-child(2) {
     display: none !important;
 }
 
-.book-preview-dialog__viewport > div,
-.book-preview-dialog__viewport > div > div:first-child,
+.book-preview-dialog__viewport>div,
+.book-preview-dialog__viewport>div>div:first-child,
 .book-preview-dialog__viewport .overflow-scrolling {
     height: 100% !important;
 }
@@ -255,4 +257,28 @@
     .book-preview-dialog__canvas {
         aspect-ratio: 4 / 5;
     }
+}
+
+
+/* Custom sleek scrollbar for internal containers */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.35);
+    border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.65);
 }

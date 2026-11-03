@@ -190,7 +190,7 @@ export default function Explore() {
                                     <div className="flex-1 max-w-xl">
                                         <div className="flex items-center gap-2 mb-3">
                                             <span className="px-3 py-1 bg-white/90 rounded-full text-xs font-bold text-[#e60023] shadow-xs">
-                                                ★ T tuyển chọn nổi bật
+                                                ★ Tuyển chọn nổi bật
                                             </span>
                                             {book.ratingAvg != null && Number(book.ratingAvg) > 0 && (
                                                 <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200/60">
