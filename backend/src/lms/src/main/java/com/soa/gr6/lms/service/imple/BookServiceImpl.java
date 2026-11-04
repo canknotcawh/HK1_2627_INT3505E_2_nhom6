@@ -155,9 +155,7 @@ public class BookServiceImpl implements BookService {
                 request.language(),
                 request.publishedYear(),
                 request.pageCount(),
-                request.coverImageUrl(),
-                request.previewUrl(),
-                request.readerUrl());
+                request.coverImageUrl());
     }
 
     private void requireIsbnAvailable(String isbn13, UUID ownBookId) {
