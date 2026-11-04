@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard } from "lucide-react";
+import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard, Compass } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
 import { searchBooks, type BookDto } from "../../lib/books";
-import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
+import SearchSuggestionsDropdown from "../books/SearchSuggestionsDropdown";
 import {
     getRecentSearches,
     saveRecentSearch,
@@ -100,9 +100,9 @@ export default function NavBar() {
         if (trimmed) {
             const updated = saveRecentSearch(trimmed, userId);
             setRecentSearches(updated);
-            navigate(`/books?q=${encodeURIComponent(trimmed)}`);
+            navigate(`/search?q=${encodeURIComponent(trimmed)}`);
         } else {
-            navigate('/books');
+            navigate('/search');
         }
     };
 
@@ -120,11 +120,19 @@ export default function NavBar() {
         setRecentSearches([]);
     };
 
+    const handleHomeClick = () => {
+        if (role === 'user' || role === 'admin') {
+            navigate('/dashboard');
+        } else {
+            navigate('/');
+        }
+    };
+
     return (
         <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
             <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
                 {/* Logo, Brand */}
-                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate("/")}>
+                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={handleHomeClick}>
                     <div className="bg-[#e60023] p-1.5 rounded-lg">
                         <Library className="w-5 h-5 text-white" />
                     </div>
@@ -177,18 +185,22 @@ export default function NavBar() {
                 <div className="flex items-center gap-2 shrink-0">
                     {role === 'user' || role === 'admin' ? (
                         <div className="flex items-center gap-1 md:gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => navigate("/user")} className="flex items-center gap-1.5 text-gray-700">
+                            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="flex items-center gap-1.5 text-gray-700">
                                 <LayoutDashboard className="w-4 h-4" />
                                 <span className="hidden md:inline">Tổng quan</span>
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => navigate("/user/history")} className="flex items-center gap-1.5 text-gray-700">
+                            <Button variant="ghost" size="sm" onClick={() => navigate("/explore")} className="flex items-center gap-1.5 text-gray-700">
+                                <Compass className="w-4 h-4" />
+                                <span className="hidden md:inline">Khám phá</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => navigate("/history")} className="flex items-center gap-1.5 text-gray-700">
                                 <Clock className="w-4 h-4" />
                                 <span className="hidden md:inline">Lịch sử</span>
                             </Button>
                             <div className="flex items-center gap-1 ml-1 pl-2 border-l border-gray-200">
                                 <button
                                     type="button"
-                                    onClick={() => navigate("/user/profile")}
+                                    onClick={() => navigate("/profile")}
                                     className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#e60023] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]"
                                     aria-label="Mở hồ sơ cá nhân"
                                     title="Hồ sơ cá nhân"

@@ -1,5 +1,5 @@
 import { CheckCircle, AlertCircle } from "lucide-react";
-import type { ToastState } from "../hooks/useToast";
+import type { ToastState } from "../../hooks/useToast";
 
 export default function Toast({ toast }: { toast: ToastState }) {
   if (!toast) return null;
