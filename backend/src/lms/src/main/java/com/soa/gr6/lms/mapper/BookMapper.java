@@ -33,8 +33,6 @@ public class BookMapper {
                 book.getPublishedYear(),
                 book.getPageCount(),
                 book.getCoverImageUrl(),
-                book.getPreviewUrl(),
-                book.getReaderUrl(),
                 book.getTotalCopies(),
                 book.getAvailableCopies(),
                 book.getRatingAvg(),
