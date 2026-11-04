@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from "react"
-import { Navigate, useLocation } from "react-router-dom"
+import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { Library, Loader2 } from "lucide-react"
 import { loadGoogleIdentityScript } from "../lib/google-identity"
 import { isAxiosError } from "axios"
 import { Button } from "../components/ui/button"
+import { PasswordRequirements } from "../components/PasswordRequirements";
+import { isStrongPassword } from "../lib/password-policy";
 
 type Mode = 'login' | 'register';
 
 function authErrorMessage(error: unknown): string {
     if (!isAxiosError<{ code?: string }>(error)) {
         return "Có lỗi xảy ra. Vui lòng thử lại.";
+    }
+    if (!error.response) {
+        return "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
     }
     const code = error.response?.data?.code;
     if (code === "GOOGLE_ACCOUNT_ONLY") {
@@ -30,7 +35,9 @@ function authErrorMessage(error: unknown): string {
 
 export default function Login() {
     const { loginWithGoogleToken, loginWithPassword, register, role, initialized } = useAuth();
-    const from = (useLocation().state as { from?: { pathname: string; search?: string } } | null)?.from;
+    const location = useLocation();
+    const navigate = useNavigate();
+    const from = (location.state as { from?: { pathname: string; search?: string } } | null)?.from;
     const buttonRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState("");
 
@@ -80,14 +87,29 @@ export default function Login() {
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
         setError("");
+        if (mode === 'register' && !isStrongPassword(password)) {
+            setError("Mật khẩu chưa đáp ứng đủ yêu cầu.");
+            return;
+        }
         setSubmitting(true);
         try {
             if (mode === 'login') {
                 await loginWithPassword(email, password);
             } else {
                 await register(email, password, fullName);
+                navigate('/verify-email', { state: { email, resendIn: 60 } });
             }
         } catch (submitError) {
+            if (mode === 'register' && isAxiosError<{ code?: string }>(submitError)
+                && submitError.response?.data?.code === 'EMAIL_VERIFICATION_DELIVERY_FAILED') {
+                navigate('/verify-email', { state: { email, deliveryFailed: true } });
+                return;
+            }
+            if (mode === 'login' && isAxiosError<{ code?: string }>(submitError)
+                && submitError.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+                navigate('/verify-email', { state: { email } });
+                return;
+            }
             setError(authErrorMessage(submitError));
         } finally {
             setSubmitting(false);
@@ -166,11 +188,13 @@ export default function Login() {
                 type="password"
                 required
                 minLength={mode === 'register' ? 8 : undefined}
+                maxLength={mode === 'register' ? 100 : undefined}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Mật khẩu"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023]"
             />
+            {mode === 'register' && <PasswordRequirements value={password} />}
             <Button type="submit" variant="brand" className="w-full" disabled={submitting}>
                 {submitting ? "Đang xử lý..." : mode === 'login' ? "Đăng nhập" : "Đăng ký"}
             </Button>

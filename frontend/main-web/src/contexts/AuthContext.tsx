@@ -103,9 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyAuthPayload]);
 
   const register = useCallback(async (email: string, password: string, fullName: string) => {
-    const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/register', { email, password, fullName });
-    applyAuthPayload(response.data);
-  }, [applyAuthPayload]);
+    await apiClient.post<{ message: string }>('/api/v1/public/auth/register', { email, password, fullName });
+  }, []);
 
   const logout = useCallback(() => {
     const refreshToken = getRefreshToken();

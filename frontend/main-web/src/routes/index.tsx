@@ -10,6 +10,7 @@ import Books from "@/pages/Books";
 import BookDetail from "@/pages/BookDetail";
 import Profile from "@/pages/Profile";
 import PasswordReset from "@/pages/PasswordReset";
+import EmailVerification from "@/pages/EmailVerification";
 import { useAuth } from "@/contexts/AuthContext";
 
 function HomeRouter() {
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
         element: <Login />
     },
     { path: "/reset-password", element: <PasswordReset /> },
+    { path: "/verify-email", element: <EmailVerification /> },
     {
         element: <PublicLayout />,
         children: [

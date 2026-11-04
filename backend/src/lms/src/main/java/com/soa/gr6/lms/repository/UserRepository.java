@@ -17,6 +17,14 @@ import org.springframework.data.repository.query.Param;
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
     Optional<User> findByEmail(String email);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.email = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") UUID id);
+
     boolean existsByEmail(String email);
 
     Optional<User> findByGoogleSubject(String googleSubject);
