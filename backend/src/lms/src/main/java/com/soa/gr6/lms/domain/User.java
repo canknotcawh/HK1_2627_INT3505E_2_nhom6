@@ -63,6 +63,9 @@ public class User {
     @Column(name = "bootstrap_admin_granted", nullable = false)
     private boolean bootstrapAdminGranted;
 
+    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")
+    private boolean emailVerified;
+
     @Column(name = "profile_name_managed", nullable = false, columnDefinition = "boolean default false")
     private boolean profileNameManaged = false;
 
@@ -70,9 +73,14 @@ public class User {
     private Instant passwordResetRequestedAt;
 
     public User(String googleSubject, String email, String fullName) {
+        this(googleSubject, email, fullName, false);
+    }
+
+    public User(String googleSubject, String email, String fullName, boolean emailVerified) {
         this.googleSubject = requireValue(googleSubject, "googleSubject");
         this.email = requireValue(email, "email");
         this.fullName = requireValue(fullName, "fullName");
+        this.emailVerified = emailVerified;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
@@ -90,6 +98,14 @@ public class User {
 
     public boolean hasPassword() {
         return passwordHash != null;
+    }
+
+    public void markEmailVerified() {
+        this.emailVerified = true;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 
     public boolean isUnlinkedLegacyKeycloakAccount() {

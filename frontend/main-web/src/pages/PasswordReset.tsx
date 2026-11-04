@@ -4,6 +4,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { PasswordRequirements } from "@/components/PasswordRequirements";
+import { isStrongPassword } from "@/lib/password-policy";
 
 export default function PasswordReset() {
     const [params] = useSearchParams();
@@ -16,6 +18,10 @@ export default function PasswordReset() {
 
     const submit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (token && !isStrongPassword(password)) {
+            setError("Mật khẩu chưa đáp ứng đủ yêu cầu.");
+            return;
+        }
         setSubmitting(true);
         setMessage("");
         setError("");
@@ -46,14 +52,17 @@ export default function PasswordReset() {
                 </p>
                 <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
                     {token ? (
-                        <input type="password" minLength={8} maxLength={100} required value={password}
-                            onChange={(event) => setPassword(event.target.value)} placeholder="Mật khẩu mới"
-                            className="h-11 rounded-xl border border-gray-200 px-4 text-sm" />
+                        <>
+                            <input type="password" minLength={8} maxLength={100} required value={password}
+                                onChange={(event) => setPassword(event.target.value)} placeholder="Mật khẩu mới"
+                                className="h-11 rounded-xl border border-gray-200 px-4 text-sm" />
+                            <PasswordRequirements value={password} />
+                        </>
                     ) : (
                         <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)}
                             placeholder="Email" className="h-11 rounded-xl border border-gray-200 px-4 text-sm" />
                     )}
-                    <Button type="submit" disabled={submitting}>
+                    <Button type="submit" disabled={submitting || (!!token && !isStrongPassword(password))}>
                         {submitting ? "Đang xử lý…" : token ? "Đổi mật khẩu" : "Gửi hướng dẫn"}
                     </Button>
                 </form>

@@ -63,8 +63,9 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request.email(), request.password(), request.fullName());
+    public MessageResponse register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request.email(), request.password(), request.fullName());
+        return new MessageResponse("Registration received. Check your email to verify the account.");
     }
 
     @PostMapping("/login")

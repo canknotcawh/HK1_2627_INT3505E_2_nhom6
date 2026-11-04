@@ -32,3 +32,7 @@ app:
     from: ${MAIL_FROM:no-reply@lms.local}
   frontend:
     main-url: ${MAIN_WEB_URL:http://localhost:5173}
+  email-verification:
+    challenge-ttl: ${EMAIL_VERIFICATION_TTL:10m}
+    resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:60s}
+    max-attempts: ${EMAIL_VERIFICATION_MAX_ATTEMPTS:5}

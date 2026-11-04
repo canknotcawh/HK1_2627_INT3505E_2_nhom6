@@ -1,6 +1,8 @@
 package com.soa.gr6.lms.service.identity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -18,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
@@ -43,6 +46,8 @@ class AuthServiceTest {
     @Mock
     private RefreshSessionService refreshSessionService;
     @Mock
+    private EmailVerificationService emailVerificationService;
+    @Mock
     private GoogleIdTokenVerifier googleIdTokenVerifier;
     @Mock
     private GoogleIdToken googleIdToken;
@@ -57,7 +62,8 @@ class AuthServiceTest {
         lenient().when(refreshSessionService.create(any(User.class)))
                 .thenReturn(new RefreshSessionService.SessionTokens("access", "refresh"));
         authService = new AuthService(
-                userRepository, transactionManager, googleIdTokenVerifier, passwordEncoder, refreshSessionService, List.of());
+                userRepository, transactionManager, googleIdTokenVerifier, passwordEncoder,
+                refreshSessionService, emailVerificationService, List.of());
     }
 
     @Test
@@ -83,6 +89,19 @@ class AuthServiceTest {
         authService.loginWithGoogle("google-id-token");
 
         verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void googleLoginKeepsUserManagedProfileName() throws Exception {
+        mockGoogleToken("an@example.com", "Google Name", true);
+        User existing = new User(SUBJECT, "an@example.com", "Google Name");
+        existing.updateProfile("Chosen Name");
+        when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.of(existing));
+
+        AuthResponse response = authService.loginWithGoogle("google-id-token");
+
+        assertEquals("Chosen Name", response.user().fullName());
+        assertEquals("an@example.com", response.user().email());
     }
 
     @Test
@@ -118,7 +137,7 @@ class AuthServiceTest {
     @Test
     void bootstrapAdminEmailBecomesAdminWhenEmailIsVerified() throws Exception {
         authService = new AuthService(userRepository, transactionManager, googleIdTokenVerifier,
-                passwordEncoder, refreshSessionService, List.of(" Admin@LMS.local "));
+                passwordEncoder, refreshSessionService, emailVerificationService, List.of(" Admin@LMS.local "));
         mockGoogleToken("admin@lms.local", "Admin", true);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -126,12 +145,15 @@ class AuthServiceTest {
         AuthResponse response = authService.loginWithGoogle("google-id-token");
 
         assertEquals(UserRole.ADMIN, response.user().role());
+        org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(userRepository).saveAndFlush(saved.capture());
+        assertTrue(saved.getValue().isEmailVerified());
     }
 
     @Test
     void bootstrapAdminIsIgnoredWhenEmailIsNotVerified() throws Exception {
         authService = new AuthService(userRepository, transactionManager, googleIdTokenVerifier,
-                passwordEncoder, refreshSessionService, List.of("admin@lms.local"));
+                passwordEncoder, refreshSessionService, emailVerificationService, List.of("admin@lms.local"));
         mockGoogleToken("admin@lms.local", "Admin", false);
         when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -139,6 +161,9 @@ class AuthServiceTest {
         AuthResponse response = authService.loginWithGoogle("google-id-token");
 
         assertEquals(UserRole.USER, response.user().role());
+        org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(userRepository).saveAndFlush(saved.capture());
+        assertFalse(saved.getValue().isEmailVerified());
     }
 
     @Test
@@ -187,15 +212,56 @@ class AuthServiceTest {
     }
 
     @Test
-    void registerCreatesUserWithHashedPassword() {
+    void loginWithGoogleLinksVerifiedEmailToLegacyKeycloakAccount() throws Exception {
+        mockGoogleToken("legacy@example.com", "Legacy Reader", true);
+        User legacy = new User();
+        ReflectionTestUtils.setField(legacy, "keycloakSubject", "legacy-keycloak-subject");
+        ReflectionTestUtils.setField(legacy, "email", "legacy@example.com");
+        ReflectionTestUtils.setField(legacy, "fullName", "Old Name");
+        ReflectionTestUtils.setField(legacy, "createdAt", java.time.Instant.now());
+        ReflectionTestUtils.setField(legacy, "updatedAt", java.time.Instant.now());
+        when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("legacy@example.com")).thenReturn(Optional.of(legacy));
+
+        AuthResponse response = authService.loginWithGoogle("google-id-token");
+
+        assertEquals(UserRole.USER, response.user().role());
+        assertEquals("legacy@example.com", response.user().email());
+        assertEquals(SUBJECT, legacy.getGoogleSubject());
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void loginWithGoogleDoesNotLinkUnverifiedEmailToLegacyKeycloakAccount() throws Exception {
+        mockGoogleToken("legacy@example.com", "Legacy Reader", false);
+        User legacy = new User();
+        ReflectionTestUtils.setField(legacy, "keycloakSubject", "legacy-keycloak-subject");
+        ReflectionTestUtils.setField(legacy, "email", "legacy@example.com");
+        ReflectionTestUtils.setField(legacy, "fullName", "Old Name");
+        when(userRepository.findByGoogleSubject(SUBJECT)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("legacy@example.com")).thenReturn(Optional.of(legacy));
+
+        DuplicateResourceException e = assertThrows(DuplicateResourceException.class,
+                () -> authService.loginWithGoogle("google-id-token"));
+
+        assertEquals("EMAIL_ALREADY_REGISTERED", e.getCode());
+        org.junit.jupiter.api.Assertions.assertNull(legacy.getGoogleSubject());
+    }
+
+    @Test
+    void registerCreatesUnverifiedUserAndSendsVerificationWithoutCreatingSession() {
         when(userRepository.existsByEmail("an@example.com")).thenReturn(false);
         when(passwordEncoder.encode("secret123")).thenReturn("hashed");
-        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(i -> i.getArgument(0));
+        User savedUser = User.withPassword("an@example.com", "Nguyen An", "hashed");
+        java.util.UUID userId = java.util.UUID.randomUUID();
+        ReflectionTestUtils.setField(savedUser, "id", userId);
+        when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
 
-        AuthResponse response = authService.register("An@Example.com", "secret123", "Nguyen An");
+        authService.register("An@Example.com", "secret123", "Nguyen An");
 
-        assertEquals("an@example.com", response.user().email());
-        assertEquals(UserRole.USER, response.user().role());
+        assertFalse(savedUser.isEmailVerified());
+        verify(emailVerificationService).issueForUser(userId);
+        verify(refreshSessionService, never()).create(any(User.class));
     }
 
     @Test
@@ -211,12 +277,26 @@ class AuthServiceTest {
     @Test
     void loginWithPasswordSucceedsForMatchingCredentials() {
         User user = User.withPassword("an@example.com", "Nguyen An", "hashed");
+        user.markEmailVerified();
         when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
 
         AuthResponse response = authService.loginWithPassword("an@example.com", "secret123");
 
         assertEquals("access", response.accessToken());
+    }
+
+    @Test
+    void loginWithPasswordRejectsUnverifiedAccountWithoutCreatingSession() {
+        User user = User.withPassword("an@example.com", "Nguyen An", "hashed");
+        when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
+
+        ApiException e = assertThrows(ApiException.class,
+                () -> authService.loginWithPassword("an@example.com", "secret123"));
+
+        assertEquals(ErrorCode.EMAIL_NOT_VERIFIED, e.getErrorCode());
+        verify(refreshSessionService, never()).create(any(User.class));
     }
 
     @Test

@@ -3,6 +3,8 @@ package com.soa.gr6.lms.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -39,12 +41,15 @@ import com.soa.gr6.lms.domain.enums.UserRole;
 import com.soa.gr6.lms.domain.enums.UserStatus;
 import com.soa.gr6.lms.dto.AdminUserResponse;
 import com.soa.gr6.lms.dto.AuthResponse;
+import com.soa.gr6.lms.dto.AccessTokenResponse;
 import com.soa.gr6.lms.dto.BookResponse;
 import com.soa.gr6.lms.dto.LoanResponse;
 import com.soa.gr6.lms.dto.UserResponse;
 import com.soa.gr6.lms.exception.BookNotFoundException;
 import com.soa.gr6.lms.exception.BookUnavailableException;
+import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.DuplicateResourceException;
+import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.exception.GlobalExceptionHandler;
 import com.soa.gr6.lms.exception.LoanNotFoundException;
 import com.soa.gr6.lms.exception.UserSuspendedException;
@@ -249,19 +254,42 @@ class ControllersWebTest {
         when(userService.updateFullName(userId, "Updated Name"))
                 .thenReturn(new UserResponse(userId, "Updated Name", "a@b.com", UserRole.USER));
         mvc.perform(patch("/api/v1/users/me").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"fullName\":\"Updated Name\",\"role\":\"ADMIN\",\"status\":\"ACTIVE\"}"))
+                        .content("{\"fullName\":\"  Updated Name  \",\"email\":\"attacker@example.com\",\"role\":\"ADMIN\",\"status\":\"ACTIVE\",\"userId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.fullName").value("Updated Name"));
+                .andExpect(jsonPath("$.id").value(userId.toString()))
+                .andExpect(jsonPath("$.fullName").value("Updated Name"))
+                .andExpect(jsonPath("$.email").value("a@b.com"))
+                .andExpect(jsonPath("$.role").value("USER"));
         verify(userService).updateFullName(userId, "Updated Name");
+    }
+
+    @Test
+    void profileUpdateRejectsBlankAndWhitespaceNames() throws Exception {
+        mvc.perform(patch("/api/v1/users/me").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(patch("/api/v1/users/me").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void profileUpdateRejectsNamesLongerThan255Characters() throws Exception {
+        mvc.perform(patch("/api/v1/users/me").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"" + "n".repeat(256) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
     void authenticatedUserCanRequestPasswordChange() throws Exception {
         mvc.perform(post("/api/v1/users/me/password").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"currentPassword\":\"old-password\",\"newPassword\":\"new-password-123\"}"))
+                        .content("{\"currentPassword\":\"old-password\",\"newPassword\":\"New-password-123!\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").exists());
-        verify(passwordManagementService).changePassword(userId, "old-password", "new-password-123");
+        verify(passwordManagementService).changePassword(userId, "old-password", "New-password-123!");
     }
 
     @Test
@@ -318,34 +346,111 @@ class ControllersWebTest {
     void registerAndLoginWithPassword() throws Exception {
         AuthResponse authResponse = new AuthResponse("access", "refresh",
                 new UserResponse(userId, "A", "a@b.com", UserRole.USER));
-        when(authService.register("a@b.com", "secret123", "A")).thenReturn(authResponse);
-        when(authService.loginWithPassword("a@b.com", "secret123")).thenReturn(authResponse);
+        doNothing().when(authService).register("a@b.com", "Secret123!", "A");
+        when(authService.loginWithPassword("a@b.com", "Secret123!")).thenReturn(authResponse);
 
         mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"a@b.com\",\"password\":\"secret123\",\"fullName\":\"A\"}"))
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Secret123!\",\"fullName\":\"A\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("access"));
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
 
         mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"a@b.com\",\"password\":\"secret123\"}"))
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Secret123!\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("access"));
     }
 
     @Test
-    void registerRejectsShortPassword() throws Exception {
+    void registrationEnforcesEmailNameAndPasswordValidation() throws Exception {
         mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"a@b.com\",\"password\":\"short\",\"fullName\":\"A\"}"))
-                .andExpect(status().isBadRequest());
+                        .content("{\"email\":\"not-an-email\",\"password\":\"Aa1!bcde\",\"fullName\":\"A\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Aa1!bcde\",\"fullName\":\"   \"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Aa1!bcde\",\"fullName\":\"" + "n".repeat(256) + "\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Aa1!abc\",\"fullName\":\"A\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"password123\",\"fullName\":\"A\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Aa1!" + "x".repeat(69) + "\",\"fullName\":\"A\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void registrationAcceptsEightCharacterAndMaximumBcryptBytePasswords() throws Exception {
+        String minPassword = "Aa1!bcde";
+        String maxBytePassword = "Aa1!" + "x".repeat(68);
+        doNothing().when(authService).register("a@b.com", minPassword, "A");
+        doNothing().when(authService).register("a@b.com", maxBytePassword, "A");
+        for (String password : List.of(minPassword, maxBytePassword)) {
+            mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"a@b.com\",\"password\":\"" + password + "\",\"fullName\":\"A\"}"))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void loginDoesNotApplyNewPasswordStrengthRulesToExistingAccounts() throws Exception {
+        AuthResponse authResponse = new AuthResponse("access", "refresh",
+                new UserResponse(userId, "A", "a@b.com", UserRole.USER));
+        when(authService.loginWithPassword("a@b.com", "old")).thenReturn(authResponse);
+        mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"old\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void loginMapsInvalidCredentialsAndGoogleOnlyAccount() throws Exception {
+        when(authService.loginWithPassword("a@b.com", "wrong"))
+                .thenThrow(new ApiException(ErrorCode.UNAUTHORIZED));
+        when(authService.loginWithPassword("missing@b.com", "wrong"))
+                .thenThrow(new ApiException(ErrorCode.UNAUTHORIZED));
+        when(authService.loginWithPassword("google@b.com", "password"))
+                .thenThrow(new ApiException(ErrorCode.GOOGLE_ACCOUNT_ONLY));
+        when(authService.loginWithPassword("pending@b.com", "correct-password"))
+                .thenThrow(new ApiException(ErrorCode.EMAIL_NOT_VERIFIED));
+        mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+        mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"google@b.com\",\"password\":\"password\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("GOOGLE_ACCOUNT_ONLY"));
+        mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"missing@b.com\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+        mvc.perform(post("/api/v1/public/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"pending@b.com\",\"password\":\"correct-password\"}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
+    }
+
+    @Test
+    void refreshRotatesAndLogoutRevokesRefreshSession() throws Exception {
+        when(authService.refresh("old-refresh")).thenReturn(new AccessTokenResponse("new-access", "new-refresh"));
+        mvc.perform(post("/api/v1/public/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"old-refresh\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("new-access"))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh"));
+        mvc.perform(post("/api/v1/public/auth/logout").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"new-refresh\"}"))
+                .andExpect(status().isNoContent());
+        verify(authService).logout("new-refresh");
     }
 
     @Test
     void duplicateEmailRegistrationIsConflict() throws Exception {
-        when(authService.register(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
-                .thenThrow(new DuplicateResourceException("EMAIL_ALREADY_REGISTERED", "dup"));
+        doThrow(new DuplicateResourceException("EMAIL_ALREADY_REGISTERED", "dup")).when(authService)
+                .register(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
 
         mvc.perform(post("/api/v1/public/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"a@b.com\",\"password\":\"secret123\",\"fullName\":\"A\"}"))
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Secret123!\",\"fullName\":\"A\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"));
     }

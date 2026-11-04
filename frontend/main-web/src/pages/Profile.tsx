@@ -1,8 +1,30 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { isAxiosError } from "axios";
 import { LoaderCircle, Mail, Shield, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { PasswordRequirements } from "@/components/PasswordRequirements";
+import { isStrongPassword } from "@/lib/password-policy";
+
+function profileErrorMessage(error: unknown): string {
+    if (!isAxiosError<{ code?: string }>(error)) {
+        return "Không thể cập nhật hồ sơ. Vui lòng thử lại.";
+    }
+    if (!error.response) {
+        return "Không kết nối được backend. Tên chưa được lưu, hãy thử lại.";
+    }
+    if (error.response.status === 401) {
+        return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi thử lại.";
+    }
+    if (error.response.status === 400 && error.response.data?.code === "VALIDATION_FAILED") {
+        return "Họ và tên không hợp lệ. Tên không được để trống và tối đa 255 ký tự.";
+    }
+    if (error.response.status >= 500) {
+        return "Máy chủ đang gặp lỗi. Tên chưa được lưu, hãy thử lại sau.";
+    }
+    return "Không thể cập nhật hồ sơ. Vui lòng thử lại.";
+}
 
 export default function Profile() {
     const { user, initialized, updateProfile, changePassword, logout } = useAuth();
@@ -20,14 +42,25 @@ export default function Profile() {
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        const normalizedName = fullName.trim();
+        if (!normalizedName) {
+            setMessage("");
+            setError("Họ và tên không được để trống.");
+            return;
+        }
+        if (normalizedName.length > 255) {
+            setMessage("");
+            setError("Họ và tên tối đa 255 ký tự.");
+            return;
+        }
         setSaving(true);
         setMessage("");
         setError("");
         try {
-            await updateProfile(fullName.trim());
+            await updateProfile(normalizedName);
             setMessage("Đã cập nhật họ và tên.");
-        } catch {
-            setError("Không thể cập nhật hồ sơ. Vui lòng thử lại.");
+        } catch (submitError) {
+            setError(profileErrorMessage(submitError));
         } finally {
             setSaving(false);
         }
@@ -35,6 +68,10 @@ export default function Profile() {
 
     const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (!isStrongPassword(newPassword)) {
+            setPasswordError("Mật khẩu chưa đáp ứng đủ yêu cầu.");
+            return;
+        }
         setChangingPassword(true);
         setPasswordMessage("");
         setPasswordError("");
@@ -80,7 +117,12 @@ export default function Profile() {
                         <label className="block text-sm font-medium text-gray-700">
                             Họ và tên
                             <input className={fieldClass} value={fullName} maxLength={255} required
-                                onChange={(event) => setFullName(event.target.value)} />
+                                aria-invalid={!!error} aria-describedby={error ? "profile-name-error" : undefined}
+                                onChange={(event) => {
+                                    setFullName(event.target.value);
+                                    setMessage("");
+                                    setError("");
+                                }} />
                         </label>
                         <label className="block text-sm font-medium text-gray-700">
                             <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Email</span>
@@ -92,8 +134,8 @@ export default function Profile() {
                             <div className={fieldClass}>{user.role === "ADMIN" ? "Quản trị viên" : "Người dùng"}</div>
                         </label>
                         {message && <p role="status" className="text-sm text-green-700">{message}</p>}
-                        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-                        <Button type="submit" disabled={saving || !fullName.trim()}>
+                        {error && <p id="profile-name-error" role="alert" className="text-sm text-red-600">{error}</p>}
+                        <Button type="submit" disabled={saving || !fullName.trim() || fullName.trim().length > 255}>
                             {saving ? "Đang lưu…" : "Lưu thay đổi"}
                         </Button>
                     </form>
@@ -110,10 +152,11 @@ export default function Profile() {
                         <input type="password" autoComplete="new-password" minLength={8} maxLength={100} required value={newPassword}
                             onChange={(event) => setNewPassword(event.target.value)} placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
                             className="h-11 rounded-xl border border-gray-200 px-4 text-sm" />
+                        <div className="sm:col-span-2"><PasswordRequirements value={newPassword} /></div>
                         <div className="sm:col-span-2 flex flex-col items-start gap-3">
                             {passwordMessage && <p role="status" className="text-sm text-green-700">{passwordMessage}</p>}
                             {passwordError && <p role="alert" className="text-sm text-red-600">{passwordError}</p>}
-                            <Button type="submit" disabled={changingPassword}>
+                            <Button type="submit" disabled={changingPassword || !isStrongPassword(newPassword)}>
                                 {changingPassword ? "Đang cập nhật…" : "Đổi mật khẩu"}
                             </Button>
                         </div>

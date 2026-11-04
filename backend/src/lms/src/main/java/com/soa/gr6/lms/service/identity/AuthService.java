@@ -30,6 +30,7 @@ public class AuthService {
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
     private final PasswordEncoder passwordEncoder;
     private final RefreshSessionService refreshSessionService;
+    private final EmailVerificationService emailVerificationService;
     private final List<String> bootstrapAdminEmails;
 
     public AuthService(UserRepository userRepository,
@@ -37,12 +38,14 @@ public class AuthService {
                        GoogleIdTokenVerifier googleIdTokenVerifier,
                        PasswordEncoder passwordEncoder,
                        RefreshSessionService refreshSessionService,
+                       EmailVerificationService emailVerificationService,
                        @Value("${app.bootstrap-admin-emails:}") List<String> bootstrapAdminEmails) {
         this.userRepository = userRepository;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.googleIdTokenVerifier = googleIdTokenVerifier;
         this.passwordEncoder = passwordEncoder;
         this.refreshSessionService = refreshSessionService;
+        this.emailVerificationService = emailVerificationService;
         this.bootstrapAdminEmails = bootstrapAdminEmails.stream()
                 .map(e -> e.trim().toLowerCase(Locale.ROOT))
                 .filter(e -> !e.isEmpty())
@@ -78,7 +81,7 @@ public class AuthService {
         return authResponse(user);
     }
 
-    public AuthResponse register(String email, String password, String fullName) {
+    public void register(String email, String password, String fullName) {
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByEmail(normalizedEmail)) {
             throw new DuplicateResourceException("EMAIL_ALREADY_REGISTERED", "email is already registered");
@@ -93,7 +96,7 @@ public class AuthService {
             throw new DuplicateResourceException("EMAIL_ALREADY_REGISTERED", "email is already registered");
         }
 
-        return authResponse(user);
+        emailVerificationService.issueForUser(user.getId());
     }
 
     public AuthResponse loginWithPassword(String email, String password) {
@@ -107,6 +110,9 @@ public class AuthService {
         }
         if (!user.isActive()) {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
+        }
+        if (!user.isEmailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
         return authResponse(user);
@@ -148,6 +154,7 @@ public class AuthService {
             if (!user.getEmail().equals(email)) {
                 user.changeEmail(email);
             }
+            user.setEmailVerified(emailVerified);
             user.syncGoogleProfile(fullName);
             return user;
         }
@@ -156,6 +163,7 @@ public class AuthService {
             User emailMatchedUser = emailMatch.get();
             if (emailVerified && emailMatchedUser.isUnlinkedLegacyKeycloakAccount()) {
                 emailMatchedUser.linkGoogleIdentity(subject);
+                emailMatchedUser.markEmailVerified();
                 emailMatchedUser.syncGoogleProfile(fullName);
                 return emailMatchedUser;
             }
@@ -168,7 +176,7 @@ public class AuthService {
             throw new DuplicateResourceException(
                     "EMAIL_ALREADY_REGISTERED", "email is already associated with another sign-in method");
         }
-        User created = new User(subject, email, fullName);
+        User created = new User(subject, email, fullName, emailVerified);
         if (grantAdmin) {
             created.promoteToAdmin();
             created.markBootstrapAdminGranted();
