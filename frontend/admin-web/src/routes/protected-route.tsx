@@ -16,7 +16,7 @@ export default function ProtectedRoute() {
     }
 
     if (!authenticated) {
-        return <Navigate to="/login" replace />
+        return <Navigate to="/admin/login" replace />
     }
 
     if (authError && !user) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
-import type { GoogleBooksApi } from "../lib/google-identity";
+import type { GoogleBooksApi } from "../../lib/google-identity";
 
 const GOOGLE_BOOKS_SCRIPT = "https://www.google.com/books/jsapi.js";
 const PREVIEW_DURATION_SECONDS = 180;
