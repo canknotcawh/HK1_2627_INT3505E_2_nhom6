@@ -2,16 +2,17 @@ CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- PostgreSQL unaccent() is STABLE. An IMMUTABLE wrapper is required for index expressions and generated columns.
+-- Index creation can restrict search_path, so extension calls must include the schema.
 CREATE OR REPLACE FUNCTION immutable_unaccent(text)
   RETURNS text AS
 $$
-SELECT unaccent(replace(replace($1, 'đ', 'd'), 'Đ', 'D'));
+SELECT public.unaccent(replace(replace($1, 'đ', 'd'), 'Đ', 'D'));
 $$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION immutable_unaccent(varchar)
   RETURNS text AS
 $$
-SELECT unaccent(replace(replace($1::text, 'đ', 'd'), 'Đ', 'D'));
+SELECT public.unaccent(replace(replace($1::text, 'đ', 'd'), 'Đ', 'D'));
 $$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
 -- Prefix tsquery helper function:

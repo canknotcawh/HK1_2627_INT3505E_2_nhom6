@@ -15,8 +15,6 @@ public record BookResponse(
         Integer publishedYear,
         Integer pageCount,
         String coverImageUrl,
-        String previewUrl,
-        String readerUrl,
         int totalCopies,
         int availableCopies,
         BigDecimal ratingAvg,
@@ -38,15 +36,13 @@ public record BookResponse(
             Integer publishedYear,
             Integer pageCount,
             String coverImageUrl,
-            String previewUrl,
-            String readerUrl,
             int totalCopies,
             int availableCopies,
             String status,
             Instant createdAt,
             Instant updatedAt) {
         this(id, isbn13, title, subtitle, description, language, publishedYear, pageCount,
-                coverImageUrl, previewUrl, readerUrl, totalCopies, availableCopies,
+                coverImageUrl, totalCopies, availableCopies,
                 BigDecimal.ZERO, 0, status, createdAt, updatedAt, List.of(), List.of(), null);
     }
 }

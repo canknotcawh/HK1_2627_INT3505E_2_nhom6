@@ -1,5 +1,3 @@
 ALTER TABLE book
     DROP COLUMN IF EXISTS subtitle,
-    DROP COLUMN IF EXISTS preview_url,
-    DROP COLUMN IF EXISTS reader_url,
     ADD COLUMN IF NOT EXISTS gg_id VARCHAR(12);

@@ -63,12 +63,6 @@ public class Book {
     @Column(name = "cover_image_url", length = 1000)
     private String coverImageUrl;
 
-    @Column(name = "preview_url", length = 1000)
-    private String previewUrl;
-
-    @Column(name = "reader_url", length = 1000)
-    private String readerUrl;
-
     @Column(name = "total_copies", nullable = false)
     private int totalCopies;
 
@@ -142,21 +136,6 @@ public class Book {
             Integer publishedYear,
             Integer pageCount,
             String coverImageUrl) {
-        updateMetadata(isbn13, title, subtitle, description, language, publishedYear,
-                pageCount, coverImageUrl, null, null);
-    }
-
-    public void updateMetadata(
-            String isbn13,
-            String title,
-            String subtitle,
-            String description,
-            String language,
-            Integer publishedYear,
-            Integer pageCount,
-            String coverImageUrl,
-            String previewUrl,
-            String readerUrl) {
         String validTitle = requireTitle(title);
         String validIsbn13 = requireValidIsbn13(isbn13);
         String validLanguage = requireValidLanguage(language);
@@ -170,8 +149,6 @@ public class Book {
         this.publishedYear = validPublishedYear;
         this.pageCount = validPageCount;
         this.coverImageUrl = coverImageUrl;
-        this.previewUrl = previewUrl;
-        this.readerUrl = readerUrl;
     }
 
     public void updateGgId(String ggId) {
