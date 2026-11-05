@@ -33,7 +33,7 @@ class BookServiceImplTest {
 
     private static BookRequest request(String isbn, int copies) {
         return new BookRequest(isbn, "Clean Code", null, null, "en", 2008, 464,
-                null, null, null, copies, "gg1234567890");
+                null, copies, "gg1234567890");
     }
 
     private Book existing(UUID id) {
