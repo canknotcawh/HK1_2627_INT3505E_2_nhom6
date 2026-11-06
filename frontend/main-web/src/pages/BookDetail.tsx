@@ -8,6 +8,7 @@ import { useToast } from "../hooks/useToast";
 import Toast from "../components/ui/Toast";
 import BorrowConfirmDialog from "../components/loans/BorrowConfirmDialog";
 import BookPreviewDialog, { preloadGoogleBooksApi } from "../components/books/BookPreviewDialog";
+import BookReviewsSection from "../components/books/BookReviewsSection";
 import { Button } from "../components/ui/button";
 import { Library, ArrowLeft, Calendar, Hash, Globe, Star, Tag, LoaderCircle, Eye } from "lucide-react";
 
@@ -233,6 +234,9 @@ export default function BookDetail() {
                     </div>
                 </div>
             </div>
+
+            {/* Book Reviews and Ratings Section */}
+            <BookReviewsSection bookId={book.id} />
 
             <BorrowConfirmDialog
                 book={confirmBook}
