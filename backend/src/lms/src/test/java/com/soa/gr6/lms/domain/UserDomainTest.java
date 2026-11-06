@@ -47,6 +47,15 @@ class UserDomainTest {
     }
 
     @Test
+    void managedProfileNameIsNotOverwrittenByGoogleSync() {
+        User user = new User("sub", "a@b.com", "Google Name");
+        user.updateProfile("Chosen Name");
+        user.syncGoogleProfile("Later Google Name");
+        assertThat(user.getFullName()).isEqualTo("Chosen Name");
+        assertThat(user.isProfileNameManaged()).isTrue();
+    }
+
+    @Test
     void passwordSignupHasNoGoogleIdentity() {
         User user = User.withPassword("a@b.com", "A B", "hashed");
         assertThat(user.hasPassword()).isTrue();

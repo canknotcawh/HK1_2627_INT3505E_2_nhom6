@@ -55,6 +55,7 @@ Crash Course*.
 - **Framework**: Spring Boot 4.1.1
 - **Cơ sở dữ liệu**: PostgreSQL 16 (schema tự tạo bằng Hibernate `ddl-auto: update`, không còn Flyway)
 - **Xác thực**: JWT tự ký (HMAC) ở backend + Google OAuth2 (không còn Keycloak, không còn Redis)
+- **Email dev**: Mailpit tại `http://localhost:8025` để nhận liên kết đặt lại mật khẩu
 - **Tài liệu API**: SpringDoc OpenAPI / Swagger UI
 - **Công cụ build**: Apache Maven
 - **Ảo hóa & Môi trường**: Docker & Docker Compose (chỉ còn Postgres + Mailpit)
@@ -78,6 +79,8 @@ Crash Course*.
    docker compose up -d
    ```
 
+   Backend chạy trực tiếp trên máy dùng Mailpit SMTP mặc định `localhost:1025`. Nếu chạy backend trong container riêng, đặt `MAIL_HOST=mailpit` và nối container vào cùng Compose network.
+
 4. **Build dự án (bỏ qua test cho nhanh):**
    - Trên **Windows**:
      ```cmd
@@ -91,9 +94,10 @@ Crash Course*.
 5. **Khởi chạy Spring Boot:**
    - Trên **Windows**:
      ```cmd
+     set SPRING_PROFILES_ACTIVE=dev
      .\mvnw.cmd spring-boot:run
      ```
-   - Trên **Linux / macOS** (tự đọc `.env` nếu có):
+   - Trên **Linux / macOS** (`run-dev.sh` tự đọc `.env` nếu có và đặt profile dev):
      ```bash
      ./run-dev.sh
      ```
@@ -195,6 +199,10 @@ sang `admin-web` nếu role là ADMIN).
 (không được cấp admin tự động — chỉ email đăng nhập Google trong `APP_BOOTSTRAP_ADMIN_EMAILS`
 mới được cấp). Muốn tài khoản đó có quyền admin thì đăng nhập `admin-web` bằng
 `admin.test@lms.local` rồi vào **Quản lý người dùng** → **Cấp admin**.
+
+**Quên mật khẩu**: chọn liên kết **Quên mật khẩu?** ở trang đăng nhập của một trong hai web, nhập email, rồi mở Mailpit `http://localhost:8025` để lấy liên kết. Liên kết có hiệu lực 30 phút và chỉ dùng một lần. Đổi mật khẩu hoặc đặt lại mật khẩu thu hồi các refresh session hiện có; cần đăng nhập lại.
+
+**Chạy ngoài môi trường dev**: khóa JWT local chỉ có trong profile `dev`; profile này phải được chọn rõ ràng qua `run-dev.sh` hoặc `SPRING_PROFILES_ACTIVE=dev`. Khi triển khai, đặt `SPRING_PROFILES_ACTIVE=prod` (hoặc một profile khác `dev`) và cung cấp `JWT_SECRET` riêng tối thiểu 32 byte UTF-8. Backend từ chối khởi động nếu thiếu/weak key hoặc dùng khóa dev đã biết ngoài profile dev.
 
 **Muốn thêm sách mới** (cần token admin):
 ```bash

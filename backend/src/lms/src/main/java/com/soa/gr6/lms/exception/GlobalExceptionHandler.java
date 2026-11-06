@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.soa.gr6.lms.service.identity.EmailVerificationDeliveryException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -17,6 +18,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException e) {
         ErrorCode code = e.getErrorCode();
+        return ResponseEntity.status(code.getStatus()).body(ApiError.of(code));
+    }
+
+    @ExceptionHandler(EmailVerificationDeliveryException.class)
+    public ResponseEntity<ApiError> handleEmailVerificationDelivery(EmailVerificationDeliveryException e) {
+        ErrorCode code = ErrorCode.EMAIL_VERIFICATION_DELIVERY_FAILED;
         return ResponseEntity.status(code.getStatus()).body(ApiError.of(code));
     }
 

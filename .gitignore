@@ -48,3 +48,6 @@ doc/
 
 # Personal self-study notes (not tracked)
 /self-study/
+
+# Planning and project management files
+**/plan/

@@ -71,4 +71,23 @@ class UserServiceTest {
 
         assertEquals(ErrorCode.UNAUTHORIZED, e.getErrorCode());
     }
+
+    @Test
+    void updateFullNameTrimsNameAndKeepsEmailAndRole() {
+        userService = new UserService(userRepository);
+        UUID id = UUID.randomUUID();
+        User user = new User("sub-1", "an@example.com", "Old Name");
+        user.promoteToAdmin();
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        UserResponse response = userService.updateFullName(id, "  New Name  ");
+
+        assertEquals("New Name", response.fullName());
+        assertEquals("an@example.com", response.email());
+        assertEquals(UserRole.ADMIN, response.role());
+        assertEquals("New Name", user.getFullName());
+        assertEquals("an@example.com", user.getEmail());
+        assertEquals(UserRole.ADMIN, user.getRole());
+        org.assertj.core.api.Assertions.assertThat(user.isProfileNameManaged()).isTrue();
+    }
 }

@@ -1,6 +1,7 @@
 import { RouterProvider } from "react-router-dom";
 import router from "./routes";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { useAuth } from "./contexts/AuthContext";
 
 function MainWebGate() {
   const { role, initialized, roleError, logout } = useAuth();
