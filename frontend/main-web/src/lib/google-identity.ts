@@ -1,3 +1,13 @@
+type GoogleBooksViewer = {
+    load: (identifier: string, notFound?: () => void, success?: () => void) => void;
+};
+
+export type GoogleBooksApi = {
+    load: (options?: { language?: string }) => void;
+    setOnLoadCallback: (callback: () => void) => void;
+    DefaultViewer: new (container: HTMLElement) => GoogleBooksViewer;
+};
+
 declare global {
   interface Window {
     google?: {
@@ -11,6 +21,7 @@ declare global {
           prompt: () => void;
         };
       };
+      books?: GoogleBooksApi;
     };
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { listMyLoans } from "../lib/loans";
 import type { LoanDto } from "../lib/loans";
-import { BookOpen, Clock, CheckCircle, AlertTriangle, ArrowRight, LoaderCircle } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, AlertTriangle, ArrowRight, LoaderCircle, Compass } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 
@@ -108,7 +108,7 @@ export default function Dashboard() {
                             variant="outline"
                             size="sm"
                             className="mt-3 border-red-200 text-red-700 hover:bg-red-100"
-                            onClick={() => navigate('/user/history')}
+                            onClick={() => navigate('/history')}
                         >
                             Xem lịch sử mượn
                         </Button>
@@ -123,7 +123,7 @@ export default function Dashboard() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate('/user/history')}
+                            onClick={() => navigate('/history')}
                             className="text-gray-500"
                         >
                             Xem tất cả
@@ -162,19 +162,34 @@ export default function Dashboard() {
                 </div>
             )}
 
-            <div className="p-5 bg-gray-50 rounded-xl border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-6 bg-gradient-to-r from-red-50/60 via-rose-50/40 to-amber-50/40 rounded-2xl border border-red-100/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                 <div>
-                    <h3 className="text-base font-bold text-gray-800">Khám phá thêm sách mới</h3>
-                    <p className="text-gray-500 text-sm mt-1">Duyệt danh mục thư viện để tìm cuốn sách tiếp theo.</p>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#e60023]">
+                        <Compass className="w-3.5 h-3.5" /> Dành riêng cho thành viên
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mt-1">Khám phá sách mới & nổi bật</h3>
+                    <p className="text-gray-600 text-sm mt-1 max-w-xl">
+                        Duyệt qua các bộ sưu tập tuyển chọn, chủ đề thịnh hành và mượn sách tức thì với tài khoản của bạn.
+                    </p>
                 </div>
-                <Button
-                    variant="brand"
-                    onClick={() => navigate('/books')}
-                    className="shrink-0"
-                >
-                    Danh mục sách
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
+                <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                    <Button
+                        variant="outline"
+                        onClick={() => navigate('/search')}
+                        className="flex-1 sm:flex-initial rounded-xl bg-white/90 hover:bg-white border-gray-200"
+                    >
+                        Tra cứu sách
+                    </Button>
+                    <Button
+                        variant="brand"
+                        onClick={() => navigate('/explore')}
+                        className="flex-1 sm:flex-initial rounded-xl shadow-sm shadow-[#e60023]/20"
+                    >
+                        <Compass className="w-4 h-4 mr-1.5" />
+                        Khám phá ngay
+                        <ArrowRight className="w-4 h-4 ml-1" />
+                    </Button>
+                </div>
             </div>
         </div>
     );

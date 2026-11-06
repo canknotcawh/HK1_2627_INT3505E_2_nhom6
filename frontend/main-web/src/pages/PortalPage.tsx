@@ -1,6 +1,6 @@
-import BigSection from '../components/sections/BigSection'
-import StatsSection from '../components/sections/StatsSection'
-import FeaturesSection from '../components/sections/FeaturesSection'
+import BigSection from '../components/landing/BigSection'
+import StatsSection from '../components/landing/StatsSection'
+import FeaturesSection from '../components/landing/FeaturesSection'
 
 export default function HomePage() {
     return (

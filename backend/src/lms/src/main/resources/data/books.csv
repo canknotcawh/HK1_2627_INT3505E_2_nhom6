@@ -1,0 +1,42 @@
+isbn13,title,subtitle,authors,categories,published_year,language,page_count,description,cover_image_url,rating_avg,rating_count,total_copies
+9780000000019,Sapiens: Lược sử loài người,,Yuval Noah Harari,Lịch sử;Khoa học,2011,vi,544,,,3.99,1255,3
+9780000000026,Homo Deus: Lược sử tương lai,,Yuval Noah Harari,Lịch sử;Khoa học,2015,vi,512,,,4.38,613,4
+9780000000033,Đắc nhân tâm,,Dale Carnegie,Kỹ năng sống,1936,vi,320,,,3.71,4794,1
+9780000000040,Nghĩ giàu làm giàu,,Napoleon Hill,Kỹ năng sống;Kinh doanh,1937,vi,360,,,4.69,1778,1
+9780000000057,Atomic Habits,,James Clear,Kỹ năng sống,2018,en,320,,,3.7,3445,1
+9780000000064,Deep Work,,Cal Newport,Kỹ năng sống,2016,en,304,,,3.89,4534,3
+9780000000071,Man's Search for Meaning,,Viktor E. Frankl,Kỹ năng sống;Tâm lý học,1946,en,165,,,3.67,4652,1
+9780000000088,"Thinking, Fast and Slow",,Daniel Kahneman,Tâm lý học;Khoa học,2011,en,499,,,4.74,4795,1
+9780000000095,Zero to One,,Peter Thiel;Blake Masters,Kinh doanh,2014,en,224,,,4.29,3269,1
+9780000000101,Nhà giả kim,,Paulo Coelho,Văn học,1988,vi,228,,,4.77,401,4
+9780000000118,Dế Mèn phiêu lưu ký,,Tô Hoài,Văn học;Thiếu nhi,1941,vi,160,,,4.63,2392,3
+9780000000125,Tôi thấy hoa vàng trên cỏ xanh,,Nguyễn Nhật Ánh,Văn học,2010,vi,378,,,3.77,984,4
+9780000000132,Mắt biếc,,Nguyễn Nhật Ánh,Văn học,1990,vi,300,,,3.97,1500,1
+9780000000149,Cho tôi xin một vé đi tuổi thơ,,Nguyễn Nhật Ánh,Văn học;Thiếu nhi,2008,vi,208,,,4.3,1559,3
+9780000000156,Truyện Kiều,,Nguyễn Du,Văn học,1820,vi,250,,,3.72,534,4
+9780000000163,Số đỏ,,Vũ Trọng Phụng,Văn học,1936,vi,260,,,3.67,1707,3
+9780000000170,Tắt đèn,,Ngô Tất Tố,Văn học,1939,vi,200,,,4.42,3522,3
+9780000000187,Chí Phèo,,Nam Cao,Văn học,1941,vi,90,,,4.16,3732,3
+9780000000194,1984,,George Orwell,Văn học;Khoa học viễn tưởng,1949,en,328,,,3.96,1492,5
+9780000000200,Animal Farm,,George Orwell,Văn học,1945,en,112,,,4.54,690,4
+9780000000217,Pride and Prejudice,,Jane Austen,Văn học,1813,en,432,,,3.96,4075,3
+9780000000224,To Kill a Mockingbird,,Harper Lee,Văn học,1960,en,336,,,4.48,2378,4
+9780000000231,The Great Gatsby,,F. Scott Fitzgerald,Văn học,1925,en,180,,,4.78,987,4
+9780000000248,Crime and Punishment,,Fyodor Dostoevsky,Văn học,1866,en,671,,,4.1,2822,2
+9780000000255,One Hundred Years of Solitude,,Gabriel García Márquez,Văn học,1967,en,417,,,4.72,3474,1
+9780000000262,The Little Prince,,Antoine de Saint-Exupéry,Văn học;Thiếu nhi,1943,en,96,,,4.75,655,4
+9780000000279,Harry Potter and the Philosopher's Stone,,J.K. Rowling,Thiếu nhi;Giả tưởng,1997,en,223,,,4.29,2590,3
+9780000000286,The Hobbit,,J.R.R. Tolkien,Giả tưởng,1937,en,310,,,4.43,4889,3
+9780000000293,Dune,,Frank Herbert,Khoa học viễn tưởng,1965,en,412,,,4.3,3757,1
+9780000000309,Foundation,,Isaac Asimov,Khoa học viễn tưởng,1951,en,244,,,4.61,2231,3
+9780000000316,A Brief History of Time,,Stephen Hawking,Khoa học,1988,en,212,,,4.44,552,1
+9780000000323,Cosmos,,Carl Sagan,Khoa học,1980,en,396,,,4.48,2556,5
+9780000000330,The Selfish Gene,,Richard Dawkins,Khoa học,1976,en,360,,,4.29,3670,3
+9780000000347,Clean Code,A Handbook of Agile Software Craftsmanship,Robert C. Martin,Công nghệ,2008,en,464,,,4.46,2862,1
+9780000000354,Design Patterns,Elements of Reusable Object-Oriented Software,Erich Gamma;Richard Helm;Ralph Johnson;John Vlissides,Công nghệ,1994,en,395,,,4.73,2931,2
+9780000000361,The Pragmatic Programmer,,Andrew Hunt;David Thomas,Công nghệ,1999,en,352,,,4.33,4064,1
+9780000000378,Refactoring,,Martin Fowler,Công nghệ,1999,en,431,,,3.86,2374,2
+9780000000385,Introduction to Algorithms,,Thomas H. Cormen;Charles E. Leiserson;Ronald L. Rivest;Clifford Stein,Công nghệ,1990,en,1312,,,4.49,3279,3
+9780000000392,Effective Java,,Joshua Bloch,Công nghệ,2001,en,416,,,4.7,4087,1
+9780000000408,Python Crash Course,,Eric Matthes,Công nghệ,2015,en,560,,,3.8,3310,4
+9780000000415,Database System Concepts,,Abraham Silberschatz;Henry F. Korth;S. Sudarshan,Công nghệ,1986,en,1376,,,3.93,1141,3
