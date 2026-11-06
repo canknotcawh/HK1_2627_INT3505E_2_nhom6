@@ -30,6 +30,8 @@ public interface BookReviewService {
 
     Page<ReviewResponse> listBookReviews(UUID bookId, Pageable pageable);
 
+    Page<ReviewResponse> listUserReviews(UUID userId, Pageable pageable);
+
     Page<ReviewResponse> listAllReviewsForAdmin(Pageable pageable);
 
     ReviewStatsResponse getBookReviewStats(UUID bookId);

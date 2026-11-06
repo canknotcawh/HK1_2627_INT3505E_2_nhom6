@@ -177,6 +177,13 @@ public class BookReviewServiceImpl implements BookReviewService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<ReviewResponse> listUserReviews(UUID userId, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
+        return bookReviewRepository.findByUserId(userId, clamped).map(bookReviewMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<ReviewResponse> listAllReviewsForAdmin(Pageable pageable) {
         Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
         return bookReviewRepository.findAll(clamped).map(bookReviewMapper::toResponse);
