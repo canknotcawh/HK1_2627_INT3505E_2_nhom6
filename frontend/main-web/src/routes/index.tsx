@@ -1,12 +1,12 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import ProtectedRoute from "./protected-route";
 import PublicLayout from "@/components/layouts/PublicLayout";
 import HomePage from "@/pages/PortalPage";
-import UserHomePage from "@/pages/UserHomePage";
+import Explore from "@/pages/Explore";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
-import Books from "@/pages/Books";
+import Search from "@/pages/Search";
 import BookDetail from "@/pages/BookDetail";
 import Profile from "@/pages/Profile";
 import PasswordReset from "@/pages/PasswordReset";
@@ -15,7 +15,10 @@ import { useAuth } from "@/contexts/AuthContext";
 
 function HomeRouter() {
     const { role } = useAuth();
-    return role === 'user' ? <UserHomePage /> : <HomePage />;
+    if (role === 'user' || role === 'admin') {
+        return <Navigate to="/dashboard" replace />;
+    }
+    return <HomePage />;
 }
 
 const router = createBrowserRouter([
@@ -29,17 +32,22 @@ const router = createBrowserRouter([
         element: <PublicLayout />,
         children: [
             { path: "/", element: <HomeRouter /> },
-            { path: "/books", element: <Books /> },
+            { path: "/search", element: <Search /> },
+            { path: "/books", element: <Navigate to="/search" replace /> },
             { path: "/books/:id", element: <BookDetail /> },
         ]
     },
     {
-        path: "/user",
         element: <ProtectedRoute />,
         children: [
-            { path: "", element: <Dashboard /> },
-            { path: "history", element: <History /> },
-            { path: "profile", element: <Profile /> }
+            { path: "/dashboard", element: <Dashboard /> },
+            { path: "/explore", element: <Explore /> },
+            { path: "/history", element: <History /> },
+            { path: "/profile", element: <Profile /> },
+            // Backwards compatibility for old /user routes
+            { path: "/user", element: <Navigate to="/dashboard" replace /> },
+            { path: "/user/history", element: <Navigate to="/history" replace /> },
+            { path: "/user/profile", element: <Navigate to="/profile" replace /> },
         ]
     }
 ]);

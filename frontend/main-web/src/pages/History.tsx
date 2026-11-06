@@ -4,7 +4,7 @@ import type { LoanDto, LoanStatus } from "../lib/loans";
 import { Button } from "../components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
-import Toast from "../components/Toast";
+import Toast from "../components/ui/Toast";
 import { BookOpen, Clock, LoaderCircle } from "lucide-react";
 
 const STATUS_CONFIG: Record<LoanStatus, { label: string; className: string }> = {
@@ -99,7 +99,7 @@ export default function History() {
                     <p className="text-gray-400 text-sm mb-4">
                         Bạn chưa mượn cuốn sách nào. Hãy khám phá danh mục thư viện!
                     </p>
-                    <Button variant="brand" onClick={() => navigate('/books')}>
+                    <Button variant="brand" onClick={() => navigate('/explore')}>
                         Duyệt danh mục sách
                     </Button>
                 </div>
