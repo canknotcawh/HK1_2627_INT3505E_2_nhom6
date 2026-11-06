@@ -21,10 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
 import com.soa.gr6.lms.dto.LoanResponse;
 import com.soa.gr6.lms.dto.UserResponse;
+import com.soa.gr6.lms.dto.UpdateProfileRequest;
+import com.soa.gr6.lms.dto.ChangePasswordRequest;
+import com.soa.gr6.lms.dto.MessageResponse;
 import com.soa.gr6.lms.exception.LoanNotFoundException;
 import com.soa.gr6.lms.security.AuthenticatedUser;
 import com.soa.gr6.lms.service.LoanService;
 import com.soa.gr6.lms.service.identity.UserService;
+import com.soa.gr6.lms.service.identity.PasswordManagementService;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -32,15 +36,30 @@ public class UserController {
 
     private final UserService userService;
     private final LoanService loanService;
+    private final PasswordManagementService passwordManagementService;
 
-    public UserController(UserService userService, LoanService loanService) {
+    public UserController(UserService userService, LoanService loanService, PasswordManagementService passwordManagementService) {
         this.userService = userService;
         this.loanService = loanService;
+        this.passwordManagementService = passwordManagementService;
     }
 
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AuthenticatedUser principal) {
         return userService.getCurrentUser(principal.id());
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/me")
+    public UserResponse updateProfile(@AuthenticationPrincipal AuthenticatedUser principal,
+                                      @Valid @RequestBody UpdateProfileRequest request) {
+        return userService.updateFullName(principal.id(), request.fullName());
+    }
+
+    @PostMapping("/me/password")
+    public MessageResponse changePassword(@AuthenticationPrincipal AuthenticatedUser principal,
+                                          @Valid @RequestBody ChangePasswordRequest request) {
+        passwordManagementService.changePassword(principal.id(), request.currentPassword(), request.newPassword());
+        return new MessageResponse("Password changed. Other sessions have been signed out.");
     }
 
     @GetMapping("/me/loans")

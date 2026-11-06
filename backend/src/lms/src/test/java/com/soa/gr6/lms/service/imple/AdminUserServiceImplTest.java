@@ -3,6 +3,7 @@ package com.soa.gr6.lms.service.imple;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -18,10 +19,12 @@ import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import com.soa.gr6.lms.repository.UserRepository;
+import com.soa.gr6.lms.service.identity.RefreshSessionService;
 
 class AdminUserServiceImplTest {
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final AdminUserServiceImpl service = new AdminUserServiceImpl(userRepository);
+    private final RefreshSessionService refreshSessionService = mock(RefreshSessionService.class);
+    private final AdminUserServiceImpl service = new AdminUserServiceImpl(userRepository, refreshSessionService);
 
     private final UUID adminId = UUID.randomUUID();
     private final UUID userId = UUID.randomUUID();
@@ -32,6 +35,7 @@ class AdminUserServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         assertThat(service.suspendUser(adminId, userId).status()).isEqualTo(UserStatus.SUSPENDED);
+        verify(refreshSessionService).revokeAll(userId);
         assertThat(service.reactivateUser(userId).status()).isEqualTo(UserStatus.ACTIVE);
     }
 

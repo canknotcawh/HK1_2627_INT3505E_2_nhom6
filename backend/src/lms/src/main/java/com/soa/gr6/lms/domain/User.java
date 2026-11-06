@@ -30,6 +30,10 @@ public class User {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
+    /** Retained only to identify accounts migrated from the former Keycloak-backed schema. */
+    @Column(name = "keycloak_subject", length = 64, unique = true)
+    private String keycloakSubject;
+
     @Column(name = "google_subject", length = 64, unique = true)
     private String googleSubject;
 
@@ -59,10 +63,24 @@ public class User {
     @Column(name = "bootstrap_admin_granted", nullable = false)
     private boolean bootstrapAdminGranted;
 
+    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")
+    private boolean emailVerified;
+
+    @Column(name = "profile_name_managed", nullable = false, columnDefinition = "boolean default false")
+    private boolean profileNameManaged = false;
+
+    @Column(name = "password_reset_requested_at")
+    private Instant passwordResetRequestedAt;
+
     public User(String googleSubject, String email, String fullName) {
+        this(googleSubject, email, fullName, false);
+    }
+
+    public User(String googleSubject, String email, String fullName, boolean emailVerified) {
         this.googleSubject = requireValue(googleSubject, "googleSubject");
         this.email = requireValue(email, "email");
         this.fullName = requireValue(fullName, "fullName");
+        this.emailVerified = emailVerified;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
@@ -82,8 +100,47 @@ public class User {
         return passwordHash != null;
     }
 
+    public void markEmailVerified() {
+        this.emailVerified = true;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public boolean isUnlinkedLegacyKeycloakAccount() {
+        return keycloakSubject != null && googleSubject == null && passwordHash == null;
+    }
+
+    public void linkGoogleIdentity(String googleSubject) {
+        if (!isUnlinkedLegacyKeycloakAccount()) {
+            throw new InvalidDomainStateException(
+                    "INVALID_IDENTITY_LINK", "Only an unlinked legacy account can be linked to Google");
+        }
+        this.googleSubject = requireValue(googleSubject, "googleSubject");
+    }
+
     public void updateProfile(String fullName) {
         this.fullName = requireValue(fullName, "fullName");
+        this.profileNameManaged = true;
+    }
+
+    public void syncGoogleProfile(String fullName) {
+        if (!profileNameManaged) {
+            this.fullName = requireValue(fullName, "fullName");
+        }
+    }
+
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = requireValue(passwordHash, "passwordHash");
+    }
+
+    public boolean canRequestPasswordReset(Instant now) {
+        return passwordResetRequestedAt == null || passwordResetRequestedAt.isBefore(now.minusSeconds(60));
+    }
+
+    public void markPasswordResetRequested(Instant now) {
+        passwordResetRequestedAt = now;
     }
 
     public void changeEmail(String email) {

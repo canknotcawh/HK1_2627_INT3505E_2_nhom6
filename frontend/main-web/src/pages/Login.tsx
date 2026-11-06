@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from "react"
-import { Navigate, useLocation } from "react-router-dom"
+import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { Library, Loader2 } from "lucide-react"
 import { loadGoogleIdentityScript } from "../lib/google-identity"
 import { isAxiosError } from "axios"
 import { Button } from "../components/ui/button"
+import { PasswordRequirements } from "../components/PasswordRequirements";
+import { isStrongPassword } from "../lib/password-policy";
 
 type Mode = 'login' | 'register';
 
 function authErrorMessage(error: unknown): string {
     if (!isAxiosError<{ code?: string }>(error)) {
         return "Có lỗi xảy ra. Vui lòng thử lại.";
+    }
+    if (!error.response) {
+        return "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
     }
     const code = error.response?.data?.code;
     if (code === "ACCOUNT_DISABLED" || error.response?.status === 403) {
@@ -41,7 +46,9 @@ function redirectToAdminWeb(accessToken: string, refreshToken: string) {
 
 export default function Login() {
     const { loginWithGoogleToken, loginWithPassword, register, role, initialized } = useAuth();
-    const from = (useLocation().state as { from?: { pathname: string; search?: string } } | null)?.from;
+    const location = useLocation();
+    const navigate = useNavigate();
+    const from = (location.state as { from?: { pathname: string; search?: string } } | null)?.from;
     const buttonRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState("");
 
@@ -54,6 +61,12 @@ export default function Login() {
     useEffect(() => {
         if (!initialized || role === 'user' || role === 'admin') return;
 
+        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+        if (!googleClientId) {
+            setError("Google Sign-In chưa được cấu hình. Hãy điền VITE_GOOGLE_CLIENT_ID rồi khởi động lại main-web.");
+            return;
+        }
+
         let cancelled = false;
 
         loadGoogleIdentityScript()
@@ -61,7 +74,7 @@ export default function Login() {
                 if (cancelled || !buttonRef.current || !window.google) return;
 
                 window.google.accounts.id.initialize({
-                    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                    client_id: googleClientId,
                     callback: (response) => {
                         loginWithGoogleToken(response.credential)
                             .then((payload) => {
@@ -91,6 +104,10 @@ export default function Login() {
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
         setError("");
+        if (mode === 'register' && !isStrongPassword(password)) {
+            setError("Mật khẩu chưa đáp ứng đủ yêu cầu.");
+            return;
+        }
         setSubmitting(true);
         try {
             if (mode === 'login') {
@@ -101,8 +118,19 @@ export default function Login() {
                 }
             } else {
                 await register(email, password, fullName);
+                navigate('/verify-email', { state: { email, resendIn: 60 } });
             }
         } catch (submitError) {
+            if (mode === 'register' && isAxiosError<{ code?: string }>(submitError)
+                && submitError.response?.data?.code === 'EMAIL_VERIFICATION_DELIVERY_FAILED') {
+                navigate('/verify-email', { state: { email, deliveryFailed: true } });
+                return;
+            }
+            if (mode === 'login' && isAxiosError<{ code?: string }>(submitError)
+                && submitError.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+                navigate('/verify-email', { state: { email } });
+                return;
+            }
             setError(authErrorMessage(submitError));
         } finally {
             setSubmitting(false);
@@ -181,11 +209,13 @@ export default function Login() {
                 type="password"
                 required
                 minLength={mode === 'register' ? 8 : undefined}
+                maxLength={mode === 'register' ? 100 : undefined}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Mật khẩu"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#e60023]/20 focus:border-[#e60023]"
             />
+            {mode === 'register' && <PasswordRequirements value={password} />}
             <Button type="submit" variant="brand" className="w-full" disabled={submitting}>
                 {submitting ? "Đang xử lý..." : mode === 'login' ? "Đăng nhập" : "Đăng ký"}
             </Button>
@@ -198,6 +228,12 @@ export default function Login() {
         >
             {mode === 'login' ? "Chưa có tài khoản? Đăng ký" : "Đã có tài khoản? Đăng nhập"}
         </button>
+
+        {mode === 'login' && (
+            <a href="/reset-password" className="mt-2 text-xs text-gray-500 hover:text-[#e60023] hover:underline">
+                Quên mật khẩu?
+            </a>
+        )}
 
         {error && <p className="mt-3 text-sm text-red-600" role="alert">{error}</p>}
 

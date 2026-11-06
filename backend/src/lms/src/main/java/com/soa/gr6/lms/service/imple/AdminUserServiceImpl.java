@@ -21,15 +21,18 @@ import com.soa.gr6.lms.exception.InvalidDomainStateException;
 import com.soa.gr6.lms.repository.UserRepository;
 import com.soa.gr6.lms.service.AdminUserService;
 import com.soa.gr6.lms.service.support.PageableSupport;
+import com.soa.gr6.lms.service.identity.RefreshSessionService;
 
 @Service
 public class AdminUserServiceImpl implements AdminUserService {
     static final int MAX_PAGE_SIZE = 100;
 
     private final UserRepository userRepository;
+    private final RefreshSessionService refreshSessionService;
 
-    public AdminUserServiceImpl(UserRepository userRepository) {
+    public AdminUserServiceImpl(UserRepository userRepository, RefreshSessionService refreshSessionService) {
         this.userRepository = userRepository;
+        this.refreshSessionService = refreshSessionService;
     }
 
     @Override
@@ -55,6 +58,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         requireAnotherActiveAdmin(admins, user, "CANNOT_SUSPEND_LAST_ACTIVE_ADMIN",
                 "the last active admin account cannot be suspended");
         user.suspend();
+        refreshSessionService.revokeAll(userId);
         return AdminUserResponse.from(user);
     }
 

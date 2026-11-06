@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, LoaderCircle, X } from "lucide-react";
 import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
@@ -9,37 +9,63 @@ const PAGE_SIZE = 10;
 
 type RequestAction = "return" | "reject-return";
 
+type RequestResult = {
+    key: string;
+    loans: LoanDto[];
+    totalPages: number;
+    totalElements: number;
+    error: string | null;
+};
+
 export default function UserRequest() {
-    const [loans, setLoans] = useState<LoanDto[]>([]);
     const [page, setPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const [result, setResult] = useState<RequestResult | null>(null);
+    const [reloadToken, setReloadToken] = useState(0);
     const [workingLoanIds, setWorkingLoanIds] = useState<Set<string>>(() => new Set());
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
 
-    const loadRequests = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await apiClient.get<Page<LoanDto>>("/admin/loans", {
-                params: { page, size: PAGE_SIZE, status: "PENDING_RETURN" },
-            });
-            setLoans(response.data.content);
-            setTotalPages(response.data.totalPages);
-            setTotalElements(response.data.totalElements);
-        } catch (requestError) {
-            console.error("Không thể tải danh sách yêu cầu trả sách:", requestError);
-            setError(listErrorMessage(requestError));
-        } finally {
-            setLoading(false);
-        }
-    }, [page]);
+    // Loading is derived from the request that produced the data, so nothing calls setState
+    // synchronously inside the effect and a superseded response cannot overwrite a newer one.
+    const requestKey = `${page}|${reloadToken}`;
+    const loading = result?.key !== requestKey;
+    const loans = result?.loans ?? [];
+    const totalPages = result?.totalPages ?? 0;
+    const totalElements = result?.totalElements ?? 0;
+    const loadError = result?.key === requestKey ? result.error : null;
+    const reload = () => setReloadToken((value) => value + 1);
 
     useEffect(() => {
-        void loadRequests();
-    }, [loadRequests]);
+        let cancelled = false;
+        apiClient
+            .get<Page<LoanDto>>("/admin/loans", { params: { page, size: PAGE_SIZE, status: "PENDING_RETURN" } })
+            .then(
+                (response) => {
+                    if (cancelled) return;
+                    setResult({
+                        key: requestKey,
+                        loans: response.data.content,
+                        totalPages: response.data.totalPages,
+                        totalElements: response.data.totalElements,
+                        error: null,
+                    });
+                },
+                (requestError: unknown) => {
+                    if (cancelled) return;
+                    console.error("Không thể tải danh sách yêu cầu trả sách:", requestError);
+                    setResult((previous) => ({
+                        key: requestKey,
+                        loans: previous?.loans ?? [],
+                        totalPages: previous?.totalPages ?? 0,
+                        totalElements: previous?.totalElements ?? 0,
+                        error: listErrorMessage(requestError),
+                    }));
+                },
+            );
+        return () => {
+            cancelled = true;
+        };
+    }, [requestKey, page]);
 
     const performAction = async (loan: LoanDto, action: RequestAction) => {
         const confirmMessage = action === "return"
@@ -55,7 +81,7 @@ export default function UserRequest() {
             setNotice(action === "return"
                 ? `Đã xác nhận trả sách "${loan.bookTitle}".`
                 : `Đã từ chối yêu cầu trả sách "${loan.bookTitle}".`);
-            await loadRequests();
+            reload();
         } catch (requestError) {
             console.error("Không thể xử lý yêu cầu trả sách:", requestError);
             setError(actionErrorMessage(requestError, "Không xử lý được yêu cầu. Vui lòng thử lại."));
@@ -83,7 +109,7 @@ export default function UserRequest() {
             </div>
 
             {notice && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+            {(error ?? loadError) && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error ?? loadError}</p>}
 
             <div className="overflow-hidden rounded-xl border bg-white">
                 <div className="overflow-x-auto">
