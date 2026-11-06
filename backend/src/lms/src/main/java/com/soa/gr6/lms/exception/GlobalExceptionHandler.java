@@ -37,9 +37,12 @@ public class GlobalExceptionHandler {
         return switch (e) {
             case LoanNotFoundException ignored -> HttpStatus.NOT_FOUND;
             case BookNotFoundException ignored -> HttpStatus.NOT_FOUND;
+            case ReviewNotFoundException ignored -> HttpStatus.NOT_FOUND;
             case DuplicateResourceException ignored -> HttpStatus.CONFLICT;
             case LoanStateException ignored -> HttpStatus.CONFLICT;
             case UserSuspendedException ignored -> HttpStatus.FORBIDDEN;
+            case ReviewPermissionDeniedException ignored -> HttpStatus.FORBIDDEN;
+            case ReviewNotEligibleException ignored -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
     }

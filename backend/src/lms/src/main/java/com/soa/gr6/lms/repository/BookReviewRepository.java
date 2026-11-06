@@ -25,5 +25,8 @@ public interface BookReviewRepository extends JpaRepository<BookReview, UUID> {
     Double findAverageRatingByBookIdAndStatus(@Param("bookId") UUID bookId, @Param("status") ReviewStatus status);
 
     long countByBookIdAndStatus(UUID bookId, ReviewStatus status);
+
+    @Query("SELECT r.rating, COUNT(r) FROM BookReview r WHERE r.book.id = :bookId AND r.status = :status GROUP BY r.rating")
+    java.util.List<Object[]> countRatingDistributionByBookIdAndStatus(@Param("bookId") UUID bookId, @Param("status") ReviewStatus status);
 }
 
