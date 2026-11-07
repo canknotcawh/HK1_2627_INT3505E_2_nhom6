@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getBook } from "../lib/books";
 import type { BookDto } from "../lib/books";
@@ -33,6 +33,7 @@ export default function BookDetail() {
     const { id } = useParams<{ id: string }>();
     const { role } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [book, setBook] = useState<BookDto | null>(null);
     const [loading, setLoading] = useState(true);
@@ -58,6 +59,12 @@ export default function BookDetail() {
 
         return () => { cancelled = true; };
     }, [id]);
+
+    useEffect(() => {
+        if (!loading && location.hash) {
+            document.querySelector(location.hash)?.scrollIntoView();
+        }
+    }, [loading, location.hash]);
 
     const handleBorrow = async () => {
         if (!confirmBook) return;
@@ -142,8 +149,8 @@ export default function BookDetail() {
                                     </p>
                                 </div>
                                 <span className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold ${book.availableCopies > 0
-                                        ? 'bg-green-50 text-green-700 border border-green-200/60'
-                                        : 'bg-gray-100 text-gray-500'
+                                    ? 'bg-green-50 text-green-700 border border-green-200/60'
+                                    : 'bg-gray-100 text-gray-500'
                                     }`}>
                                     {book.availableCopies > 0 ? `Còn ${book.availableCopies} cuốn` : 'Hết sách'}
                                 </span>
@@ -240,7 +247,7 @@ export default function BookDetail() {
                 bookId={book.id}
                 bookTitle={book.title}
                 onReviewChanged={() => {
-                    getBook(book.id).then(refreshed => setBook(refreshed)).catch(() => {});
+                    getBook(book.id).then(refreshed => setBook(refreshed)).catch(() => { });
                 }}
             />
 

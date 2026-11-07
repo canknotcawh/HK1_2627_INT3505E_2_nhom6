@@ -121,7 +121,10 @@ export default function BookReviewsSection({
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 mt-6 relative">
+    <section
+      id="reviews"
+      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 mt-6 relative scroll-mt-8"
+    >
       <Toast toast={toast} />
 
       {/* Header */}
