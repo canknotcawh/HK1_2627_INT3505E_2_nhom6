@@ -234,6 +234,24 @@ class BookReviewServiceImplTest {
     }
 
     @Test
+    void restoreReviewByAdminRestoresStatusAndRecalculatesMetrics() throws Exception {
+        BookReview review = new BookReview(book, user, 5, "Legitimate review falsely reported!");
+        setField(review, "id", reviewId);
+        review.hideByAdmin();
+        when(bookReviewRepository.findById(reviewId)).thenReturn(Optional.of(review));
+        when(bookReviewRepository.findAverageRatingByBookIdAndStatus(bookId, ReviewStatus.VISIBLE))
+                .thenReturn(4.8);
+        when(bookReviewRepository.countByBookIdAndStatus(bookId, ReviewStatus.VISIBLE))
+                .thenReturn(5L);
+
+        service.restoreReviewByAdmin(reviewId);
+
+        assertThat(review.getStatus()).isEqualTo(ReviewStatus.VISIBLE);
+        assertThat(book.getRatingAvg()).isEqualTo(new BigDecimal("4.80"));
+        verify(bookRepository).save(book);
+    }
+
+    @Test
     void getBookReviewStatsReturnsDistribution() {
         when(bookReviewRepository.findAverageRatingByBookIdAndStatus(bookId, ReviewStatus.VISIBLE))
                 .thenReturn(4.67);

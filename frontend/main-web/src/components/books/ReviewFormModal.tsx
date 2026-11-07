@@ -53,7 +53,7 @@ export default function ReviewFormModal({
 
     const trimmedComment = comment.trim();
     if (trimmedComment.length > 0 && trimmedComment.length < 10) {
-      setError("Nhận xét cần có độ dài tối thiểu 10 ký tự nếu bạn muốn viết bình luận.");
+      setError("Nhận xét cần có độ dài tối thiểu 10 ký tự.");
       return;
     }
     if (trimmedComment.length > 1000) {
@@ -119,8 +119,8 @@ export default function ReviewFormModal({
                 >
                   <Star
                     className={`w-7 h-7 transition-colors ${star <= activeRating
-                        ? "text-amber-400 fill-amber-400"
-                        : "text-gray-200 fill-gray-100"
+                      ? "text-amber-400 fill-amber-400"
+                      : "text-gray-200 fill-gray-100"
                       }`}
                   />
                 </button>

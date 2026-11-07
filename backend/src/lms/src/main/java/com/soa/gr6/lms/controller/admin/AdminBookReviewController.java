@@ -40,6 +40,12 @@ public class AdminBookReviewController {
         return new MessageResponse("Review has been hidden successfully");
     }
 
+    @PatchMapping("/{reviewId}/restore")
+    public MessageResponse restoreReview(@PathVariable UUID reviewId) {
+        bookReviewService.restoreReviewByAdmin(reviewId);
+        return new MessageResponse("Review has been restored successfully");
+    }
+
     @DeleteMapping("/{reviewId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteReview(@PathVariable UUID reviewId) {

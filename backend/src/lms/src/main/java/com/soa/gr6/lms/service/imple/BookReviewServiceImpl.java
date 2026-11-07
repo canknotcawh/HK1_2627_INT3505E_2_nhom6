@@ -143,6 +143,16 @@ public class BookReviewServiceImpl implements BookReviewService {
 
     @Override
     @Transactional
+    public void restoreReviewByAdmin(UUID reviewId) {
+        BookReview review = findReview(reviewId);
+        review.restore();
+        bookReviewRepository.save(review);
+
+        updateBookRatingMetrics(review.getBook());
+    }
+
+    @Override
+    @Transactional
     public void deleteReviewByAdmin(UUID reviewId) {
         BookReview review = findReview(reviewId);
         Book book = review.getBook();

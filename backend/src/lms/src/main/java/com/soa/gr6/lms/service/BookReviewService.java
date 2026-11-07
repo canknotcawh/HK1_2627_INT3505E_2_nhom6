@@ -22,6 +22,8 @@ public interface BookReviewService {
 
     void hideReviewByAdmin(UUID reviewId);
 
+    void restoreReviewByAdmin(UUID reviewId);
+
     void deleteReviewByAdmin(UUID reviewId);
 
     ReviewResponse getReview(UUID reviewId);
