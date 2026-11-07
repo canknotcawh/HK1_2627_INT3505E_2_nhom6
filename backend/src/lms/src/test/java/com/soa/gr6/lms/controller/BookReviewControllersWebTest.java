@@ -204,6 +204,15 @@ class BookReviewControllersWebTest {
     }
 
     @Test
+    void adminRestoreReviewReturns200() throws Exception {
+        mvc.perform(patch("/api/v1/admin/reviews/" + reviewId + "/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Review has been restored successfully"));
+
+        verify(reviewService).restoreReviewByAdmin(reviewId);
+    }
+
+    @Test
     void adminDeleteReviewReturns204() throws Exception {
         mvc.perform(delete("/api/v1/admin/reviews/" + reviewId))
                 .andExpect(status().isNoContent());

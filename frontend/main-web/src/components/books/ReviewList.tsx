@@ -178,7 +178,7 @@ export default function ReviewList({
                     </p>
                   ) : (
                     <p className="text-xs text-gray-400 italic mt-2 pl-12">
-                      (Không có bình luận)
+                      (Không có nhận xét)
                     </p>
                   )}
                 </div>
@@ -219,7 +219,7 @@ export default function ReviewList({
                   </p>
                 ) : (
                   <p className="text-xs text-gray-400 italic pl-11">
-                    (Không có bình luận)
+                    (Không có nhận xét)
                   </p>
                 )}
               </div>

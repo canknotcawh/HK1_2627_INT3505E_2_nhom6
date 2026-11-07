@@ -43,7 +43,7 @@ export default function DeleteReviewModal({
           <div>
             <h3 className="text-lg font-bold text-gray-900">Xóa đánh giá?</h3>
             <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-              Bạn có chắc chắn muốn xóa đánh giá của mình không? Điểm đánh giá và bình luận này sẽ bị loại bỏ khỏi cuốn sách.
+              Bạn có chắc chắn muốn xóa đánh giá của mình không? Điểm đánh giá và nhận xét này sẽ bị loại bỏ khỏi cuốn sách.
             </p>
           </div>
         </div>
