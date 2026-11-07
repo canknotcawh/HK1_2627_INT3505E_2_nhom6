@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import Toast from "../components/ui/Toast";
-import { BookOpen, Clock, LoaderCircle } from "lucide-react";
+import { BookOpen, Clock, LoaderCircle, Star } from "lucide-react";
 
 const STATUS_CONFIG: Record<LoanStatus, { label: string; className: string }> = {
     ACTIVE: { label: 'Đang mượn', className: 'bg-blue-100 text-blue-700' },
@@ -123,7 +123,15 @@ export default function History() {
                                     const isWorking = workingLoanIds.has(loan.id);
                                     return (
                                         <tr key={loan.id} className="border-b hover:bg-gray-50/50">
-                                            <td className="p-4 font-medium text-gray-800">{loan.bookTitle}</td>
+                                            <td className="p-4 font-medium text-gray-800">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/books/${loan.bookId}`)}
+                                                    className="text-left hover:text-[#e60023] hover:underline cursor-pointer transition-colors"
+                                                >
+                                                    {loan.bookTitle}
+                                                </button>
+                                            </td>
                                             <td className="p-4 text-gray-600 text-sm">{formatDate(loan.borrowedAt)}</td>
                                             <td className="p-4 text-gray-600 text-sm">{formatDate(loan.dueAt)}</td>
                                             <td className="p-4">
@@ -159,6 +167,16 @@ export default function History() {
                                                             <Clock className="w-3.5 h-3.5" />
                                                             Đang chờ
                                                         </span>
+                                                    ) : loan.status === 'RETURNED' ? (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => navigate(`/books/${loan.bookId}#reviews`)}
+                                                            className="border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 rounded-full text-xs gap-1 cursor-pointer"
+                                                        >
+                                                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                            Đánh giá
+                                                        </Button>
                                                     ) : (
                                                         <span className="text-gray-300">—</span>
                                                     )}
@@ -179,7 +197,13 @@ export default function History() {
                             return (
                                 <div key={loan.id} className="p-4 rounded-xl border border-gray-100 bg-gray-50/30">
                                     <div className="flex justify-between items-start gap-2 mb-3">
-                                        <h3 className="font-medium text-gray-800 text-sm flex-1">{loan.bookTitle}</h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate(`/books/${loan.bookId}`)}
+                                            className="font-medium text-gray-800 text-sm flex-1 text-left hover:text-[#e60023] hover:underline cursor-pointer"
+                                        >
+                                            {loan.bookTitle}
+                                        </button>
                                         <span className={`shrink-0 px-2.5 py-0.5 text-xs rounded-full font-medium ${statusInfo.className}`}>
                                             {statusInfo.label}
                                         </span>
@@ -209,6 +233,17 @@ export default function History() {
                                                 className="flex-1 border-gray-300 hover:bg-gray-100 rounded-lg"
                                             >
                                                 Trả sách
+                                            </Button>
+                                        )}
+                                        {loan.status === 'RETURNED' && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => navigate(`/books/${loan.bookId}#reviews`)}
+                                                className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 rounded-lg text-xs gap-1 cursor-pointer"
+                                            >
+                                                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                Đánh giá sách
                                             </Button>
                                         )}
                                     </div>
