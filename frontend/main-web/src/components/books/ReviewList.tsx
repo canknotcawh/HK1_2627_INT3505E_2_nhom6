@@ -1,15 +1,18 @@
-import { CheckCircle2, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { MessageSquare, ChevronLeft, ChevronRight, Edit3, Trash2 } from "lucide-react";
 import StarRating from "./StarRating";
 import type { ReviewResponse } from "../../lib/reviews";
 
 interface ReviewListProps {
   reviews: ReviewResponse[];
+  myReview?: ReviewResponse | null;
   loading: boolean;
   currentPage: number;
   totalPages: number;
   selectedRating: number | null;
   onSelectRating: (rating: number | null) => void;
   onPageChange: (page: number) => void;
+  onEditMyReview?: () => void;
+  onDeleteMyReview?: () => void;
 }
 
 function formatDate(isoString: string): string {
@@ -27,17 +30,30 @@ function formatDate(isoString: string): string {
 
 export default function ReviewList({
   reviews,
+  myReview,
   loading,
   currentPage,
   totalPages,
   selectedRating,
   onSelectRating,
   onPageChange,
+  onEditMyReview,
+  onDeleteMyReview,
 }: ReviewListProps) {
-  // Filter reviews client-side if a specific star rating is selected
-  const filteredReviews = selectedRating
-    ? reviews.filter((r) => r.rating === selectedRating)
-    : reviews;
+  // Filter other reviews
+  const otherReviews = reviews
+    .filter((r) => !myReview || r.id !== myReview.id)
+    .filter((r) => (selectedRating ? r.rating === selectedRating : true));
+
+  // Determine if myReview matches current filter
+  const isMyReviewMatching =
+    myReview && (!selectedRating || myReview.rating === selectedRating);
+
+  // Pin user's own review at the very top of page 0 if it matches the current filter
+  const displayReviews: ReviewResponse[] = [
+    ...(isMyReviewMatching && currentPage === 0 ? [myReview] : []),
+    ...otherReviews,
+  ];
 
   return (
     <div className="space-y-4">
@@ -47,11 +63,10 @@ export default function ReviewList({
         <button
           type="button"
           onClick={() => onSelectRating(null)}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-            selectedRating === null
-              ? "bg-gray-900 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${selectedRating === null
+            ? "bg-gray-900 text-white"
+            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
         >
           Tất cả
         </button>
@@ -60,11 +75,10 @@ export default function ReviewList({
             key={star}
             type="button"
             onClick={() => onSelectRating(selectedRating === star ? null : star)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-              selectedRating === star
-                ? "bg-amber-400 text-gray-900 font-semibold"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${selectedRating === star
+              ? "bg-amber-400 text-gray-900 font-semibold"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
           >
             {star} ★
           </button>
@@ -76,27 +90,100 @@ export default function ReviewList({
         <div className="py-12 text-center text-sm text-gray-400">
           Đang tải danh sách đánh giá...
         </div>
-      ) : filteredReviews.length === 0 ? (
+      ) : displayReviews.length === 0 ? (
         <div className="py-12 text-center text-gray-400">
           <MessageSquare className="w-10 h-10 mx-auto text-gray-200 mb-2" />
           <p className="text-sm">
             {selectedRating
-              ? `Chưa có đánh giá nào ${selectedRating} sao.`
+              ? `Chưa có đánh giá ${selectedRating} sao nào.`
               : "Chưa có đánh giá nào cho cuốn sách này."}
           </p>
         </div>
       ) : (
         <div className="space-y-4 divide-y divide-gray-100">
-          {filteredReviews.map((review) => {
+          {displayReviews.map((review) => {
+            const isMyReview = myReview && review.id === myReview.id;
             const isEdited =
               review.updatedAt &&
               new Date(review.updatedAt).getTime() -
-                new Date(review.createdAt).getTime() >
-                5000;
+              new Date(review.createdAt).getTime() >
+              5000;
 
             const initial = review.userName
               ? review.userName.charAt(0).toUpperCase()
               : "U";
+
+            if (isMyReview) {
+              return (
+                <div
+                  key={review.id}
+                  className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 md:p-5 shadow-xs transition-all !border-b"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                        {initial}
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold text-gray-900">
+                            {review.userName}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                            Đánh giá của bạn
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <StarRating rating={review.rating} size="sm" />
+                          <span className="text-xs text-gray-500 font-medium">
+                            {formatDate(review.createdAt)}
+                          </span>
+                          {isEdited && (
+                            <span className="text-[11px] text-gray-400 italic">
+                              (Đã chỉnh sửa)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions: Edit and Delete */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onEditMyReview && (
+                        <button
+                          type="button"
+                          onClick={onEditMyReview}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-amber-100/80 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Sửa
+                        </button>
+                      )}
+                      {onDeleteMyReview && (
+                        <button
+                          type="button"
+                          onClick={onDeleteMyReview}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Xóa
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {review.comment ? (
+                    <p className="text-sm text-gray-800 leading-relaxed mt-3 pl-12">
+                      {review.comment}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic mt-2 pl-12">
+                      (Không có bình luận)
+                    </p>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <div key={review.id} className="pt-4 first:pt-0">
@@ -109,10 +196,6 @@ export default function ReviewList({
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-gray-800">
                           {review.userName}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/50">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Đã mượn sách
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -136,7 +219,7 @@ export default function ReviewList({
                   </p>
                 ) : (
                   <p className="text-xs text-gray-400 italic pl-11">
-                    (Người dùng chỉ để lại đánh giá sao)
+                    (Không có bình luận)
                   </p>
                 )}
               </div>
@@ -174,4 +257,3 @@ export default function ReviewList({
     </div>
   );
 }
-
