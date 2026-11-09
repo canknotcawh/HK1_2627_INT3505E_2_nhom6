@@ -26,8 +26,8 @@ interface AuthContextType {
   username?: string;
   user?: CurrentUser;
 
-  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
-  loginWithPassword: (email: string, password: string) => Promise<void>;
+  loginWithGoogleToken: (googleIdToken: string) => Promise<AuthPayload>;
+  loginWithPassword: (email: string, password: string) => Promise<AuthPayload>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
   updateProfile: (fullName: string) => Promise<CurrentUser>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
