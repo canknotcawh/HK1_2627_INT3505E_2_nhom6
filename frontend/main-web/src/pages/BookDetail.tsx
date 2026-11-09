@@ -141,57 +141,47 @@ export default function BookDetail() {
                 <span>Quay lại</span>
             </button>
 
-            {/* LEFT PANEL: Fixed Book Thumbnail & Ambient Backdrop & Right Fade */}
+            {/* LEFT PANEL: Fixed Book Thumbnail Full Bleed from Left (x=0) to Fade End */}
             <div
                 onWheel={handleLeftWheel}
-                className="w-[45%] xl:w-[42%] 2xl:w-[40%] h-full shrink-0 relative flex items-center justify-center overflow-hidden bg-neutral-900 select-none cursor-default"
+                className="w-[45%] xl:w-[42%] 2xl:w-[40%] h-full shrink-0 relative overflow-hidden bg-white select-none cursor-default"
             >
-                {/* Layer 1: Ambient Blurred Backdrop Cover */}
-                {book.coverImageUrl && !imgError && (
+                {book.coverImageUrl && !imgError ? (
                     <div
-                        aria-hidden="true"
-                        className="absolute inset-0 bg-cover bg-center scale-125 filter blur-3xl opacity-65 brightness-95 saturate-150 transition-all duration-700 pointer-events-none"
-                        style={{ backgroundImage: `url("${getOptimalCoverUrl(book.coverImageUrl)}")` }}
-                    />
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        style={{
+                            WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0.85) 68%, rgba(0,0,0,0.35) 85%, rgba(0,0,0,0) 100%)',
+                            maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0.85) 68%, rgba(0,0,0,0.35) 85%, rgba(0,0,0,0) 100%)',
+                        }}
+                    >
+                        <img
+                            src={getOptimalCoverUrl(book.coverImageUrl) || ''}
+                            alt={book.title}
+                            className="w-full h-full object-cover object-left-top block select-none"
+                            onError={() => setImgError(true)}
+                        />
+                    </div>
+                ) : (
+                    <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-10 bg-gradient-to-br from-neutral-800 to-neutral-950 text-neutral-300">
+                        <Library className="w-20 h-20 text-neutral-500 mb-4" />
+                        <span className="font-bold text-white text-xl text-center line-clamp-3 max-w-sm">{book.title}</span>
+                        <span className="text-sm text-neutral-400 mt-2 text-center">{book.authors?.join(', ') || 'Chưa rõ tác giả'}</span>
+                        <div
+                            aria-hidden="true"
+                            className="absolute inset-y-0 right-0 w-28 pointer-events-none"
+                            style={{
+                                background: 'linear-gradient(to right, transparent, #ffffff)'
+                            }}
+                        />
+                    </div>
                 )}
 
-                {/* Layer 2: Soft Ambient Overlay */}
+                {/* Subtle right-edge feathering to guarantee 100% seamless blend into white content */}
                 <div
                     aria-hidden="true"
-                    className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/25 pointer-events-none"
-                />
-
-                {/* Layer 3: Hero Book Cover Centered with 3D Depth - Proportional and Large */}
-                <div className="relative z-10 flex flex-col items-center justify-center p-6 sm:p-8 xl:pr-12 w-full h-full">
-                    <div className="relative group transition-transform duration-500 ease-out hover:scale-[1.02] will-change-transform inline-flex">
-                        {book.coverImageUrl && !imgError ? (
-                            <div className="relative rounded-r-2xl rounded-l-sm overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_40px_rgba(0,0,0,0.35)] border-l-4 border-white/25 bg-neutral-900 inline-flex">
-                                <img
-                                    src={getOptimalCoverUrl(book.coverImageUrl) || ''}
-                                    alt={book.title}
-                                    className="h-[68vh] xl:h-[74vh] max-h-[660px] min-h-[380px] w-auto max-w-[85vw] object-contain block select-none rounded-r-2xl rounded-l-sm"
-                                    onError={() => setImgError(true)}
-                                />
-                                {/* Realistic spine highlights & paper depth */}
-                                <div className="absolute inset-y-0 left-0 w-3.5 bg-gradient-to-r from-black/45 via-white/15 to-transparent pointer-events-none" />
-                                <div className="absolute inset-y-0 right-0 w-2.5 bg-gradient-to-l from-black/25 to-transparent pointer-events-none" />
-                            </div>
-                        ) : (
-                            <div className="h-[68vh] xl:h-[74vh] max-h-[660px] min-h-[380px] aspect-[2/3] rounded-r-2xl rounded-l-sm bg-neutral-800/90 border border-neutral-700 shadow-2xl flex flex-col items-center justify-center p-8 text-center text-neutral-400">
-                                <Library className="w-16 h-16 text-neutral-500 mb-4" />
-                                <span className="font-semibold text-neutral-200 line-clamp-3 text-lg">{book.title}</span>
-                                <span className="text-sm text-neutral-500 mt-2">{book.authors?.join(', ') || 'Chưa rõ tác giả'}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Layer 4: Multi-stop Smooth Fade to White into Right Side */}
-                <div
-                    aria-hidden="true"
-                    className="absolute inset-y-0 -right-[1px] w-28 xl:w-40 pointer-events-none z-20"
+                    className="absolute inset-y-0 -right-[1px] w-24 xl:w-36 pointer-events-none z-10"
                     style={{
-                        background: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.12) 20%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.85) 80%, #ffffff 100%)'
+                        background: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.4) 40%, rgba(255,255,255,0.85) 75%, #ffffff 100%)'
                     }}
                 />
             </div>

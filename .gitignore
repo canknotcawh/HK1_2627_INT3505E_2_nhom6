@@ -51,3 +51,6 @@ doc/
 
 # Planning and project management files
 **/plan/
+
+#Temp files
+temp/*
