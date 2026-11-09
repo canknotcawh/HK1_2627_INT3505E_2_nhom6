@@ -241,7 +241,7 @@ export default function UserPage() {
                 return (
                   <tr key={item.id} className={`hover:bg-neutral-50/70 ${loading ? "opacity-60" : ""}`}>
                     <td className="px-4 py-3">
-                      <Link to={`/user/${item.id}`} className="font-medium hover:underline">{item.fullName}</Link>
+                      <Link to={`/admin/users/${item.id}`} className="font-medium hover:underline">{item.fullName}</Link>
                       <div className="mt-0.5 text-xs text-neutral-500">{item.email}</div>
                     </td>
                     <td className="px-4 py-3"><RoleBadge role={item.role} /></td>
