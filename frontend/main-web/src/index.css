@@ -552,6 +552,30 @@
     color: oklch(0.78 0.12 22);
 }
 
+/* Dark mode for the book preview dialog (its base styles are hard-coded light) */
+.dark .book-preview-dialog {
+    background: var(--surface);
+    color: oklch(0.95 0.005 265);
+    box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
+}
+
+.dark .book-preview-dialog__canvas {
+    background: oklch(0.24 0.035 265);
+}
+
+.dark .book-preview-dialog__message {
+    color: oklch(0.8 0.02 265);
+}
+
+.dark .book-preview-dialog__message--overlay {
+    background: oklch(0.24 0.035 265);
+}
+
+.dark .book-preview-dialog__expired span {
+    color: oklch(0.97 0.005 265);
+    text-shadow: 0 1px 3px black, 0 -1px 3px black;
+}
+
 /* State variants that turn an element white (e.g. the search box on focus) */
 .dark .focus\:bg-white:focus,
 .dark .hover\:bg-white:hover {
