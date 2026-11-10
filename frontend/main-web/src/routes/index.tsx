@@ -7,6 +7,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
 import Search from "@/pages/Search";
+import Categories from "@/pages/Categories";
 import BookDetail from "@/pages/BookDetail";
 import Profile from "@/pages/Profile";
 import PasswordReset from "@/pages/PasswordReset";
@@ -33,6 +34,7 @@ const router = createBrowserRouter([
         children: [
             { path: "/", element: <HomeRouter /> },
             { path: "/search", element: <Search /> },
+            { path: "/categories", element: <Categories /> },
             { path: "/books", element: <Navigate to="/search" replace /> },
             { path: "/books/:id", element: <BookDetail /> },
         ]
