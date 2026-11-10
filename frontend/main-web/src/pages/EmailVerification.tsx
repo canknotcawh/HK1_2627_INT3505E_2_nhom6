@@ -6,6 +6,7 @@ import { isAxiosError } from "axios";
 import { CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import OtpInput from "@/components/ui/OtpInput";
 
 type VerificationLocationState = {
     email?: string;
@@ -146,14 +147,10 @@ export default function EmailVerification() {
                                         onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"
                                         className="h-11 rounded-xl border border-gray-200 px-4 text-sm font-normal outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/20" />
                                 </label>
-                                <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
-                                    Mã OTP
-                                    <input type="text" required inputMode="numeric" autoComplete="one-time-code"
-                                        pattern="[0-9]{6}" minLength={6} maxLength={6} value={code}
-                                        onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                                        placeholder="000000"
-                                        className="h-12 rounded-xl border border-gray-200 px-4 text-center text-lg tracking-[0.4em] outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/20" />
-                                </label>
+                                <div className="flex flex-col gap-2 text-sm font-medium text-gray-700">
+                                    <span>Mã OTP</span>
+                                    <OtpInput value={code} onChange={setCode} disabled={submitting} autoFocus invalid={!!error} />
+                                </div>
                                 <Button type="submit" variant="brand" disabled={submitting || code.length !== 6}>
                                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {submitting ? "Đang xác minh..." : "Xác minh email"}
