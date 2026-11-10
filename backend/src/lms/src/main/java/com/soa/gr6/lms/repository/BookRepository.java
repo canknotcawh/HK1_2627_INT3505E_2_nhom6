@@ -44,24 +44,33 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
             FROM book b2
             LEFT JOIN book_author ba2 ON b2.id = ba2.book_id
             LEFT JOIN author a2 ON ba2.author_id = a2.id
-            LEFT JOIN book_category bc2 ON b2.id = bc2.book_id
-            LEFT JOIN category c2 ON bc2.category_id = c2.id
             WHERE b2.status = 'ACTIVE'
-              AND (:category IS NULL OR :category = '' OR c2.name = :category)
+              AND b2.id IN (
+                SELECT s1.id FROM book s1
+                WHERE s1.status = 'ACTIVE'
+                  AND to_tsvector('simple', immutable_unaccent(s1.title || ' ' || coalesce(s1.subtitle, '') || ' ' || coalesce(s1.description, ''))) @@ vi_to_prefix_tsquery(:q)
+                UNION
+                SELECT sba.book_id FROM author sa
+                JOIN book_author sba ON sba.author_id = sa.id
+                WHERE to_tsvector('simple', immutable_unaccent(sa.name)) @@ vi_to_prefix_tsquery(:q)
+                UNION
+                SELECT s2.id FROM book s2
+                WHERE s2.status = 'ACTIVE' AND length(trim(:q)) >= 3
+                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(s2.title)) > 0.35
+                UNION
+                SELECT sba2.book_id FROM author sa2
+                JOIN book_author sba2 ON sba2.author_id = sa2.id
+                WHERE length(trim(:q)) >= 3
+                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(sa2.name)) > 0.35
+            )
+              AND (:category IS NULL OR :category = '' OR EXISTS (
+                      SELECT 1 FROM book_category bc
+                      JOIN category c ON c.id = bc.category_id
+                      WHERE bc.book_id = b2.id AND c.name = :category))
               AND (
                   :availability IS NULL OR :availability = '' OR :availability = 'all'
                   OR (:availability = 'available' AND b2.available_copies > 0)
                   OR (:availability = 'unavailable' AND b2.available_copies <= 0)
-              )
-              AND (
-                  (vi_to_prefix_tsquery(:q) IS NOT NULL AND (
-                      to_tsvector('simple', immutable_unaccent(b2.title || ' ' || coalesce(b2.subtitle, '') || ' ' || coalesce(b2.description, ''))) @@ vi_to_prefix_tsquery(:q)
-                      OR (a2.name IS NOT NULL AND to_tsvector('simple', immutable_unaccent(a2.name)) @@ vi_to_prefix_tsquery(:q))
-                  ))
-                  OR (length(trim(:q)) >= 3 AND (
-                      word_similarity(immutable_unaccent(:q), immutable_unaccent(b2.title)) > 0.35
-                      OR (a2.name IS NOT NULL AND word_similarity(immutable_unaccent(:q), immutable_unaccent(a2.name)) > 0.35)
-                  ))
               )
             GROUP BY b2.id
         ) ranked ON b.id = ranked.id
@@ -81,28 +90,35 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
             b.id ASC
         """,
         countQuery = """
-        SELECT COUNT(DISTINCT b2.id)
+        SELECT COUNT(*)
         FROM book b2
-        LEFT JOIN book_author ba2 ON b2.id = ba2.book_id
-        LEFT JOIN author a2 ON ba2.author_id = a2.id
-        LEFT JOIN book_category bc2 ON b2.id = bc2.book_id
-        LEFT JOIN category c2 ON bc2.category_id = c2.id
         WHERE b2.status = 'ACTIVE'
-          AND (:category IS NULL OR :category = '' OR c2.name = :category)
+          AND b2.id IN (
+                SELECT s1.id FROM book s1
+                WHERE s1.status = 'ACTIVE'
+                  AND to_tsvector('simple', immutable_unaccent(s1.title || ' ' || coalesce(s1.subtitle, '') || ' ' || coalesce(s1.description, ''))) @@ vi_to_prefix_tsquery(:q)
+                UNION
+                SELECT sba.book_id FROM author sa
+                JOIN book_author sba ON sba.author_id = sa.id
+                WHERE to_tsvector('simple', immutable_unaccent(sa.name)) @@ vi_to_prefix_tsquery(:q)
+                UNION
+                SELECT s2.id FROM book s2
+                WHERE s2.status = 'ACTIVE' AND length(trim(:q)) >= 3
+                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(s2.title)) > 0.35
+                UNION
+                SELECT sba2.book_id FROM author sa2
+                JOIN book_author sba2 ON sba2.author_id = sa2.id
+                WHERE length(trim(:q)) >= 3
+                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(sa2.name)) > 0.35
+            )
+          AND (:category IS NULL OR :category = '' OR EXISTS (
+                  SELECT 1 FROM book_category bc
+                  JOIN category c ON c.id = bc.category_id
+                  WHERE bc.book_id = b2.id AND c.name = :category))
           AND (
               :availability IS NULL OR :availability = '' OR :availability = 'all'
               OR (:availability = 'available' AND b2.available_copies > 0)
               OR (:availability = 'unavailable' AND b2.available_copies <= 0)
-          )
-          AND (
-              (vi_to_prefix_tsquery(:q) IS NOT NULL AND (
-                  to_tsvector('simple', immutable_unaccent(b2.title || ' ' || coalesce(b2.subtitle, '') || ' ' || coalesce(b2.description, ''))) @@ vi_to_prefix_tsquery(:q)
-                  OR (a2.name IS NOT NULL AND to_tsvector('simple', immutable_unaccent(a2.name)) @@ vi_to_prefix_tsquery(:q))
-              ))
-              OR (length(trim(:q)) >= 3 AND (
-                  word_similarity(immutable_unaccent(:q), immutable_unaccent(b2.title)) > 0.35
-                  OR (a2.name IS NOT NULL AND word_similarity(immutable_unaccent(:q), immutable_unaccent(a2.name)) > 0.35)
-              ))
           )
           AND (:sort IS NULL OR 1=1)
         """,
