@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import ThemeToggle from "../ui/ThemeToggle";
 import { Search, Library, UserCircle, LogOut, Clock, LayoutDashboard, Compass } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../contexts/AuthContext";
@@ -183,6 +184,7 @@ export default function NavBar() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
+                    <ThemeToggle />
                     {role === 'user' || role === 'admin' ? (
                         <div className="flex items-center gap-1 md:gap-2">
                             <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="flex items-center gap-1.5 text-gray-700">

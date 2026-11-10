@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -100,6 +101,7 @@ export default function EmailVerification() {
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+            <ThemeToggle floating />
             <section className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e60023] text-white">
                     {verified ? <CheckCircle2 className="h-7 w-7" /> : <MailCheck className="h-7 w-7" />}
