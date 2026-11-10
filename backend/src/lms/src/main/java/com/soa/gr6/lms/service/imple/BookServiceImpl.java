@@ -6,7 +6,9 @@ import com.soa.gr6.lms.dto.BookResponse;
 import com.soa.gr6.lms.exception.BookNotFoundException;
 import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.mapper.BookMapper;
+import com.soa.gr6.lms.domain.Category;
 import com.soa.gr6.lms.repository.BookRepository;
+import com.soa.gr6.lms.repository.CategoryRepository;
 import com.soa.gr6.lms.service.BookService;
 import com.soa.gr6.lms.service.support.PageableSupport;
 import org.springframework.data.domain.Page;
@@ -16,7 +18,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -24,10 +28,13 @@ public class BookServiceImpl implements BookService {
     private static final int MAX_PAGE_SIZE = 100;
     private final BookRepository bookRepository;
     private final BookMapper bookMapper;
+    private final CategoryRepository categoryRepository;
 
-    public BookServiceImpl(BookRepository bookRepository, BookMapper bookMapper) {
+    public BookServiceImpl(BookRepository bookRepository, BookMapper bookMapper,
+            CategoryRepository categoryRepository) {
         this.bookRepository = bookRepository;
         this.bookMapper = bookMapper;
+        this.categoryRepository = categoryRepository;
     }
 
     @Override
@@ -156,6 +163,23 @@ public class BookServiceImpl implements BookService {
                 request.publishedYear(),
                 request.pageCount(),
                 request.coverImageUrl());
+        if (request.categories() != null) {
+            book.replaceCategories(resolveCategories(request.categories()));
+        }
+    }
+
+    /** Reuses existing categories (case-insensitive) and creates the ones that do not exist yet. */
+    private Set<Category> resolveCategories(List<String> names) {
+        Set<Category> result = new LinkedHashSet<>();
+        for (String raw : names) {
+            String name = raw.trim();
+            if (name.isEmpty()) {
+                continue;
+            }
+            result.add(categoryRepository.findByNameIgnoreCase(name)
+                    .orElseGet(() -> categoryRepository.save(new Category(name))));
+        }
+        return result;
     }
 
     private void requireIsbnAvailable(String isbn13, UUID ownBookId) {

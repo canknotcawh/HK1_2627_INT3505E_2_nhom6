@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { Library, Loader2 } from "lucide-react"
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import { loadGoogleIdentityScript } from "../lib/google-identity"
 import { isAxiosError } from "axios"
 import { Button } from "../components/ui/button"
@@ -159,6 +160,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <ThemeToggle floating />
       <div className="p-8 bg-white shadow-lg rounded-2xl max-w-sm w-full flex flex-col items-center border border-gray-100">
 
         {/* Logo */}

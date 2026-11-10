@@ -16,8 +16,6 @@ type Book = {
   publishedYear: number | null;
   pageCount: number | null;
   coverImageUrl: string | null;
-  previewUrl: string | null;
-  readerUrl: string | null;
   totalCopies: number;
   availableCopies: number;
   status: "ACTIVE" | "RETIRED";
@@ -34,8 +32,6 @@ type BookForm = {
   publishedYear: string;
   pageCount: string;
   coverImageUrl: string;
-  previewUrl: string;
-  readerUrl: string;
   totalCopies: string;
   availableCopies: string;
 };
@@ -49,8 +45,6 @@ const emptyForm = (): BookForm => ({
   publishedYear: "",
   pageCount: "",
   coverImageUrl: "",
-  previewUrl: "",
-  readerUrl: "",
   totalCopies: "1",
   availableCopies: "1",
 });
@@ -64,8 +58,6 @@ const toForm = (book: Book): BookForm => ({
   publishedYear: book.publishedYear?.toString() ?? "",
   pageCount: book.pageCount?.toString() ?? "",
   coverImageUrl: book.coverImageUrl ?? "",
-  previewUrl: book.previewUrl ?? "",
-  readerUrl: book.readerUrl ?? "",
   totalCopies: book.totalCopies.toString(),
   availableCopies: book.availableCopies.toString(),
 });
@@ -87,6 +79,9 @@ export default function BookCatalog() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<BookForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState("");
 
   const loadBooks = useCallback(async () => {
     setLoading(true);
@@ -112,9 +107,38 @@ export default function BookCatalog() {
     void loadBooks();
   }, [loadBooks]);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      const response = await apiClient.get<{ name: string }[]>("/admin/categories");
+      setAllCategories(response.data.map(category => category.name));
+    } catch {
+      setAllCategories([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
+
+  const toggleCategory = (name: string) => {
+    setSelectedCategories(current => current.includes(name) ? current.filter(item => item !== name) : [...current, name]);
+  };
+
+  const addNewCategory = () => {
+    const name = newCategory.trim();
+    if (!name) return;
+    const existing = allCategories.find(item => item.toLowerCase() === name.toLowerCase());
+    const finalName = existing ?? name;
+    if (!existing) setAllCategories(current => [...current, finalName].sort((a, b) => a.localeCompare(b)));
+    setSelectedCategories(current => current.includes(finalName) ? current : [...current, finalName]);
+    setNewCategory("");
+  };
+
   const openCreate = () => {
     setEditingBook(null);
     setForm(emptyForm());
+    setSelectedCategories([]);
+    setNewCategory("");
     setError(null);
     setFormOpen(true);
   };
@@ -122,6 +146,8 @@ export default function BookCatalog() {
   const openEdit = (book: Book) => {
     setEditingBook(book);
     setForm(toForm(book));
+    setSelectedCategories(book.categories ?? []);
+    setNewCategory("");
     setError(null);
     setFormOpen(true);
   };
@@ -156,9 +182,8 @@ export default function BookCatalog() {
       publishedYear: optionalNumber(form.publishedYear),
       pageCount: optionalNumber(form.pageCount),
       coverImageUrl: optionalText(form.coverImageUrl),
-      previewUrl: optionalText(form.previewUrl),
-      readerUrl: optionalText(form.readerUrl),
       totalCopies,
+      categories: selectedCategories,
     };
 
     setSaving(true);
@@ -175,7 +200,7 @@ export default function BookCatalog() {
         setNotice(`Đã thêm sách “${payload.title}”.`);
       }
       setFormOpen(false);
-      await loadBooks();
+      await Promise.all([loadBooks(), loadCategories()]);
     } catch (requestError) {
       setError(actionErrorMessage(requestError, "Không lưu được thông tin sách."));
     } finally {
@@ -304,6 +329,19 @@ export default function BookCatalog() {
               <label className="text-sm font-medium text-gray-700">Tổng số bản *<input type="number" min="0" value={form.totalCopies} onChange={event => updateField("totalCopies", event.target.value)} className={inputClass} /></label>
               <label className="text-sm font-medium text-gray-700">Số bản có sẵn *<input type="number" min="0" value={editingBook ? form.availableCopies : form.totalCopies} onChange={event => updateField("availableCopies", event.target.value)} className={inputClass} disabled={!editingBook} /></label>
               <label className="md:col-span-2 text-sm font-medium text-gray-700">Ảnh bìa<input type="url" value={form.coverImageUrl} onChange={event => updateField("coverImageUrl", event.target.value)} className={inputClass} placeholder="https://..." /></label>
+              <div className="md:col-span-2 text-sm font-medium text-gray-700">
+                Thể loại
+                <div className="mt-1 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                  {allCategories.length === 0 && <span className="text-xs font-normal text-neutral-500">Chưa có thể loại nào.</span>}
+                  {allCategories.map(name => (
+                    <button key={name} type="button" onClick={() => toggleCategory(name)} aria-pressed={selectedCategories.includes(name)} className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${selectedCategories.includes(name) ? "border-[#e60023] bg-red-50 text-[#c7001e]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{name}</button>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <input value={newCategory} onChange={event => setNewCategory(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); addNewCategory(); } }} className={inputClass + " mt-0"} maxLength={100} placeholder="Thêm thể loại mới rồi nhấn Enter" />
+                  <button type="button" onClick={addNewCategory} className="h-10 shrink-0 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">Thêm</button>
+                </div>
+              </div>
               <label className="md:col-span-2 text-sm font-medium text-gray-700">Mô tả<textarea value={form.description} onChange={event => updateField("description", event.target.value)} className="mt-1 min-h-24 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/15" /></label>
             </div>
             {error && <p role="alert" className="mx-6 mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}

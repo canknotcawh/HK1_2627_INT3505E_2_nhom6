@@ -17,6 +17,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import org.hibernate.annotations.BatchSize;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
@@ -79,6 +80,7 @@ public class Book {
     private int borrowCount;
 
     @ManyToMany
+    @BatchSize(size = 50)
     @JoinTable(
             name = "book_author",
             joinColumns = @JoinColumn(name = "book_id"),
@@ -86,6 +88,7 @@ public class Book {
     private Set<Author> authors = new LinkedHashSet<>();
 
     @ManyToMany
+    @BatchSize(size = 50)
     @JoinTable(
             name = "book_category",
             joinColumns = @JoinColumn(name = "book_id"),

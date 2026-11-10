@@ -84,6 +84,58 @@ function loadGoogleBooksApi(): Promise<GoogleBooksApi> {
   return googleBooksApiPromise!;
 }
 
+function previewCandidates(ggId: string | null, isbn13?: string | null): string[] {
+  const candidates: string[] = [];
+  if (ggId) candidates.push(ggId);
+  if (isbn13) candidates.push(`ISBN:${isbn13}`);
+  return candidates;
+}
+
+function tryLoadViewer(books: GoogleBooksApi, container: HTMLElement, id: string): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    try {
+      const viewer = new books.DefaultViewer(container);
+      viewer.load(id, () => resolve(false), () => resolve(true));
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+const previewProbeCache = new Map<string, Promise<boolean>>();
+
+/** Quietly checks whether Google Books can embed a preview, so the button can say so up front. */
+export function probePreviewAvailable(ggId: string | null, isbn13?: string | null): Promise<boolean> {
+  const candidates = previewCandidates(ggId, isbn13);
+  if (candidates.length === 0) return Promise.resolve(false);
+  const key = candidates.join("|");
+  const cached = previewProbeCache.get(key);
+  if (cached) return cached;
+
+  const probe = loadGoogleBooksApi()
+    .then(async (books) => {
+      const holder = document.createElement("div");
+      holder.setAttribute("aria-hidden", "true");
+      holder.style.cssText = "position:fixed;left:-9999px;top:0;width:320px;height:240px;overflow:hidden";
+      document.body.appendChild(holder);
+      try {
+        for (const id of candidates) {
+          if (await tryLoadViewer(books, holder, id)) return true;
+          holder.innerHTML = "";
+        }
+        return false;
+      } finally {
+        holder.remove();
+      }
+    })
+    .catch(() => {
+      previewProbeCache.delete(key);
+      return true;
+    });
+  previewProbeCache.set(key, probe);
+  return probe;
+}
+
 export function preloadGoogleBooksApi() {
   void loadGoogleBooksApi().catch(() => undefined);
 }
@@ -91,15 +143,16 @@ export function preloadGoogleBooksApi() {
 type BookPreviewDialogProps = {
   title: string;
   ggId: string | null;
+  isbn13?: string | null;
   onClose: () => void;
 };
 
 type PreviewState = "loading" | "ready" | "unavailable" | "error";
 
-export default function BookPreviewDialog({ title, ggId, onClose }: BookPreviewDialogProps) {
+export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: BookPreviewDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<PreviewState>(ggId ? "loading" : "unavailable");
+  const [state, setState] = useState<PreviewState>(ggId || isbn13 ? "loading" : "unavailable");
   const [secondsLeft, setSecondsLeft] = useState(() => ggId ? getPreviewSecondsLeft(ggId) : PREVIEW_DURATION_SECONDS);
   const expired = state === "ready" && secondsLeft === 0;
 
@@ -112,7 +165,7 @@ export default function BookPreviewDialog({ title, ggId, onClose }: BookPreviewD
   }, []);
 
   useEffect(() => {
-    if (!ggId || !viewerRef.current) return;
+    if ((!ggId && !isbn13) || !viewerRef.current) return;
 
     let active = true;
     let timedOut = false;
@@ -127,21 +180,20 @@ export default function BookPreviewDialog({ title, ggId, onClose }: BookPreviewD
     }, 20000);
 
     loadGoogleBooksApi()
-      .then((books) => {
+      .then(async (books) => {
         if (!active || timedOut || !viewerRef.current) return;
 
-        const viewer = new books.DefaultViewer(viewerRef.current);
-        viewer.load(
-          ggId,
-          () => {
-            clearLoadTimeout();
-            if (active) setState("unavailable");
-          },
-          () => {
+        for (const id of previewCandidates(ggId, isbn13)) {
+          if (!active || timedOut || !viewerRef.current) return;
+          viewerRef.current.innerHTML = "";
+          if (await tryLoadViewer(books, viewerRef.current, id)) {
             clearLoadTimeout();
             if (active) setState("ready");
-          },
-        );
+            return;
+          }
+        }
+        clearLoadTimeout();
+        if (active) setState("unavailable");
       })
       .catch(() => {
         clearLoadTimeout();
@@ -152,7 +204,7 @@ export default function BookPreviewDialog({ title, ggId, onClose }: BookPreviewD
       active = false;
       clearLoadTimeout();
     };
-  }, [ggId]);
+  }, [ggId, isbn13]);
 
   useEffect(() => {
     if (state !== "ready" || !ggId) return;
