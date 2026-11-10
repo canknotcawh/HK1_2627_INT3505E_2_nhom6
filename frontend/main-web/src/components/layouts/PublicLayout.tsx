@@ -3,8 +3,8 @@ import NavBar from "./NavBar";
 
 export default function PublicLayout() {
     const { pathname } = useLocation();
-    // The landing page draws edge-to-edge backgrounds and manages its own containers.
-    const fullBleed = pathname === "/";
+    // The landing and book detail pages draw edge-to-edge backgrounds and manage their own containers.
+    const fullBleed = pathname === "/" || pathname.startsWith("/books/");
 
     return (
         <div>
