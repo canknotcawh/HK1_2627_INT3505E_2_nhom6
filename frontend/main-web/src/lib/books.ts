@@ -105,3 +105,13 @@ export async function fetchCategories(): Promise<string[]> {
   const response = await apiClient.get<string[]>("/api/v1/public/books/categories");
   return response.data;
 }
+
+/** Picks random books across the whole catalog (only ones with a cover image when `withCover`). */
+export async function fetchRandomBooks(count: number, withCover = true): Promise<BookDto[]> {
+  const head = await searchBooks({ size: 1 });
+  const pages = Math.max(1, Math.ceil(head.totalElements / RANDOM_POOL_SIZE));
+  const pageIndex = Math.floor(Math.random() * pages);
+  const pool = await searchBooks({ size: RANDOM_POOL_SIZE, page: pageIndex });
+  const candidates = withCover ? pool.content.filter((book) => Boolean(book.coverImageUrl)) : pool.content;
+  return shuffleInPlace(candidates).slice(0, count);
+}
