@@ -21,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -159,15 +159,19 @@ public class EmailVerificationService {
     }
 
     private void sendVerificationEmail(String email, String code, String token) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromAddress);
-        message.setTo(email);
-        message.setSubject("Xác minh email LMS");
-        message.setText("Mã xác minh của bạn là " + code + ". Mã có hiệu lực trong "
-                + Math.max(1, challengeTtl.toMinutes()) + " phút.\n\n"
-                + "Hoặc mở liên kết xác minh một lần sau: " + mainWebUrl
-                + "/verify-email?token=" + token);
-        mailSender.send(message);
+        long ttlMinutes = Math.max(1, challengeTtl.toMinutes());
+        String link = mainWebUrl + "/verify-email?token=" + token;
+        String text = "Mã xác minh của bạn là " + code + ". Mã có hiệu lực trong "
+                + ttlMinutes + " phút.\n\n"
+                + "Hoặc mở liên kết xác minh một lần sau: " + link;
+        String html = VerificationEmailHtml.render(code, ttlMinutes, link);
+        mailSender.send(mime -> {
+            MimeMessageHelper helper = new MimeMessageHelper(mime, true, StandardCharsets.UTF_8.name());
+            helper.setFrom(fromAddress);
+            helper.setTo(email);
+            helper.setSubject("Xác minh email LMS");
+            helper.setText(text, html);
+        });
     }
 
     private static String newOtp() {
