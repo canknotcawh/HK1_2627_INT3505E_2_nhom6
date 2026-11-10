@@ -23,15 +23,16 @@ interface AuthContextType {
   role: Role;
   initialized: boolean;
   roleError: string | null;
+  signedOut: boolean;
   username?: string;
   user?: CurrentUser;
 
-  loginWithGoogleToken: (googleIdToken: string) => Promise<void>;
-  loginWithPassword: (email: string, password: string) => Promise<void>;
+  loginWithGoogleToken: (googleIdToken: string) => Promise<AuthPayload>;
+  loginWithPassword: (email: string, password: string) => Promise<AuthPayload>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
   updateProfile: (fullName: string) => Promise<CurrentUser>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  logout: () => void;
+  logout: (options?: { toLogin?: boolean }) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleError, setRoleError] = useState<string | null>(null);
   const [user, setUser] = useState<CurrentUser | undefined>(undefined);
   const [initialized, setInitialized] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
 
   // Restore session from a previously stored access token
   useEffect(() => {
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const applyAuthPayload = useCallback((payload: AuthPayload) => {
     setTokens(payload.accessToken, payload.refreshToken);
+    setSignedOut(false);
     setRoleError(null);
     setUser(payload.user);
     setRole(roleFromUser(payload.user));
@@ -108,9 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiClient.post<{ message: string }>('/api/v1/public/auth/register', { email, password, fullName });
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((options?: { toLogin?: boolean }) => {
     const refreshToken = getRefreshToken();
     clearTokens();
+    setSignedOut(!options?.toLogin);
     setUser(undefined);
     setRoleError(null);
     setRole('guest');
@@ -133,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const username = user?.fullName ?? user?.email;
 
   return (
-    <AuthContext.Provider value={{ role, initialized, roleError, username, user, loginWithGoogleToken, loginWithPassword, register, logout, updateProfile, changePassword }}>
+    <AuthContext.Provider value={{ role, initialized, roleError, signedOut, username, user, loginWithGoogleToken, loginWithPassword, register, logout, updateProfile, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

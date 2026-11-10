@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import type { FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -45,6 +46,7 @@ export default function PasswordReset() {
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+            <ThemeToggle floating />
             <section className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
                 <h1 className="text-2xl font-bold text-gray-900">{token ? "Đặt mật khẩu mới" : "Quên mật khẩu"}</h1>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
