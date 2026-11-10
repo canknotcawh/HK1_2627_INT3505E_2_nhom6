@@ -582,6 +582,27 @@
     background-color: var(--surface-raised);
 }
 
+/* Landing page: slowly floating book covers */
+@keyframes landing-float {
+    0%, 100% {
+        transform: translateY(0) rotate(var(--rotate, 0deg));
+    }
+    50% {
+        transform: translateY(-10px) rotate(var(--rotate, 0deg));
+    }
+}
+
+.landing-float {
+    transform: rotate(var(--rotate, 0deg));
+    animation: landing-float 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-float {
+        animation: none;
+    }
+}
+
 /* Translucent white panels (landing badges, chips) */
 .dark .bg-white\/60 {
     background-color: color-mix(in oklab, var(--surface) 60%, transparent);
