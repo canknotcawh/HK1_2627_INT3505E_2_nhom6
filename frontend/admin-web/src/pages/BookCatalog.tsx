@@ -3,6 +3,8 @@ import { Archive, ChevronLeft, ChevronRight, LoaderCircle, Pencil, Plus, RotateC
 import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
+import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 const PAGE_SIZE = 10;
 
@@ -243,7 +245,7 @@ export default function BookCatalog() {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-4">
         <label className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <input value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} placeholder="Tìm theo tên sách hoặc ISBN" className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/15" />
+          <input value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} placeholder="Tìm kiếm sách" className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/15" />
         </label>
         <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-[#c7001e]">{totalElements} đầu sách</span>
       </div>
@@ -252,15 +254,23 @@ export default function BookCatalog() {
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-sm">
+        <div>
+          <table className="w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[24%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+            </colgroup>
             <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Sách</th>
                 <th className="px-4 py-3 font-medium">ISBN</th>
                 <th className="px-4 py-3 font-medium">Thể loại</th>
                 <th className="px-4 py-3 font-medium">Kho</th>
-                <th className="px-4 py-3 font-medium">Trạng thái</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Trạng thái</th>
                 <th className="px-4 py-3 text-right font-medium">Thao tác</th>
               </tr>
             </thead>
@@ -274,24 +284,28 @@ export default function BookCatalog() {
                 return (
                   <tr key={book.id} className="hover:bg-neutral-50/70">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{book.title}</div>
-                      <div className="mt-0.5 text-xs text-neutral-500">{book.authors?.length ? book.authors.join(", ") : "Chưa có tác giả"}</div>
+                      <TruncatedText text={book.title} className="font-medium text-gray-900" />
+                      <TruncatedText text={book.authors?.length ? book.authors.join(", ") : "Chưa có tác giả"} className="mt-0.5 text-xs text-neutral-500" />
                     </td>
-                    <td className="px-4 py-3 text-neutral-600">{book.isbn13 || "—"}</td>
-                    <td className="px-4 py-3 text-neutral-600">{book.categories?.length ? book.categories.join(", ") : "—"}</td>
+                    <td className="px-4 py-3 text-neutral-600"><TruncatedText text={book.isbn13 || "—"} className="text-neutral-600" /></td>
+                    <td className="px-4 py-3 text-neutral-600"><TruncatedText text={book.categories?.length ? book.categories.join(", ") : "—"} className="text-neutral-600" /></td>
                     <td className="px-4 py-3"><span className="font-medium text-gray-800">{book.availableCopies}/{book.totalCopies}</span><span className="ml-1 text-xs text-neutral-500">còn</span></td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${book.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}>
+                      <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${book.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}>
                         {book.status === "ACTIVE" ? "Đang lưu hành" : "Ngừng lưu hành"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => openEdit(book)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"><Pencil className="size-3.5" />Sửa</button>
-                        <button type="button" disabled={working} onClick={() => void changeStatus(book)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50">
-                          {working ? <LoaderCircle className="size-3.5 animate-spin" /> : book.status === "ACTIVE" ? <Archive className="size-3.5" /> : <RotateCcw className="size-3.5" />}
-                          {book.status === "ACTIVE" ? "Ngừng lưu hành" : "Khôi phục"}
-                        </button>
+                      <div className="flex justify-end">
+                        <RowActionsMenu label={`Thao tác với sách ${book.title}`} busy={working}>
+                          <RowActionMenuItem onClick={() => openEdit(book)}>
+                            <Pencil aria-hidden="true" className="size-4" />Sửa
+                          </RowActionMenuItem>
+                          <RowActionMenuItem destructive={book.status === "ACTIVE"} disabled={working} onClick={() => void changeStatus(book)}>
+                            {working ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : book.status === "ACTIVE" ? <Archive aria-hidden="true" className="size-4" /> : <RotateCcw aria-hidden="true" className="size-4" />}
+                            {book.status === "ACTIVE" ? "Ngừng lưu hành" : "Khôi phục"}
+                          </RowActionMenuItem>
+                        </RowActionsMenu>
                       </div>
                     </td>
                   </tr>

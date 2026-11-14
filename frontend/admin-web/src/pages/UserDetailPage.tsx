@@ -90,7 +90,7 @@ export default function UserDetailPage() {
   };
 
   const backLink = (
-    <Link to="/user" className="inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900">
+    <Link to="/admin/users" className="inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900">
       <ArrowLeft className="size-4" />Quay lại danh sách
     </Link>
   );
