@@ -4,6 +4,7 @@ import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
 import type { LoanDto, LoanStatus } from "../lib/loans";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
+import { TruncatedText } from "../components/ui/truncated-text";
 
 const PAGE_SIZE = 10;
 
@@ -136,8 +137,15 @@ export default function Borrow() {
             {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
             <div className="overflow-hidden rounded-xl border bg-white">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[800px] text-left text-sm">
+                <div>
+                    <table className="w-full table-fixed text-left text-sm">
+                        <colgroup>
+                          <col className="w-[23%]" />
+                          <col className="w-[23%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[20%]" />
+                        </colgroup>
                         <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
                             <tr>
                                 <th className="px-4 py-3 font-medium">Sách</th>
@@ -156,10 +164,10 @@ export default function Borrow() {
                                 const isWorking = workingLoanIds.has(loan.id);
                                 return (
                                     <tr key={loan.id} className="hover:bg-neutral-50/70">
-                                        <td className="px-4 py-3 font-medium">{loan.bookTitle}</td>
+                                        <td className="px-4 py-3 font-medium"><TruncatedText text={loan.bookTitle} className="font-medium" /></td>
                                         <td className="px-4 py-3">
-                                            <div>{loan.userFullName}</div>
-                                            <div className="text-xs text-neutral-500">{loan.userEmail}</div>
+                                            <TruncatedText text={loan.userFullName} />
+                                            <TruncatedText text={loan.userEmail} className="text-xs text-neutral-500" />
                                         </td>
                                         <td className="px-4 py-3 text-neutral-600">{formatDate(loan.dueAt)}</td>
                                         <td className="px-4 py-3">

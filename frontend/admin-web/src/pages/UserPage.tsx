@@ -16,6 +16,7 @@ import {
 } from "../lib/admin-users";
 import { useDebouncedValue } from "../lib/use-debounced-value";
 import { RoleBadge, StatusBadge } from "../components/user-badges";
+import { TruncatedText } from "../components/ui/truncated-text";
 
 const PAGE_SIZE = 10;
 
@@ -217,8 +218,16 @@ export default function UserPage() {
       )}
 
       <div className="overflow-hidden rounded-xl border bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+        <div>
+          <table className="w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[26%]" />
+              <col className="w-[13%]" />
+              <col className="w-[15%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+            </colgroup>
             <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Người dùng</th>
@@ -241,8 +250,8 @@ export default function UserPage() {
                 return (
                   <tr key={item.id} className={`hover:bg-neutral-50/70 ${loading ? "opacity-60" : ""}`}>
                     <td className="px-4 py-3">
-                      <Link to={`/admin/users/${item.id}`} className="font-medium hover:underline">{item.fullName}</Link>
-                      <div className="mt-0.5 text-xs text-neutral-500">{item.email}</div>
+                      <TruncatedText text={item.fullName} className="font-medium hover:underline" render={<Link to={`/admin/users/${item.id}`} />} />
+                      <TruncatedText text={item.email} className="mt-0.5 text-xs text-neutral-500" />
                     </td>
                     <td className="px-4 py-3"><RoleBadge role={item.role} /></td>
                     <td className="px-4 py-3"><StatusBadge status={item.status} /></td>
