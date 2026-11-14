@@ -4,6 +4,8 @@ import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
 import type { LoanDto, LoanStatus } from "../lib/loans";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
+import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 const PAGE_SIZE = 10;
 
@@ -92,7 +94,6 @@ export default function Borrow() {
     };
 
     const formatDate = (iso: string) => new Date(iso).toLocaleDateString("vi-VN");
-    const actionButtonClass = "inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45";
 
     return (
         <section className="space-y-5">
@@ -136,8 +137,15 @@ export default function Borrow() {
             {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
             <div className="overflow-hidden rounded-xl border bg-white">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[800px] text-left text-sm">
+                <div>
+                    <table className="w-full table-fixed text-left text-sm">
+                        <colgroup>
+                          <col className="w-[23%]" />
+                          <col className="w-[23%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[20%]" />
+                        </colgroup>
                         <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
                             <tr>
                                 <th className="px-4 py-3 font-medium">Sách</th>
@@ -156,10 +164,10 @@ export default function Borrow() {
                                 const isWorking = workingLoanIds.has(loan.id);
                                 return (
                                     <tr key={loan.id} className="hover:bg-neutral-50/70">
-                                        <td className="px-4 py-3 font-medium">{loan.bookTitle}</td>
+                                        <td className="px-4 py-3 font-medium"><TruncatedText text={loan.bookTitle} className="font-medium" /></td>
                                         <td className="px-4 py-3">
-                                            <div>{loan.userFullName}</div>
-                                            <div className="text-xs text-neutral-500">{loan.userEmail}</div>
+                                            <TruncatedText text={loan.userFullName} />
+                                            <TruncatedText text={loan.userEmail} className="text-xs text-neutral-500" />
                                         </td>
                                         <td className="px-4 py-3 text-neutral-600">{formatDate(loan.dueAt)}</td>
                                         <td className="px-4 py-3">
@@ -168,41 +176,28 @@ export default function Borrow() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-2">
-                                                {loan.status !== "RETURNED" && loan.status !== "LOST" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isWorking}
-                                                        onClick={() => void performAction(loan, "return")}
-                                                        className={actionButtonClass}
-                                                    >
-                                                        {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <PackageCheck className="size-3.5" />}
-                                                        Trả hộ
-                                                    </button>
-                                                )}
-                                                {loan.status !== "LOST" && loan.status !== "RETURNED" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isWorking}
-                                                        onClick={() => void performAction(loan, "lost")}
-                                                        className={actionButtonClass}
-                                                    >
-                                                        <AlertTriangle className="size-3.5" />
-                                                        Báo mất
-                                                    </button>
-                                                )}
-                                                {loan.status === "LOST" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isWorking}
-                                                        onClick={() => void performAction(loan, "recover")}
-                                                        className={actionButtonClass}
-                                                    >
-                                                        <RotateCcw className="size-3.5" />
-                                                        Thu hồi
-                                                    </button>
-                                                )}
-                                            </div>
+                                            {loan.status !== "RETURNED" && (
+                                                <div className="flex justify-end">
+                                                    <RowActionsMenu label={`Thao tác khoản mượn của ${loan.userFullName}`} busy={isWorking}>
+                                                        {loan.status !== "LOST" && (
+                                                            <>
+                                                                <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(loan, "return")}>
+                                                                    {isWorking ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <PackageCheck aria-hidden="true" className="size-4" />}
+                                                                    Trả hộ
+                                                                </RowActionMenuItem>
+                                                                <RowActionMenuItem destructive disabled={isWorking} onClick={() => void performAction(loan, "lost")}>
+                                                                    <AlertTriangle aria-hidden="true" className="size-4" />Báo mất
+                                                                </RowActionMenuItem>
+                                                            </>
+                                                        )}
+                                                        {loan.status === "LOST" && (
+                                                            <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(loan, "recover")}>
+                                                                <RotateCcw aria-hidden="true" className="size-4" />Thu hồi
+                                                            </RowActionMenuItem>
+                                                        )}
+                                                    </RowActionsMenu>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 );
