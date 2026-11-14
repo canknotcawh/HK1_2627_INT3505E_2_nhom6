@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, GitMerge, LoaderCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import apiClient from "../lib/api-client";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
+import { TruncatedText } from "../components/ui/truncated-text";
 
 type Category = { id: string; name: string; bookCount: number };
 
@@ -141,7 +142,12 @@ export default function Categories() {
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
-        <table className="w-full text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[50%]" />
+            <col className="w-[16%]" />
+            <col className="w-[34%]" />
+          </colgroup>
           <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-4 py-3 font-medium">Thể loại</th>
@@ -162,12 +168,12 @@ export default function Categories() {
                   <td className="px-4 py-3">
                     {editing ? (
                       <div className="flex items-center gap-2">
-                        <input autoFocus value={editingName} maxLength={100} onChange={event => setEditingName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") saveRename(category); if (event.key === "Escape") setEditingId(null); }} className={`${inputClass} h-9 w-64`} />
+                        <input autoFocus value={editingName} maxLength={100} onChange={event => setEditingName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") saveRename(category); if (event.key === "Escape") setEditingId(null); }} className={`${inputClass} h-9 w-full max-w-64 min-w-0`} />
                         <button type="button" onClick={() => saveRename(category)} className="rounded-md p-1.5 text-emerald-700 hover:bg-emerald-50" aria-label="Lưu tên"><Check className="size-4" /></button>
                         <button type="button" onClick={() => setEditingId(null)} className="rounded-md p-1.5 text-neutral-500 hover:bg-gray-100" aria-label="Hủy"><X className="size-4" /></button>
                       </div>
                     ) : (
-                      <span className="font-medium text-gray-900">{category.name}</span>
+                      <TruncatedText text={category.name} className="font-medium text-gray-900" />
                     )}
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{category.bookCount.toLocaleString("vi-VN")}</td>
