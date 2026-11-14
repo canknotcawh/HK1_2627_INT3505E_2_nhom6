@@ -5,6 +5,7 @@ import type { Page } from "../lib/page";
 import type { LoanDto } from "../lib/loans";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
 import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 const PAGE_SIZE = 10;
 
@@ -96,7 +97,6 @@ export default function UserRequest() {
     };
 
     const formatDate = (iso: string) => new Date(iso).toLocaleDateString("vi-VN");
-    const actionButtonClass = "inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45";
 
     return (
         <section className="space-y-5">
@@ -148,25 +148,17 @@ export default function UserRequest() {
                                         <td className="px-4 py-3 text-neutral-600">{formatDate(loan.borrowedAt)}</td>
                                         <td className="px-4 py-3 text-neutral-600">{formatDate(loan.dueAt)}</td>
                                         <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    disabled={isWorking}
-                                                    onClick={() => void performAction(loan, "return")}
-                                                    className={actionButtonClass}
-                                                >
-                                                    {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-                                                    Xác nhận
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    disabled={isWorking}
-                                                    onClick={() => void performAction(loan, "reject-return")}
-                                                    className={actionButtonClass}
-                                                >
-                                                    <X className="size-3.5" />
-                                                    Từ chối
-                                                </button>
+                                            <div className="flex justify-end">
+                                                <RowActionsMenu label={`Thao tác yêu cầu trả của ${loan.userFullName}`} busy={isWorking}>
+                                                    <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(loan, "return")}>
+                                                        {isWorking ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Check aria-hidden="true" className="size-4" />}
+                                                        Xác nhận
+                                                    </RowActionMenuItem>
+                                                    <RowActionMenuItem destructive disabled={isWorking} onClick={() => void performAction(loan, "reject-return")}>
+                                                        <X aria-hidden="true" className="size-4" />
+                                                        Từ chối
+                                                    </RowActionMenuItem>
+                                                </RowActionsMenu>
                                             </div>
                                         </td>
                                     </tr>
