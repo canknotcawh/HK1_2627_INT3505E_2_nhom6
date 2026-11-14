@@ -3,6 +3,7 @@ import { Check, GitMerge, LoaderCircle, Pencil, Plus, Search, Trash2, X } from "
 import apiClient from "../lib/api-client";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
 import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 type Category = { id: string; name: string; bookCount: number };
 
@@ -178,12 +179,23 @@ export default function Categories() {
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{category.bookCount.toLocaleString("vi-VN")}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <button type="button" disabled={working} onClick={() => startEdit(category)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"><Pencil className="size-3.5" />Đổi tên</button>
-                      <button type="button" disabled={working || categories.length < 2} onClick={() => openMerge(category)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"><GitMerge className="size-3.5" />Gộp</button>
-                      <button type="button" disabled={working || category.bookCount > 0} title={category.bookCount > 0 ? "Còn sách, hãy gộp sang thể loại khác" : "Xóa thể loại"} onClick={() => remove(category)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-40">
-                        {working ? <LoaderCircle className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}Xóa
-                      </button>
+                    <div className="flex justify-end">
+                      <RowActionsMenu label={`Thao tác với thể loại ${category.name}`} busy={working}>
+                        <RowActionMenuItem disabled={working} onClick={() => startEdit(category)}>
+                          <Pencil aria-hidden="true" className="size-4" />Đổi tên
+                        </RowActionMenuItem>
+                        <RowActionMenuItem destructive disabled={working || categories.length < 2} onClick={() => openMerge(category)}>
+                          <GitMerge aria-hidden="true" className="size-4" />Gộp
+                        </RowActionMenuItem>
+                        <RowActionMenuItem
+                          destructive
+                          disabled={working || category.bookCount > 0}
+                          title={category.bookCount > 0 ? "Còn sách, hãy gộp sang thể loại khác" : "Xóa thể loại"}
+                          onClick={() => remove(category)}
+                        >
+                          {working ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Trash2 aria-hidden="true" className="size-4" />}Xóa
+                        </RowActionMenuItem>
+                      </RowActionsMenu>
                     </div>
                   </td>
                 </tr>

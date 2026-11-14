@@ -5,6 +5,7 @@ import type { Page } from "../lib/page";
 import type { LoanDto, LoanStatus } from "../lib/loans";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
 import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 const PAGE_SIZE = 10;
 
@@ -93,7 +94,6 @@ export default function Borrow() {
     };
 
     const formatDate = (iso: string) => new Date(iso).toLocaleDateString("vi-VN");
-    const actionButtonClass = "inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45";
 
     return (
         <section className="space-y-5">
@@ -176,41 +176,28 @@ export default function Borrow() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-2">
-                                                {loan.status !== "RETURNED" && loan.status !== "LOST" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isWorking}
-                                                        onClick={() => void performAction(loan, "return")}
-                                                        className={actionButtonClass}
-                                                    >
-                                                        {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <PackageCheck className="size-3.5" />}
-                                                        Trả hộ
-                                                    </button>
-                                                )}
-                                                {loan.status !== "LOST" && loan.status !== "RETURNED" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isWorking}
-                                                        onClick={() => void performAction(loan, "lost")}
-                                                        className={actionButtonClass}
-                                                    >
-                                                        <AlertTriangle className="size-3.5" />
-                                                        Báo mất
-                                                    </button>
-                                                )}
-                                                {loan.status === "LOST" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isWorking}
-                                                        onClick={() => void performAction(loan, "recover")}
-                                                        className={actionButtonClass}
-                                                    >
-                                                        <RotateCcw className="size-3.5" />
-                                                        Thu hồi
-                                                    </button>
-                                                )}
-                                            </div>
+                                            {loan.status !== "RETURNED" && (
+                                                <div className="flex justify-end">
+                                                    <RowActionsMenu label={`Thao tác khoản mượn của ${loan.userFullName}`} busy={isWorking}>
+                                                        {loan.status !== "LOST" && (
+                                                            <>
+                                                                <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(loan, "return")}>
+                                                                    {isWorking ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <PackageCheck aria-hidden="true" className="size-4" />}
+                                                                    Trả hộ
+                                                                </RowActionMenuItem>
+                                                                <RowActionMenuItem destructive disabled={isWorking} onClick={() => void performAction(loan, "lost")}>
+                                                                    <AlertTriangle aria-hidden="true" className="size-4" />Báo mất
+                                                                </RowActionMenuItem>
+                                                            </>
+                                                        )}
+                                                        {loan.status === "LOST" && (
+                                                            <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(loan, "recover")}>
+                                                                <RotateCcw aria-hidden="true" className="size-4" />Thu hồi
+                                                            </RowActionMenuItem>
+                                                        )}
+                                                    </RowActionsMenu>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 );

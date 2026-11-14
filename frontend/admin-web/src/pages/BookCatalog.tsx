@@ -4,6 +4,7 @@ import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
 import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 const PAGE_SIZE = 10;
 
@@ -295,12 +296,16 @@ export default function BookCatalog() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => openEdit(book)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"><Pencil className="size-3.5" />Sửa</button>
-                        <button type="button" disabled={working} onClick={() => void changeStatus(book)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50">
-                          {working ? <LoaderCircle className="size-3.5 animate-spin" /> : book.status === "ACTIVE" ? <Archive className="size-3.5" /> : <RotateCcw className="size-3.5" />}
-                          {book.status === "ACTIVE" ? "Ngừng lưu hành" : "Khôi phục"}
-                        </button>
+                      <div className="flex justify-end">
+                        <RowActionsMenu label={`Thao tác với sách ${book.title}`} busy={working}>
+                          <RowActionMenuItem onClick={() => openEdit(book)}>
+                            <Pencil aria-hidden="true" className="size-4" />Sửa
+                          </RowActionMenuItem>
+                          <RowActionMenuItem destructive={book.status === "ACTIVE"} disabled={working} onClick={() => void changeStatus(book)}>
+                            {working ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : book.status === "ACTIVE" ? <Archive aria-hidden="true" className="size-4" /> : <RotateCcw aria-hidden="true" className="size-4" />}
+                            {book.status === "ACTIVE" ? "Ngừng lưu hành" : "Khôi phục"}
+                          </RowActionMenuItem>
+                        </RowActionsMenu>
                       </div>
                     </td>
                   </tr>

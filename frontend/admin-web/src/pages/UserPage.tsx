@@ -17,6 +17,7 @@ import {
 import { useDebouncedValue } from "../lib/use-debounced-value";
 import { RoleBadge, StatusBadge } from "../components/user-badges";
 import { TruncatedText } from "../components/ui/truncated-text";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
 
 const PAGE_SIZE = 10;
 
@@ -149,7 +150,6 @@ export default function UserPage() {
     }
   };
 
-  const actionButtonClass = "inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45";
 
   return (
     <section className="space-y-5">
@@ -258,45 +258,40 @@ export default function UserPage() {
                     <td className="px-4 py-3 text-neutral-600">{formatDate(item.createdAt)}</td>
                     <td className="px-4 py-3 text-neutral-600">{formatDate(item.updatedAt)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {item.status === "ACTIVE" ? (
-                          <button
-                            type="button"
-                            disabled={isWorking || isCurrentAdmin}
-                            title={isCurrentAdmin ? "Không thể tự khóa tài khoản đang dùng" : "Tạm khóa tài khoản"}
-                            onClick={() => void performAction(item, "suspend")}
-                            className={actionButtonClass}
-                          >
-                            {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <Ban className="size-3.5" />}
-                            Tạm khóa
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={isWorking}
-                            onClick={() => void performAction(item, "reactivate")}
-                            className={actionButtonClass}
-                          >
-                            {isWorking ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-                            Mở khóa
-                          </button>
-                        )}
-                        {item.role === "ADMIN" ? (
-                          <button
-                            type="button"
-                            disabled={isWorking || isCurrentAdmin}
-                            title={isCurrentAdmin ? "Không thể tự hạ quyền tài khoản đang dùng" : "Hạ quyền admin"}
-                            onClick={() => void performAction(item, "demote")}
-                            className={actionButtonClass}
-                          ><ShieldOff className="size-3.5" />Hạ quyền</button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={isWorking}
-                            onClick={() => void performAction(item, "promote")}
-                            className={actionButtonClass}
-                          ><Shield className="size-3.5" />Cấp admin</button>
-                        )}
+                      <div className="flex justify-end">
+                        <RowActionsMenu label={`Thao tác với người dùng ${item.fullName}`} busy={isWorking}>
+                          {item.status === "ACTIVE" ? (
+                            <RowActionMenuItem
+                              destructive
+                              disabled={isWorking || isCurrentAdmin}
+                              title={isCurrentAdmin ? "Không thể tự khóa tài khoản đang dùng" : "Tạm khóa tài khoản"}
+                              onClick={() => void performAction(item, "suspend")}
+                            >
+                              {isWorking ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Ban aria-hidden="true" className="size-4" />}
+                              Tạm khóa
+                            </RowActionMenuItem>
+                          ) : (
+                            <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(item, "reactivate")}>
+                              {isWorking ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Check aria-hidden="true" className="size-4" />}
+                              Mở khóa
+                            </RowActionMenuItem>
+                          )}
+                          {item.role === "ADMIN" ? (
+                            <RowActionMenuItem
+                              destructive
+                              disabled={isWorking || isCurrentAdmin}
+                              title={isCurrentAdmin ? "Không thể tự hạ quyền tài khoản đang dùng" : "Hạ quyền admin"}
+                              onClick={() => void performAction(item, "demote")}
+                            >
+                              <ShieldOff aria-hidden="true" className="size-4" />Hạ quyền
+                            </RowActionMenuItem>
+                          ) : (
+                            <RowActionMenuItem disabled={isWorking} onClick={() => void performAction(item, "promote")}>
+                              {isWorking ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Shield aria-hidden="true" className="size-4" />}
+                              Cấp admin
+                            </RowActionMenuItem>
+                          )}
+                        </RowActionsMenu>
                       </div>
                     </td>
                   </tr>
