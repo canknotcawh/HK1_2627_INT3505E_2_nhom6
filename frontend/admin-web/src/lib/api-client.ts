@@ -68,7 +68,7 @@ apiClient.interceptors.response.use(
         return apiClient.request(config);
       }
       clearTokens();
-      window.location.assign("/login");
+      window.location.assign("/admin/login");
     }
     return Promise.reject(error);
   }

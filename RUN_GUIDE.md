@@ -53,7 +53,7 @@ Crash Course*.
 ### Công nghệ sử dụng
 - **Ngôn ngữ & Nền tảng**: Java 25
 - **Framework**: Spring Boot 4.1.1
-- **Cơ sở dữ liệu**: PostgreSQL 16 (schema tự tạo bằng Hibernate `ddl-auto: update`, không còn Flyway)
+- **Cơ sở dữ liệu**: PostgreSQL 16, schema do **Flyway** tạo từ `db/migration` (V1…V9), Hibernate chỉ kiểm tra (`ddl-auto: validate`)
 - **Xác thực**: JWT tự ký (HMAC) ở backend + Google OAuth2 (không còn Keycloak, không còn Redis)
 - **Email dev**: Mailpit tại `http://localhost:8025` để nhận liên kết đặt lại mật khẩu
 - **Tài liệu API**: SpringDoc OpenAPI / Swagger UI

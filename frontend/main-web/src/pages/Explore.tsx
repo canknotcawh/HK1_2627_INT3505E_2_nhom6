@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { searchBooks, type BookDto } from "../lib/books";
+import { fetchRandomBooksByCategory, searchBooks, type BookDto } from "../lib/books";
 import { borrowBook as borrowBookApi } from "../lib/loans";
 import { Button } from "../components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -28,11 +28,18 @@ const SLIDE_COLORS = [
     'from-violet-100/50 via-purple-50 to-zinc-50',
 ];
 
+const CLUSTER_DEFS = [
+    { id: 'tech', title: 'Science & Nature', category: 'Science & Nature', icon: <Cpu className="w-5 h-5 text-blue-600" /> },
+    { id: 'literature', title: 'Literary Studies', category: 'Literary Studies', icon: <BookOpenText className="w-5 h-5 text-rose-600" /> },
+    { id: 'skills', title: 'Self-Help', category: 'Self-Help', icon: <Lightbulb className="w-5 h-5 text-amber-600" /> },
+];
+
 export default function Explore() {
     const navigate = useNavigate();
     const { toast, showToast } = useToast();
 
     const [books, setBooks] = useState<BookDto[]>([]);
+    const [clusterBooks, setClusterBooks] = useState<Record<string, BookDto[]>>({});
     const [loading, setLoading] = useState(true);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [confirmBook, setConfirmBook] = useState<BookDto | null>(null);
@@ -42,8 +49,14 @@ export default function Explore() {
     const loadBooks = useCallback(async () => {
         setLoading(true);
         try {
-            const page = await searchBooks({ size: 80 });
+            const [page, ...clusterPages] = await Promise.all([
+                searchBooks({ size: 80 }),
+                ...CLUSTER_DEFS.map(def => fetchRandomBooksByCategory(def.category, 6)),
+            ]);
             setBooks(page.content);
+            setClusterBooks(Object.fromEntries(
+                CLUSTER_DEFS.map((def, index) => [def.id, clusterPages[index]]),
+            ));
         } catch (err) {
             console.error("Failed to load books for explore page:", err);
         } finally {
@@ -62,42 +75,11 @@ export default function Explore() {
             .slice(0, 5);
     }, [books]);
 
-    // Curated Main Genres (3 thể loại chính)
-    const curatedClusters = useMemo(() => {
-        const scienceTech = books.filter(b =>
-            b.categories?.some(c => /khoa học|công nghệ|máy tính|technology|science|computer/i.test(c))
-        );
-        const literature = books.filter(b =>
-            b.categories?.some(c => /văn học|tiểu thuyết|nghệ thuật|literature|fiction|art/i.test(c))
-        );
-        const skillsSelfHelp = books.filter(b =>
-            b.categories?.some(c => /kỹ năng|kinh doanh|kinh tế|tâm lý|business|self/i.test(c))
-        );
-
-        return [
-            {
-                id: 'tech',
-                title: 'Khoa học & Công nghệ',
-                icon: <Cpu className="w-5 h-5 text-blue-600" />,
-                searchQuery: 'Khoa học',
-                books: scienceTech.length ? scienceTech.slice(0, 6) : books.slice(0, 6),
-            },
-            {
-                id: 'literature',
-                title: 'Văn học & Nghệ thuật',
-                icon: <BookOpenText className="w-5 h-5 text-rose-600" />,
-                searchQuery: 'Văn học',
-                books: literature.length ? literature.slice(0, 6) : books.slice(6, 12),
-            },
-            {
-                id: 'skills',
-                title: 'Kỹ năng & Phát triển bản thân',
-                icon: <Lightbulb className="w-5 h-5 text-amber-600" />,
-                searchQuery: 'Kỹ năng sống',
-                books: skillsSelfHelp.length ? skillsSelfHelp.slice(0, 6) : books.slice(12, 18),
-            },
-        ];
-    }, [books]);
+    // Curated Main Genres (3 thể loại chính), lấy theo thể loại thật trong dữ liệu
+    const curatedClusters = useMemo(() => CLUSTER_DEFS.map(def => ({
+        ...def,
+        books: clusterBooks[def.id] ?? [],
+    })), [clusterBooks]);
 
     // Country / Language Grouping
     const vietnameseBooks = useMemo(() => {
@@ -297,7 +279,7 @@ export default function Explore() {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => navigate(`/search?q=${encodeURIComponent(cluster.searchQuery)}`)}
+                                    onClick={() => navigate(`/search?category=${encodeURIComponent(cluster.category)}`)}
                                     className="flex items-center gap-1 text-xs font-semibold text-[#e60023] hover:text-[#c7001e] transition-colors"
                                 >
                                     Xem tất cả
