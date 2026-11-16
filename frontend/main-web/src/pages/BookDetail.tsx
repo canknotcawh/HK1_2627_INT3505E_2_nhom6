@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchRandomBooksByCategory, getBook } from "../lib/books";
 import type { BookDto } from "../lib/books";
@@ -9,6 +9,7 @@ import Toast from "../components/ui/Toast";
 import BookCover from "../components/books/BookCover";
 import BorrowConfirmDialog from "../components/loans/BorrowConfirmDialog";
 import BookPreviewDialog, { preloadGoogleBooksApi, probePreviewAvailable } from "../components/books/BookPreviewDialog";
+import BookReviewsSection from "../components/books/BookReviewsSection";
 import { Button } from "../components/ui/button";
 import {
     ArrowLeft,
@@ -58,6 +59,7 @@ export default function BookDetail() {
     const { id } = useParams<{ id: string }>();
     const { role } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [book, setBook] = useState<BookDto | null>(null);
     const [related, setRelated] = useState<BookDto[]>([]);
@@ -126,6 +128,12 @@ export default function BookDetail() {
             .catch(() => { if (!cancelled) setPreviewAvailable(true); });
         return () => { cancelled = true; };
     }, [bookId]);
+
+    useEffect(() => {
+        if (!loading && location.hash) {
+            document.querySelector(location.hash)?.scrollIntoView();
+        }
+    }, [loading, location.hash]);
 
     const handleBorrow = async () => {
         if (!confirmBook) return;
@@ -197,21 +205,21 @@ export default function BookDetail() {
             <Toast toast={toast} />
             {/* Hero: bìa sách làm nền mờ, trải hết chiều rộng trang */}
             <section className="relative isolate overflow-hidden bg-slate-950 text-white dark:bg-slate-800">
-                    {book.coverImageUrl && !backdropFailed ? (
-                        <img
-                            src={book.coverImageUrl}
-                            alt=""
-                            aria-hidden="true"
-                            onError={() => setBackdropFailed(true)}
-                            className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-70 blur-2xl saturate-150 dark:opacity-100"
-                        />
-                    ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-[#e60023]/40" aria-hidden="true" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/75 to-slate-950/40 dark:from-slate-950/80 dark:via-slate-900/60 dark:to-slate-950/35" aria-hidden="true" />
-                    <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[var(--background)] via-[var(--background)]/60 to-transparent" aria-hidden="true" />
+                {book.coverImageUrl && !backdropFailed ? (
+                    <img
+                        src={book.coverImageUrl}
+                        alt=""
+                        aria-hidden="true"
+                        onError={() => setBackdropFailed(true)}
+                        className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-70 blur-2xl saturate-150 dark:opacity-100"
+                    />
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-[#e60023]/40" aria-hidden="true" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/75 to-slate-950/40 dark:from-slate-950/80 dark:via-slate-900/60 dark:to-slate-950/35" aria-hidden="true" />
+                <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[var(--background)] via-[var(--background)]/60 to-transparent" aria-hidden="true" />
 
-                    <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-8 md:pb-24">
+                <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-8 md:pb-24">
                     <button
                         onClick={() => navigate(-1)}
                         className="mb-6 flex cursor-pointer items-center gap-1 text-sm text-slate-300 transition-colors hover:text-white"
@@ -365,10 +373,10 @@ export default function BookDetail() {
                             </div>
                         </div>
                     </div>
-                    </div>
-                </section>
+                </div>
+            </section>
 
-                <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 md:px-8">
+            <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 md:px-8">
                 {/* Description + borrowing steps | details */}
                 <div className="grid items-start gap-8 lg:grid-cols-12">
                     <div className="space-y-8 lg:col-span-7">
@@ -473,6 +481,16 @@ export default function BookDetail() {
                         </div>
                     </section>
                 )}
+                {/* Book Reviews and Ratings Section */}
+                <div className="mt-14">
+                    <BookReviewsSection
+                        bookId={book.id}
+                        bookTitle={book.title}
+                        onReviewChanged={() => {
+                            getBook(book.id).then(refreshed => setBook(refreshed)).catch(() => { });
+                        }}
+                    />
+                </div>
             </div>
 
             <BorrowConfirmDialog

@@ -9,6 +9,7 @@ import UserRequest from "../pages/UserRequest";
 import Borrow from "../pages/Borrow";
 import BookCatalog from "../pages/BookCatalog";
 import Categories from "../pages/Categories";
+import ReviewManagement from "../pages/ReviewManagement";
 
 export interface AdminRouteDef {
     path: string;
@@ -22,6 +23,7 @@ export const adminRoutes: AdminRouteDef[] = [
     { path: "users", fullPath: "/admin/users", element: <UserPage />, handle: { title: "Quản lý người dùng", label: "Quản lý người dùng" } },
     { path: "users/:userId", fullPath: "/admin/users/:userId", element: <UserDetailPage />, handle: { title: "Chi tiết người dùng", label: "Chi tiết người dùng", hidden: true } },
     { path: "books", fullPath: "/admin/books", element: <BookCatalog />, handle: { title: "Quản lý sách", label: "Quản lý sách" } },
+    { path: "reviews", fullPath: "/admin/reviews", element: <ReviewManagement />, handle: { title: "Quản lý đánh giá", label: "Quản lý đánh giá" } },
     { path: "categories", fullPath: "/admin/categories", element: <Categories />, handle: { title: "Quản lý danh mục", label: "Quản lý danh mục" } },
     { path: "loans", fullPath: "/admin/loans", element: <Borrow />, handle: { title: "Quản lý mượn/trả", label: "Quản lý mượn/trả" } },
     { path: "return-requests", fullPath: "/admin/return-requests", element: <UserRequest />, handle: { title: "Yêu cầu trả sách", label: "Yêu cầu trả sách" } },
@@ -52,6 +54,7 @@ const router = createBrowserRouter([
     { path: "/return-requests", element: <Navigate to="/admin/return-requests" replace /> },
     { path: "/borrow", element: <Navigate to="/admin/loans" replace /> },
     { path: "/books", element: <Navigate to="/admin/books" replace /> },
+    { path: "/reviews", element: <Navigate to="/admin/reviews" replace /> },
     { path: "/categories", element: <Navigate to="/admin/categories" replace /> },
     { path: "/user", element: <Navigate to="/admin/users" replace /> },
     { path: "/user/:userId", loader: ({ params }) => redirect(`/admin/users/${params.userId}`) },
