@@ -32,48 +32,62 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
      * Full-Text Search with prefix matching, Vietnamese unaccent, and pg_trgm fuzzy matching / typo tolerance.
      */
     @Query(value = """
-        SELECT b.* FROM book b
-        JOIN (
+        WITH candidates AS (
+            SELECT b.id
+            FROM book b
+            WHERE vi_to_prefix_tsquery(:q) IS NOT NULL
+              AND to_tsvector('simple', immutable_unaccent(b.title || ' ' || coalesce(b.subtitle, '') || ' ' || coalesce(b.description, '')))
+                  @@ vi_to_prefix_tsquery(:q)
+            UNION
+            SELECT b.id
+            FROM book b
+            WHERE length(trim(:q)) >= 3
+              AND immutable_unaccent(:q) <% immutable_unaccent(b.title)
+            UNION
+            SELECT ba.book_id
+            FROM author a
+            JOIN book_author ba ON ba.author_id = a.id
+            WHERE vi_to_prefix_tsquery(:q) IS NOT NULL
+              AND to_tsvector('simple', immutable_unaccent(a.name)) @@ vi_to_prefix_tsquery(:q)
+            UNION
+            SELECT ba.book_id
+            FROM author a
+            JOIN book_author ba ON ba.author_id = a.id
+            WHERE length(trim(:q)) >= 3
+              AND immutable_unaccent(:q) <% immutable_unaccent(a.name)
+        ),
+        scored AS (
             SELECT b2.id, MAX(
-                COALESCE(ts_rank(to_tsvector('simple', immutable_unaccent(b2.title)), vi_to_prefix_tsquery(:q)), 0) * 4.0
-                + COALESCE(ts_rank(to_tsvector('simple', immutable_unaccent(coalesce(b2.subtitle, '') || ' ' || coalesce(b2.description, ''))), vi_to_prefix_tsquery(:q)), 0) * 1.0
-                + COALESCE(ts_rank(to_tsvector('simple', immutable_unaccent(coalesce(a2.name, ''))), vi_to_prefix_tsquery(:q)), 0) * 2.5
-                + word_similarity(immutable_unaccent(:q), immutable_unaccent(b2.title)) * 3.0
-                + COALESCE(word_similarity(immutable_unaccent(:q), immutable_unaccent(a2.name)), 0) * 2.0
+                COALESCE(ts_rank(to_tsvector('simple', immutable_unaccent(b2.title)), p.tsq), 0) * 4.0
+                + COALESCE(ts_rank(to_tsvector('simple', immutable_unaccent(coalesce(b2.subtitle, '') || ' ' || coalesce(b2.description, ''))), p.tsq), 0) * 1.0
+                + COALESCE(ts_rank(to_tsvector('simple', immutable_unaccent(coalesce(a2.name, ''))), p.tsq), 0) * 2.5
+                + word_similarity(p.uq, immutable_unaccent(b2.title)) * 3.0
+                + COALESCE(word_similarity(p.uq, immutable_unaccent(a2.name)), 0) * 2.0
             ) AS score
-            FROM book b2
-            LEFT JOIN book_author ba2 ON b2.id = ba2.book_id
-            LEFT JOIN author a2 ON ba2.author_id = a2.id
+            FROM candidates c
+            JOIN book b2 ON b2.id = c.id
+            LEFT JOIN book_author ba2 ON ba2.book_id = b2.id
+            LEFT JOIN author a2 ON a2.id = ba2.author_id
+            CROSS JOIN (SELECT vi_to_prefix_tsquery(:q) AS tsq, immutable_unaccent(:q) AS uq) p
             WHERE b2.status = 'ACTIVE'
-              AND b2.id IN (
-                SELECT s1.id FROM book s1
-                WHERE s1.status = 'ACTIVE'
-                  AND to_tsvector('simple', immutable_unaccent(s1.title || ' ' || coalesce(s1.subtitle, '') || ' ' || coalesce(s1.description, ''))) @@ vi_to_prefix_tsquery(:q)
-                UNION
-                SELECT sba.book_id FROM author sa
-                JOIN book_author sba ON sba.author_id = sa.id
-                WHERE to_tsvector('simple', immutable_unaccent(sa.name)) @@ vi_to_prefix_tsquery(:q)
-                UNION
-                SELECT s2.id FROM book s2
-                WHERE s2.status = 'ACTIVE' AND length(trim(:q)) >= 3
-                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(s2.title)) > 0.35
-                UNION
-                SELECT sba2.book_id FROM author sa2
-                JOIN book_author sba2 ON sba2.author_id = sa2.id
-                WHERE length(trim(:q)) >= 3
-                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(sa2.name)) > 0.35
-            )
-              AND (:category IS NULL OR :category = '' OR EXISTS (
-                      SELECT 1 FROM book_category bc
-                      JOIN category c ON c.id = bc.category_id
-                      WHERE bc.book_id = b2.id AND c.name = :category))
+              AND (
+                  :category IS NULL OR :category = ''
+                  OR EXISTS (
+                      SELECT 1 FROM book_category bc2
+                      JOIN category c2 ON c2.id = bc2.category_id
+                      WHERE bc2.book_id = b2.id AND c2.name = :category
+                  )
+              )
               AND (
                   :availability IS NULL OR :availability = '' OR :availability = 'all'
                   OR (:availability = 'available' AND b2.available_copies > 0)
                   OR (:availability = 'unavailable' AND b2.available_copies <= 0)
               )
             GROUP BY b2.id
-        ) ranked ON b.id = ranked.id
+        )
+        SELECT b.*
+        FROM book b
+        JOIN scored s ON s.id = b.id
         ORDER BY
             CASE WHEN :sort = 'title_asc' THEN b.title END ASC NULLS LAST,
             CASE WHEN :sort = 'title_desc' THEN b.title END DESC NULLS LAST,
@@ -85,36 +99,47 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
             CASE WHEN :sort = 'rating_count_asc' THEN b.rating_count END ASC NULLS LAST,
             CASE WHEN :sort = 'year_desc' THEN b.published_year END DESC NULLS LAST,
             CASE WHEN :sort = 'year_asc' THEN b.published_year END ASC NULLS LAST,
-            CASE WHEN :sort = 'relevance' OR :sort IS NULL OR :sort = '' THEN ranked.score END DESC NULLS LAST,
+            CASE WHEN :sort = 'relevance' OR :sort IS NULL OR :sort = '' THEN s.score END DESC NULLS LAST,
             b.title ASC,
             b.id ASC
         """,
         countQuery = """
+        WITH candidates AS (
+            SELECT b.id
+            FROM book b
+            WHERE vi_to_prefix_tsquery(:q) IS NOT NULL
+              AND to_tsvector('simple', immutable_unaccent(b.title || ' ' || coalesce(b.subtitle, '') || ' ' || coalesce(b.description, '')))
+                  @@ vi_to_prefix_tsquery(:q)
+            UNION
+            SELECT b.id
+            FROM book b
+            WHERE length(trim(:q)) >= 3
+              AND immutable_unaccent(:q) <% immutable_unaccent(b.title)
+            UNION
+            SELECT ba.book_id
+            FROM author a
+            JOIN book_author ba ON ba.author_id = a.id
+            WHERE vi_to_prefix_tsquery(:q) IS NOT NULL
+              AND to_tsvector('simple', immutable_unaccent(a.name)) @@ vi_to_prefix_tsquery(:q)
+            UNION
+            SELECT ba.book_id
+            FROM author a
+            JOIN book_author ba ON ba.author_id = a.id
+            WHERE length(trim(:q)) >= 3
+              AND immutable_unaccent(:q) <% immutable_unaccent(a.name)
+        )
         SELECT COUNT(*)
         FROM book b2
-        WHERE b2.status = 'ACTIVE'
-          AND b2.id IN (
-                SELECT s1.id FROM book s1
-                WHERE s1.status = 'ACTIVE'
-                  AND to_tsvector('simple', immutable_unaccent(s1.title || ' ' || coalesce(s1.subtitle, '') || ' ' || coalesce(s1.description, ''))) @@ vi_to_prefix_tsquery(:q)
-                UNION
-                SELECT sba.book_id FROM author sa
-                JOIN book_author sba ON sba.author_id = sa.id
-                WHERE to_tsvector('simple', immutable_unaccent(sa.name)) @@ vi_to_prefix_tsquery(:q)
-                UNION
-                SELECT s2.id FROM book s2
-                WHERE s2.status = 'ACTIVE' AND length(trim(:q)) >= 3
-                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(s2.title)) > 0.35
-                UNION
-                SELECT sba2.book_id FROM author sa2
-                JOIN book_author sba2 ON sba2.author_id = sa2.id
-                WHERE length(trim(:q)) >= 3
-                  AND word_similarity(immutable_unaccent(:q), immutable_unaccent(sa2.name)) > 0.35
-            )
-          AND (:category IS NULL OR :category = '' OR EXISTS (
-                  SELECT 1 FROM book_category bc
-                  JOIN category c ON c.id = bc.category_id
-                  WHERE bc.book_id = b2.id AND c.name = :category))
+        WHERE b2.id IN (SELECT id FROM candidates)
+          AND b2.status = 'ACTIVE'
+          AND (
+              :category IS NULL OR :category = ''
+              OR EXISTS (
+                  SELECT 1 FROM book_category bc2
+                  JOIN category c2 ON c2.id = bc2.category_id
+                  WHERE bc2.book_id = b2.id AND c2.name = :category
+              )
+          )
           AND (
               :availability IS NULL OR :availability = '' OR :availability = 'all'
               OR (:availability = 'available' AND b2.available_copies > 0)
