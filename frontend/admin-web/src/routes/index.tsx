@@ -54,6 +54,7 @@ const router = createBrowserRouter([
     { path: "/return-requests", element: <Navigate to="/admin/return-requests" replace /> },
     { path: "/borrow", element: <Navigate to="/admin/loans" replace /> },
     { path: "/books", element: <Navigate to="/admin/books" replace /> },
+    { path: "/reviews", element: <Navigate to="/admin/reviews" replace /> },
     { path: "/categories", element: <Navigate to="/admin/categories" replace /> },
     { path: "/user", element: <Navigate to="/admin/users" replace /> },
     { path: "/user/:userId", loader: ({ params }) => redirect(`/admin/users/${params.userId}`) },

@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Eye, EyeOff, LoaderCircle, MessageSquare, Re
 import apiClient from "../lib/api-client";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
 import { deleteReview, hideReview, listAdminReviews, restoreReview, type AdminReview, type ReviewStatus } from "../lib/reviews";
+import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
+import { TruncatedText } from "../components/ui/truncated-text";
 
 const PAGE_SIZE = 10;
 
@@ -33,8 +35,8 @@ function StatusBadge({ status }: { status: ReviewStatus }) {
   }
   if (status === "HIDDEN_BY_ADMIN") {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 border border-amber-200">
-        Đã ẩn bởi admin
+      <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-800 border border-red-200">
+        Đã ẩn
       </span>
     );
   }
@@ -203,9 +205,6 @@ export default function ReviewManagement() {
     ? reviews
     : reviews.filter((r) => r.status === statusFilter);
 
-  const actionButtonClass =
-    "inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45";
-
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -216,14 +215,14 @@ export default function ReviewManagement() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm text-neutral-600">
+          <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-[#c7001e]">
             {totalElements} đánh giá
           </span>
           <button
             type="button"
             disabled={loading}
             onClick={() => void loadReviews()}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e60023]/30"
             title="Tải lại danh sách"
           >
             <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -232,13 +231,13 @@ export default function ReviewManagement() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-4">
         <label className="text-sm font-medium text-neutral-700">Lọc theo trạng thái:</label>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           aria-label="Lọc theo trạng thái"
-          className="h-10 rounded-lg border bg-white px-3 text-sm"
+          className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/15"
         >
           <option value="ALL">Tất cả ({reviews.length})</option>
           <option value="VISIBLE">Công khai</option>
@@ -257,21 +256,30 @@ export default function ReviewManagement() {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-sm">
+      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+        <div>
+          <table className="w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[20%]" />
+              <col className="w-[11%]" />
+              <col className="w-[23%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
+              <col className="w-[4%]" />
+            </colgroup>
             <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Người đánh giá</th>
                 <th className="px-4 py-3 font-medium">Sách</th>
                 <th className="px-4 py-3 font-medium">Đánh giá</th>
-                <th className="px-4 py-3 font-medium min-w-[220px]">Nhận xét</th>
+                <th className="px-4 py-3 font-medium">Nhận xét</th>
                 <th className="px-4 py-3 font-medium">Thời gian</th>
                 <th className="px-4 py-3 font-medium">Trạng thái</th>
                 <th className="px-4 py-3 text-right font-medium">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-neutral-500">
@@ -294,27 +302,28 @@ export default function ReviewManagement() {
                   return (
                     <tr key={review.id} className="hover:bg-neutral-50/70">
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-700">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
                             <UserRound className="size-4" />
                           </div>
-                          <div>
-                            <div className="font-medium text-neutral-900">{review.userName}</div>
-                            <div className="text-[11px] font-mono text-neutral-400">
+                          <div className="min-w-0 flex-1">
+                            <TruncatedText text={review.userName} className="font-medium text-gray-900" />
+                            <span className="block text-[11px] font-mono text-neutral-400">
                               {review.userId.slice(0, 8)}...
-                            </div>
+                            </span>
                           </div>
                         </div>
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="max-w-[200px]">
-                          <div className="truncate font-medium text-neutral-900" title={bookTitle || review.bookId}>
-                            {bookTitle ?? "Đang tải tên sách..."}
-                          </div>
-                          <div className="text-[11px] font-mono text-neutral-400 truncate" title={review.bookId}>
+                        <div className="min-w-0">
+                          <TruncatedText
+                            text={bookTitle ?? "Đang tải tên sách..."}
+                            className="font-medium text-gray-900"
+                          />
+                          <span className="block text-[11px] font-mono text-neutral-400" title={review.bookId}>
                             ID: {review.bookId.slice(0, 8)}...
-                          </div>
+                          </span>
                         </div>
                       </td>
 
@@ -324,9 +333,7 @@ export default function ReviewManagement() {
 
                       <td className="px-4 py-3">
                         {review.comment ? (
-                          <p className="line-clamp-3 text-neutral-700 whitespace-pre-line text-xs">
-                            {review.comment}
-                          </p>
+                          <TruncatedText text={review.comment} className="text-xs text-neutral-700" />
                         ) : (
                           <span className="italic text-xs text-neutral-400">
                             (Không có nhận xét)
@@ -346,55 +353,43 @@ export default function ReviewManagement() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          {review.status === "VISIBLE" && (
-                            <button
-                              type="button"
-                              disabled={isWorking}
-                              onClick={() => void handleHide(review)}
-                              className={`${actionButtonClass} text-amber-700 hover:bg-amber-50 hover:border-amber-300`}
-                              title="Ẩn đánh giá này khỏi người dùng"
-                            >
-                              {isWorking ? (
-                                <LoaderCircle className="size-3.5 animate-spin" />
-                              ) : (
-                                <EyeOff className="size-3.5" />
-                              )}
-                              Ẩn
-                            </button>
-                          )}
-
-                          {review.status === "HIDDEN_BY_ADMIN" && (
-                            <button
-                              type="button"
-                              disabled={isWorking}
-                              onClick={() => void handleRestore(review)}
-                              className={`${actionButtonClass} text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300`}
-                              title="Khôi phục và hiển thị lại đánh giá này công khai"
-                            >
-                              {isWorking ? (
-                                <LoaderCircle className="size-3.5 animate-spin" />
-                              ) : (
-                                <Eye className="size-3.5" />
-                              )}
-                              Khôi phục
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            disabled={isWorking}
-                            onClick={() => void handleDelete(review)}
-                            className={`${actionButtonClass} text-red-600 hover:bg-red-50 hover:border-red-300`}
-                            title="Xóa vĩnh viễn đánh giá này"
+                        <div className="flex justify-end">
+                          <RowActionsMenu
+                            label={`Thao tác với đánh giá của ${review.userName}`}
+                            busy={isWorking}
                           >
-                            {isWorking ? (
-                              <LoaderCircle className="size-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="size-3.5" />
+                            {review.status === "VISIBLE" && (
+                              <RowActionMenuItem
+                                disabled={isWorking}
+                                onClick={() => void handleHide(review)}
+                                title="Ẩn đánh giá này khỏi bạn đọc"
+                              >
+                                <EyeOff aria-hidden="true" className="size-4" />
+                                Ẩn đánh giá
+                              </RowActionMenuItem>
                             )}
-                            Xóa
-                          </button>
+
+                            {review.status === "HIDDEN_BY_ADMIN" && (
+                              <RowActionMenuItem
+                                disabled={isWorking}
+                                onClick={() => void handleRestore(review)}
+                                title="Khôi phục và hiển thị lại đánh giá này công khai"
+                              >
+                                <Eye aria-hidden="true" className="size-4" />
+                                Hiện lại đánh giá
+                              </RowActionMenuItem>
+                            )}
+
+                            <RowActionMenuItem
+                              destructive
+                              disabled={isWorking}
+                              onClick={() => void handleDelete(review)}
+                              title="Xóa vĩnh viễn đánh giá này"
+                            >
+                              <Trash2 aria-hidden="true" className="size-4" />
+                              Xóa vĩnh viễn
+                            </RowActionMenuItem>
+                          </RowActionsMenu>
                         </div>
                       </td>
                     </tr>
@@ -405,7 +400,7 @@ export default function ReviewManagement() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-neutral-500">
+        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-sm text-neutral-500">
           <span>
             Trang {totalPages === 0 ? 0 : page + 1} / {totalPages}
           </span>
@@ -432,4 +427,3 @@ export default function ReviewManagement() {
     </section>
   );
 }
-

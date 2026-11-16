@@ -481,16 +481,17 @@ export default function BookDetail() {
                         </div>
                     </section>
                 )}
+                {/* Book Reviews and Ratings Section */}
+                <div className="mt-14">
+                    <BookReviewsSection
+                        bookId={book.id}
+                        bookTitle={book.title}
+                        onReviewChanged={() => {
+                            getBook(book.id).then(refreshed => setBook(refreshed)).catch(() => { });
+                        }}
+                    />
+                </div>
             </div>
-
-            {/* Book Reviews and Ratings Section */}
-            <BookReviewsSection
-                bookId={book.id}
-                bookTitle={book.title}
-                onReviewChanged={() => {
-                    getBook(book.id).then(refreshed => setBook(refreshed)).catch(() => { });
-                }}
-            />
 
             <BorrowConfirmDialog
                 book={confirmBook}
