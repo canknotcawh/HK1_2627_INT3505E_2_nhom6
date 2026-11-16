@@ -64,7 +64,7 @@ export default function ReviewList({
           type="button"
           onClick={() => onSelectRating(null)}
           className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${selectedRating === null
-            ? "bg-gray-900 text-white"
+            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold"
             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
         >
@@ -76,7 +76,7 @@ export default function ReviewList({
             type="button"
             onClick={() => onSelectRating(selectedRating === star ? null : star)}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${selectedRating === star
-              ? "bg-amber-400 text-gray-900 font-semibold"
+              ? "bg-amber-400 text-slate-900 font-semibold"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
           >
