@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react"
 import { useAuth } from "../contexts/AuthContext"
 
 export default function ProtectedRoute() {
-    const { role, initialized } = useAuth();
+    const { role, initialized, signedOut } = useAuth();
     const location = useLocation();
 
     // Session restore from the stored access token is async: until it finishes `role` is still
@@ -16,5 +16,5 @@ export default function ProtectedRoute() {
             </div>
         )
     }
-    return (role === 'user' || role === 'admin') ? <UserLayout /> : <Navigate to="/login" replace state={{ from: location }} />
+    return (role === 'user' || role === 'admin') ? <UserLayout /> : <Navigate to={signedOut ? "/" : "/login"} replace state={signedOut ? undefined : { from: location }} />
 }

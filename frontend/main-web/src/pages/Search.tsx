@@ -19,14 +19,14 @@ type FilterStatus = 'all' | 'available' | 'unavailable';
 
 const PAGE_SIZE = 18;
 const POPULAR_SUGGESTIONS = [
-    'Khoa học',
-    'Công nghệ',
-    'Văn học',
-    'Kỹ năng sống',
-    'Trí tuệ nhân tạo',
-    'Lập trình',
-    'Lịch sử',
-    'Kinh tế'
+    'Science',
+    'Technology',
+    'Fiction',
+    'History',
+    'Philosophy',
+    'Psychology',
+    'Business',
+    'Self-Help'
 ];
 
 export default function Search() {
@@ -91,7 +91,7 @@ export default function Search() {
         setRecentSearches(getRecentSearches(userId));
     }, [userId, role, appliedQuery]);
 
-    // Execute search ONLY when appliedQuery has text
+    // Execute search when there is a keyword or a category filter
     const executeSearch = useCallback(async (
         q: string,
         category: string,
@@ -100,7 +100,7 @@ export default function Search() {
         pageIndex: number
     ) => {
         const trimmed = q.trim();
-        if (!trimmed) {
+        if (!trimmed && !category) {
             setBooks([]);
             setTotalElements(0);
             setTotalPages(0);
@@ -114,7 +114,7 @@ export default function Search() {
 
         try {
             const pageData = await searchBooks({
-                q: trimmed,
+                q: trimmed || undefined,
                 category: category || undefined,
                 availability: availability !== 'all' ? availability : undefined,
                 sort: sort || undefined,
@@ -181,7 +181,8 @@ export default function Search() {
         updateUrlParams({ q: tag, page: '' });
     };
 
-    const hasQuery = Boolean(appliedQuery.trim());
+    const hasQuery = Boolean(appliedQuery.trim() || categoryFilter);
+    const searchTitle = appliedQuery.trim() || categoryFilter;
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -262,7 +263,7 @@ export default function Search() {
                                 <SearchIcon className="w-3.5 h-3.5" /> Kết quả tìm kiếm
                             </div>
                             <h1 className="text-2xl font-bold text-gray-900 mt-1">
-                                &ldquo;{appliedQuery}&rdquo;
+                                &ldquo;{searchTitle}&rdquo;
                             </h1>
                             <p className="text-gray-500 text-xs mt-0.5">
                                 Tìm thấy <span className="font-semibold text-gray-800">{totalElements}</span> cuốn sách phù hợp
@@ -365,7 +366,7 @@ export default function Search() {
                             <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                             <h3 className="text-base font-semibold text-gray-800">Không tìm thấy sách phù hợp</h3>
                             <p className="text-gray-500 text-sm mt-1 max-w-md mx-auto">
-                                Không có kết quả nào cho &ldquo;{appliedQuery}&rdquo;. Hãy thử kiểm tra lại chính tả hoặc dùng từ khóa tổng quát hơn.
+                                Không có kết quả nào cho &ldquo;{searchTitle}&rdquo;. Hãy thử kiểm tra lại chính tả hoặc dùng từ khóa tổng quát hơn.
                             </p>
                         </div>
                     ) : (

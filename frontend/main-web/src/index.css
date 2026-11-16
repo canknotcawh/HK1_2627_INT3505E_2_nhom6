@@ -282,3 +282,332 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(156, 163, 175, 0.65);
 }
+
+/* ---- Dark mode: the pages use Tailwind's gray scale directly, so invert it here ---- */
+.dark {
+    --surface: oklch(0.285 0.04 265);
+    --surface-raised: oklch(0.33 0.045 265);
+    --color-gray-50: oklch(0.325 0.04 265);
+    --color-gray-100: oklch(0.37 0.042 265);
+    --color-gray-200: oklch(0.44 0.04 265);
+    --color-gray-300: oklch(0.54 0.035 265);
+    --color-gray-400: oklch(0.68 0.025 265);
+    --color-gray-500: oklch(0.77 0.02 265);
+    --color-gray-600: oklch(0.83 0.015 265);
+    --color-gray-700: oklch(0.88 0.01 265);
+    --color-gray-800: oklch(0.935 0.006 265);
+    --color-gray-900: oklch(0.975 0.004 265);
+    --color-gray-950: oklch(0.99 0.002 265);
+    --color-neutral-500: oklch(0.77 0.02 265);
+    --color-neutral-600: oklch(0.83 0.015 265);
+    --background: oklch(0.215 0.04 265);
+    --card: oklch(0.285 0.04 265);
+    --border: oklch(1 0 0 / 14%);
+    --input: oklch(1 0 0 / 20%);
+}
+
+.dark .bg-white {
+    background-color: var(--surface);
+}
+
+.dark .bg-white\/80 {
+    background-color: color-mix(in oklab, var(--surface) 82%, transparent);
+}
+
+.dark .from-white {
+    --tw-gradient-from: var(--surface);
+}
+
+.dark .via-white {
+    --tw-gradient-via: var(--surface);
+}
+
+.dark .to-white {
+    --tw-gradient-to: var(--surface);
+}
+
+.dark .border-white {
+    border-color: var(--surface);
+}
+
+.dark .shadow-sm,
+.dark .shadow-xs,
+.dark .shadow-md,
+.dark .shadow-lg {
+    --tw-shadow-color: oklch(0 0 0 / 40%);
+}
+
+.dark .bg-red-50,
+.dark .bg-red-50\/80 {
+    background-color: oklch(0.3 0.09 20 / 0.45);
+}
+
+.dark .bg-red-100 {
+    background-color: oklch(0.34 0.1 20 / 0.55);
+}
+
+.dark .border-red-200 {
+    border-color: oklch(0.45 0.13 20 / 0.6);
+}
+
+.dark .text-red-600,
+.dark .text-red-700,
+.dark .text-red-800 {
+    color: oklch(0.77 0.15 22);
+}
+
+.dark .bg-green-100 {
+    background-color: oklch(0.32 0.07 155 / 0.55);
+}
+
+.dark .text-green-700,
+.dark .text-green-800 {
+    color: oklch(0.8 0.14 155);
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-100 {
+    background-color: oklch(0.33 0.07 80 / 0.5);
+}
+
+.dark .text-amber-700 {
+    color: oklch(0.85 0.13 85);
+}
+
+.dark .bg-blue-100 {
+    background-color: oklch(0.32 0.08 255 / 0.55);
+}
+
+.dark .text-blue-700 {
+    color: oklch(0.8 0.12 255);
+}
+
+.dark .via-rose-50,
+.dark .via-rose-50\/40,
+.dark .via-yellow-50,
+.dark .via-teal-50,
+.dark .via-purple-50,
+.dark .via-indigo-50,
+.dark .to-stone-50,
+.dark .to-amber-50,
+.dark .to-amber-50\/40,
+.dark .to-slate-50,
+.dark .to-zinc-50,
+.dark .to-neutral-50 {
+    --tw-gradient-via: var(--surface);
+    --tw-gradient-to: var(--surface);
+}
+
+/* Light accent tints: swap the pale shades for deep tints so panels stay readable */
+.dark {
+    --color-red-50: oklch(0.3 0.06 25);
+    --color-red-100: oklch(0.35 0.08 25);
+    --color-red-200: oklch(0.44 0.1 25);
+    --color-red-600: oklch(0.76 0.14 25);
+    --color-red-700: oklch(0.81 0.13 25);
+    --color-red-800: oklch(0.85 0.1 25);
+    --color-rose-50: oklch(0.3 0.06 15);
+    --color-rose-100: oklch(0.35 0.08 15);
+    --color-rose-200: oklch(0.44 0.1 15);
+    --color-rose-600: oklch(0.76 0.14 15);
+    --color-rose-700: oklch(0.81 0.13 15);
+    --color-rose-800: oklch(0.85 0.1 15);
+    --color-orange-50: oklch(0.3 0.06 55);
+    --color-orange-100: oklch(0.35 0.08 55);
+    --color-orange-200: oklch(0.44 0.1 55);
+    --color-orange-600: oklch(0.76 0.14 55);
+    --color-orange-700: oklch(0.81 0.13 55);
+    --color-orange-800: oklch(0.85 0.1 55);
+    --color-amber-50: oklch(0.3 0.06 80);
+    --color-amber-100: oklch(0.35 0.08 80);
+    --color-amber-200: oklch(0.44 0.1 80);
+    --color-amber-600: oklch(0.76 0.14 80);
+    --color-amber-700: oklch(0.81 0.13 80);
+    --color-amber-800: oklch(0.85 0.1 80);
+    --color-yellow-50: oklch(0.3 0.06 95);
+    --color-yellow-100: oklch(0.35 0.08 95);
+    --color-yellow-200: oklch(0.44 0.1 95);
+    --color-yellow-600: oklch(0.76 0.14 95);
+    --color-yellow-700: oklch(0.81 0.13 95);
+    --color-yellow-800: oklch(0.85 0.1 95);
+    --color-green-50: oklch(0.3 0.06 150);
+    --color-green-100: oklch(0.35 0.08 150);
+    --color-green-200: oklch(0.44 0.1 150);
+    --color-green-600: oklch(0.76 0.14 150);
+    --color-green-700: oklch(0.81 0.13 150);
+    --color-green-800: oklch(0.85 0.1 150);
+    --color-emerald-50: oklch(0.3 0.06 165);
+    --color-emerald-100: oklch(0.35 0.08 165);
+    --color-emerald-200: oklch(0.44 0.1 165);
+    --color-emerald-600: oklch(0.76 0.14 165);
+    --color-emerald-700: oklch(0.81 0.13 165);
+    --color-emerald-800: oklch(0.85 0.1 165);
+    --color-teal-50: oklch(0.3 0.06 185);
+    --color-teal-100: oklch(0.35 0.08 185);
+    --color-teal-200: oklch(0.44 0.1 185);
+    --color-teal-600: oklch(0.76 0.14 185);
+    --color-teal-700: oklch(0.81 0.13 185);
+    --color-teal-800: oklch(0.85 0.1 185);
+    --color-blue-50: oklch(0.3 0.06 255);
+    --color-blue-100: oklch(0.35 0.08 255);
+    --color-blue-200: oklch(0.44 0.1 255);
+    --color-blue-600: oklch(0.76 0.14 255);
+    --color-blue-700: oklch(0.81 0.13 255);
+    --color-blue-800: oklch(0.85 0.1 255);
+    --color-indigo-50: oklch(0.3 0.06 275);
+    --color-indigo-100: oklch(0.35 0.08 275);
+    --color-indigo-200: oklch(0.44 0.1 275);
+    --color-indigo-600: oklch(0.76 0.14 275);
+    --color-indigo-700: oklch(0.81 0.13 275);
+    --color-indigo-800: oklch(0.85 0.1 275);
+    --color-violet-50: oklch(0.3 0.06 295);
+    --color-violet-100: oklch(0.35 0.08 295);
+    --color-violet-200: oklch(0.44 0.1 295);
+    --color-violet-600: oklch(0.76 0.14 295);
+    --color-violet-700: oklch(0.81 0.13 295);
+    --color-violet-800: oklch(0.85 0.1 295);
+    --color-purple-50: oklch(0.3 0.06 305);
+    --color-purple-100: oklch(0.35 0.08 305);
+    --color-purple-200: oklch(0.44 0.1 305);
+    --color-purple-600: oklch(0.76 0.14 305);
+    --color-purple-700: oklch(0.81 0.13 305);
+    --color-purple-800: oklch(0.85 0.1 305);
+}
+
+.dark .bg-white\/90 {
+    background-color: color-mix(in oklab, var(--surface) 90%, transparent);
+}
+
+.dark .bg-gray-700\/85 {
+    background-color: oklch(0.18 0.02 265 / 0.85);
+}
+
+/* Dark mode: swap the saturated brand red for a softer amber so buttons and links do not glare */
+.dark {
+    --brand: oklch(0.84 0.14 85);
+    --brand-hover: oklch(0.89 0.14 85);
+    --on-brand: oklch(0.22 0.04 80);
+}
+
+.dark .bg-\[\#e60023\] {
+    background-color: var(--brand);
+    color: var(--on-brand);
+}
+
+.dark .bg-\[\#e60023\] svg {
+    color: inherit;
+}
+
+.dark .hover\:bg-\[\#cc0020\]:hover,
+.dark .hover\:bg-\[\#c9001f\]:hover {
+    background-color: var(--brand-hover);
+}
+
+.dark .bg-\[\#e60023\]\/10 {
+    background-color: color-mix(in oklab, var(--brand) 16%, transparent);
+}
+
+.dark .text-\[\#e60023\],
+.dark .hover\:text-\[\#e60023\]:hover,
+.dark .hover\:text-\[\#c7001e\]:hover,
+.dark .group:hover .group-hover\:text-\[\#e60023\],
+.dark .group:focus-within .group-focus-within\:text-\[\#e60023\] {
+    color: var(--brand);
+}
+
+.dark .border-\[\#e60023\],
+.dark .hover\:border-\[\#e60023\]:hover,
+.dark .focus\:border-\[\#e60023\]:focus {
+    border-color: var(--brand);
+}
+
+.dark .focus\:ring-\[\#e60023\]\/20:focus {
+    --tw-ring-color: color-mix(in oklab, var(--brand) 30%, transparent);
+}
+
+.dark .focus-visible\:ring-\[\#e60023\]:focus-visible {
+    --tw-ring-color: var(--brand);
+}
+
+.dark .focus-visible\:outline-\[\#e60023\]:focus-visible {
+    outline-color: var(--brand);
+}
+
+.dark .shadow-\[\#e60023\]\/20 {
+    --tw-shadow-color: color-mix(in oklab, var(--brand) 20%, transparent);
+}
+
+.dark .from-\[\#e60023\]\/10 {
+    --tw-gradient-from: color-mix(in oklab, var(--brand) 14%, transparent);
+}
+
+.dark .to-\[\#e60023\]\/40 {
+    --tw-gradient-to: color-mix(in oklab, var(--brand) 30%, transparent);
+}
+
+/* Keep the red-tinted text of errors readable but calmer */
+.dark .text-red-600,
+.dark .text-red-700,
+.dark .text-red-800 {
+    color: oklch(0.78 0.12 22);
+}
+
+/* Dark mode for the book preview dialog (its base styles are hard-coded light) */
+.dark .book-preview-dialog {
+    background: var(--surface);
+    color: oklch(0.95 0.005 265);
+    box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
+}
+
+.dark .book-preview-dialog__canvas {
+    background: oklch(0.24 0.035 265);
+}
+
+.dark .book-preview-dialog__message {
+    color: oklch(0.8 0.02 265);
+}
+
+.dark .book-preview-dialog__message--overlay {
+    background: oklch(0.24 0.035 265);
+}
+
+.dark .book-preview-dialog__expired span {
+    color: oklch(0.97 0.005 265);
+    text-shadow: 0 1px 3px black, 0 -1px 3px black;
+}
+
+/* State variants that turn an element white (e.g. the search box on focus) */
+.dark .focus\:bg-white:focus,
+.dark .hover\:bg-white:hover {
+    background-color: var(--surface-raised);
+}
+
+/* Landing page: slowly floating book covers */
+@keyframes landing-float {
+    0%, 100% {
+        transform: translateY(0) rotate(var(--rotate, 0deg));
+    }
+    50% {
+        transform: translateY(-10px) rotate(var(--rotate, 0deg));
+    }
+}
+
+.landing-float {
+    transform: rotate(var(--rotate, 0deg));
+    animation: landing-float 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-float {
+        animation: none;
+    }
+}
+
+/* Translucent white panels (landing badges, chips) */
+.dark .bg-white\/60 {
+    background-color: color-mix(in oklab, var(--surface) 60%, transparent);
+}
+
+.dark .bg-white\/70 {
+    background-color: color-mix(in oklab, var(--surface) 70%, transparent);
+}
