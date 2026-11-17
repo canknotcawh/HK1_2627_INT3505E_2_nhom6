@@ -30,7 +30,7 @@ public class PublicBookController {
             @RequestParam(required = false) String availability,
             @PageableDefault(size = 20) Pageable pageable) {
         if (category == null && availability == null) {
-            return bookService.searchBooks(q, pageable);
+            return bookService.searchBooks(q, null, null, pageable);
         }
         return bookService.searchBooks(q, category, availability, pageable);
     }
