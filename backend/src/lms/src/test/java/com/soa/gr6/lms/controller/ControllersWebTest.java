@@ -2,6 +2,7 @@ package com.soa.gr6.lms.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -122,7 +123,7 @@ class ControllersWebTest {
 
     @Test
     void publicSearchAndDetail() throws Exception {
-        when(bookService.searchBooks(eq("clean"), any())).thenReturn(paged(book()));
+        when(bookService.searchBooks(eq("clean"), isNull(), isNull(), any())).thenReturn(paged(book()));
         when(bookService.getBook(bookId)).thenReturn(book());
 
         mvc.perform(get("/api/v1/public/books").param("q", "clean"))
