@@ -1,280 +1,184 @@
-# FINAL QA REPORT — LMS API (Phase 0–7)
+# Báo cáo QA tổng hợp — LMS
 
-- **Ngày:** 2026-11-09
-- **Phạm vi:** toàn bộ backend `backend/src/lms` (Java 25, Spring Boot 4.1.1, PostgreSQL 16)
-- **Nhánh:** `main` @ `3b81ee7` + working tree của Phase 0–7 (chưa commit)
-- **Người thực hiện:** QA Lead (Phase 7)
-- **Nguyên tắc:** không sửa business code, không commit/push; mọi kết luận dưới đây gắn với một lần chạy hoặc một test cụ thể.
+- **Ngày cập nhật:** 17/11/2026
+- **Repo:** `HK1_2627_INT3505E_2_nhom6`
+- **Phạm vi:** backend LMS, 56 API/12 controller, dữ liệu sách và chuẩn hóa thể loại.
 
----
 
-## 1. Kết luận điều hành
+## Kết luận điều hành
 
-> ## ❌ NOT READY
+Đánh giá lại sau khi backend và Docker được bật xác nhận PostgreSQL 16 healthy, Flyway history đã chạy thành công tới V10, và API công khai trên cổng 8080 trả 200. CSDL đang chạy có **10.000 sách, 10 thể loại tên mẫu, 10.000 liên kết**; khác với bộ chuẩn trong tài liệu (**6.109 / 36 / 6.380**). Tất cả 10.000 sách đều có đúng một liên kết category, không phát hiện orphan. Dữ liệu có dấu hiệu là bộ synthetic/performance (tiêu đề “Sách hiệu năng số …”), nên cần xác nhận đây có phải DB đích dùng cho nghiệm thu danh mục chuẩn hay không.
 
-Hệ thống **không đạt tiêu chí phát hành** tại thời điểm nghiệm thu, vì còn **1 blocker** và **1 lỗi CRITICAL** đang mở, cùng 11 lỗi HIGH:
+Kiểm tra HTTP chỉ đọc xác nhận các endpoint danh sách sách, danh sách thể loại, tìm kiếm và phân trang đều trả 200. Đo thăm dò 12 lần/endpoint cho thấy p50/p95: categories 12/21,93 ms; trang sách 28,01/34,51 ms; lọc category 19,95/28,60 ms; tìm kiếm 98,86/145,20 ms; trang sâu 400 là 107,34/108,95 ms. Đây là mẫu nhỏ, chạy tuần tự trên một môi trường cục bộ, không có tải đồng thời hoặc SLA; không dùng làm benchmark phát hành.
 
-1. **DF-07 (blocker):** hai migration cùng version `V5` (`V5__account_identity_sessions.sql`, `V5__update_book_metadata.sql`). `MigrationIntegrityTest` chạy Flyway thật trên database trống và nhận `Found more than one migration with version 5`. Với cấu hình hiện tại (`spring.flyway.enabled: true`, `ddl-auto: validate`), **profile production không thể khởi tạo schema/khởi động**. Test profile tắt Flyway nên 338 test vẫn xanh — đây là lý do coverage không phản ánh khả năng phát hành.
-2. **CV-03 (critical):** lỗi tham số/đường dẫn/415/500 không trả schema `ApiError` (không có `code`). Client không có hợp đồng lỗi thống nhất để xử lý.
-3. **11 lỗi HIGH** gồm mất dữ liệu im lặng (`previewUrl`/`readerUrl`), xoá tồn kho khi PATCH body rỗng, `ggId` không bao giờ được ghi, register không nguyên tử, test cũ khẳng định sai hành vi production, và 6 điểm nghẽn hiệu năng/độ tin cậy.
+Suite backend đã chạy lại sau khi cấp quyền môi trường cho JVM: **187 test, 185 pass, 1 fail, 0 error, 1 skip**. Failure duy nhất là `ControllersWebTest.publicSearchAndDetail`, do test stub overload `searchBooks(q, pageable)` trong khi controller gọi overload 4 tham số `searchBooks(q, category, availability, pageable)`; đây là mismatch trong test mock, chưa phải lỗi được tái hiện trên API live. API GET live tương ứng trả 200 và có nội dung. Các test còn lại vượt qua.
 
-Chi tiết quyết định và điều kiện phát hành lại: [`RELEASE_READINESS.md`](RELEASE_READINESS.md). Danh sách lỗi: [`BUG_SUMMARY.md`](BUG_SUMMARY.md). Rủi ro còn lại: [`REMAINING_RISKS.md`](REMAINING_RISKS.md).
+Kiểm tra checksum cho thấy **9.000/10.000 ISBN sai check digit**; kiểm tra quan hệ loan–tồn kho tìm thấy 1.474 sách có số loan ở trạng thái còn mở lớn hơn chênh lệch `total_copies - available_copies`. Đây có thể là đặc điểm của dữ liệu hiệu năng tổng hợp; nếu DB này được coi là dữ liệu catalog/loan nghiệm thu thì các kết quả là bất thường cần xử lý. Không có thao tác DB ghi dữ liệu nào được thực hiện.
 
----
+Điểm tổng hợp hiện tại là **36/100 — NOT READY TO CERTIFY**. Điểm này phản ánh bằng chứng runtime mới, chênh lệch đáng kể so với dữ liệu chuẩn và việc chưa chạy đủ kiểm tra chức năng trên DB đích.
 
-## 2. Phạm vi và phương pháp
+### Thông tin môi trường
 
-| Giai đoạn | Nội dung | Đầu ra chính |
-|---|---|---|
-| Phase 0 | Kiểm kê 39 endpoint, DTO, migration, khoảng trống test | `docs/qa/phase-0/` |
-| Phase 1 | Rà hợp đồng API | 25 vi phạm `CV-01…25` |
-| Phase 2 | Test chức năng Auth (25 case) | `AuthApiTest` (không có thư mục tài liệu riêng — xem §9) |
-| Phase 3 | Transaction & nhất quán dữ liệu | 42/42 case PASS, `DF-01…08` |
-| Phase 4 | Authentication/authorization/IDOR | 59 test, `AC-01…10` |
-| Phase 5 | 27 workflow E2E + hợp đồng frontend | 27/27 PASS, `F-01…08` |
-| Phase 6 | Hiệu năng, độ tin cậy, an toàn đầu vào | 110.235 request, 31 test input, `PB-01…09`, `R6-F1…F5`, `SEC6-F1…F6` |
-| Phase 7 | Regression, tổng hợp, nghiệm thu | 6 tài liệu này |
-
-**Thay đổi source trong toàn bộ Phase 0–7:** không có. `git status` chỉ có `backend/src/lms/pom.xml` thêm dependency test `testcontainers-postgresql` và các thư mục test/tài liệu untracked. Không có file `src/main` nào bị sửa.
-
-**Môi trường chạy test:**
-
-| Thành phần | Giá trị |
+| Thành phần | Quan sát |
 |---|---|
-| Java | 25.0.4.1 |
-| Maven | 3.9.16 (wrapper `only-script`, chạy bằng `bash ./mvnw`) |
-| Spring Boot | 4.1.1 |
-| Database test | PostgreSQL 16 Testcontainer, container mới mỗi JVM |
-| Email test | Mock `JavaMailSender` (mặc định) + Mailpit thật cho `MailpitEmailWorkflowTest` |
-| Profile test | `test`: Flyway **tắt**, `ddl-auto=create-drop`, JWT secret test |
-| Máy | 12 vCPU / 10 GiB RAM |
+| Commit rà soát hiện tại | `a53ef43` (các thay đổi source so với lần test trước không được xác nhận trong lượt này) |
+| Java chạy test | OpenJDK `25.0.5.0.3+1-1-26.04.1-Ubuntu` |
+| DB cấu hình mặc định | PostgreSQL; `application.yaml` dùng cổng 5433, user/database mặc định được cấu hình qua biến môi trường hoặc giá trị dev |
+| Kết nối DB | PostgreSQL 16.15 tại cổng host 5433, database `lms`; container healthy |
+| Flyway | History thành công từ baseline qua V10; V5/V8/V9/V10 đã ghi nhận trong schema history |
+| Backend/API | Java listener trên 8080; GET public books/categories và OpenAPI trả 200 |
+| Test suite | Chạy lại ngày 17/11: 187 test, 185 pass, 1 fail do stub mock lệch overload, 0 error, 1 skip |
 
-Lệnh chạy:
+## Kiểm kê API hiện tại
 
-```bash
-cd backend/src/lms
-bash ./mvnw clean verify          # build + 338 test + JaCoCo gate
-bash ./mvnw test -Dsurefire.runOrder=random -Dsurefire.runOrder.random.seed=20261109
-bash ./mvnw test -Dtest=AuthApiTest
-bash ./mvnw test -Dtest=AccessControlTest
-```
+Đếm tĩnh các mapping annotation trong mã nguồn cho kết quả 56 mapping thuộc 12 controller:
 
-> `mvnw` không có exec bit trong repo; dùng `bash ./mvnw` để không thay đổi quyền file.
+| Controller | Số mapping |
+|---|---:|
+| `AdminBookController` | 6 |
+| `AdminBookReviewController` | 4 |
+| `AdminCategoryController` | 5 |
+| `AdminLoanController` | 8 |
+| `AdminStatsController` | 1 |
+| `AdminUserController` | 6 |
+| `AuthController` | 7 |
+| `EmailVerificationController` | 2 |
+| `UserController` | 6 |
+| `PublicBookController` | 3 |
+| `PublicBookReviewController` | 2 |
+| `BookReviewController` | 6 |
+| **Tổng** | **56** |
 
----
+> Đây là kiểm kê khai báo trong source, chưa đối chiếu OpenAPI/runtime và chưa chứng minh từng API có test HTTP. Scorecard cũ chỉ có ma trận 39 endpoint, vì vậy cần lập ma trận mới đủ 56 API.
 
-## 3. Kết quả thực thi
+## 5. Kết quả kiểm tra hiện hành
 
-### 3.1 Build & test
+| Hạng mục | Kết quả | Bằng chứng / giới hạn |
+|---|---|---|
+| Trạng thái repo ban đầu | PASS có điều kiện | HEAD `a53ef43`; khi bắt đầu lượt này chỉ có `FINAL_QA_REPORT.md` đã sửa từ lần trước, không có thay đổi source/test khác. |
+| Số controller/API | PASS (kiểm tra tĩnh) | 12 controller, 56 mapping. Chưa xác minh route runtime hoặc test coverage. |
+| Kỳ vọng catalog | PASS (đối chiếu tài liệu) | `database/README.md`, `category-normalization.md` và header `database/books.sql` ghi 6.109 sách, 36 thể loại, 6.380 liên kết. Đây chưa phải số liệu đọc từ DB. |
+| Kết nối DB | PASS | PostgreSQL 16.15 healthy trên cổng host 5433; truy vấn SELECT thành công. |
+| Flyway hiện tại | PASS (history) | `flyway_schema_history` có các version thành công tới V10. Chưa chứng minh migrate từ DB trống hoặc bản sao pre-update. |
+| Test backend | FAIL (1 test mock) | 187 test: 185 pass, 1 fail, 0 error, 1 skip. Failure `publicSearchAndDetail` do stub gọi sai overload; cần sửa test rồi chạy lại để khẳng định suite xanh. |
+| API công khai | PASS (smoke) | GET books, categories, OpenAPI và các truy vấn dưới đây trả HTTP 200; chưa kiểm tra đủ 56 operation hoặc auth/contract chi tiết. |
+| API và luồng mượn/trả đầy đủ | NOT TESTED | Chưa chạy workflow mượn/trả hoặc API có ghi dữ liệu. |
+| Hiệu năng | PASS (thăm dò cục bộ) | 12 lần tuần tự cho 5 GET công khai; p50/p95 ghi ở mục 5.4. Không có concurrency, query plan hay SLA. |
 
-| Lần chạy | Lệnh | Kết quả | Thời gian |
+### 5.1 Đối chiếu dữ liệu sách và thể loại
+
+| Kiểm tra | Kỳ vọng | Quan sát được | Trạng thái |
 |---|---|---|---|
-| 1 | `mvn test` (Phase 6, trước Phase 7) | 338 test, 0 fail, 0 error, 1 skip — BUILD SUCCESS | ~41 s |
-| 2 | `bash ./mvnw clean verify` | 338 test, 0 fail, 0 error, 1 skip — BUILD SUCCESS; `All coverage checks have been met` | 40,909 s |
-| 3 | random order, seed `20261109` | 338 test, 0 fail, 0 error, 1 skip — BUILD SUCCESS | 33,666 s |
-| 4 | `-Dtest=AuthApiTest` (riêng lẻ) | 25 test, 0 fail — BUILD SUCCESS | ~25 s |
-| 5 | `-Dtest=AccessControlTest` (riêng lẻ) | 20 test, 0 fail — BUILD SUCCESS | ~20 s |
+| Tổng số sách | 6.109 sách nguồn chuẩn; có thể cộng dữ liệu riêng | **10.000** | FAIL so với bộ chuẩn; cần xác nhận đây có phải dataset hiệu năng riêng |
+| Tổng thể loại | 36 tên thể loại chuẩn | **10**, tên “Thể loại 1” … “Thể loại 10” | FAIL so với bộ chuẩn |
+| Liên kết sách–thể loại | 6.380 liên kết trong nguồn chuẩn | **10.000** | FAIL so với bộ chuẩn |
+| Liên kết mồ côi | 0 | 0 orphan book, 0 orphan category | PASS |
+| Cặp liên kết trùng | 0; PK ghép `(book_id, category_id)` | 0 theo constraint; query không báo duplicate | PASS |
+| Sách không có thể loại | 0 | 0 | PASS |
+| Sách có nhiều category | Bộ chuẩn có 6.380/6.109, tức một số sách đa thể loại | 0; cả 10.000 sách có đúng một category | FAIL so với bộ chuẩn |
+| ISBN/UUID hợp lệ và duy nhất | ISBN-13 hợp lệ, duy nhất; UUID đúng kiểu | ISBN null 0, sai format 0, trùng ISBN 0; **9.000 ISBN sai check digit**. ID là UUID trong schema, không rà độc lập workbook mapping. | FAIL ISBN checksum; phần UUID mapping NOT TESTED |
+| Số bản sách hợp lệ | `0 ≤ available_copies ≤ total_copies` | 0 dòng vi phạm; 2 sách có số bản đang mượn theo chênh lệch tồn kho | PASS cho constraint số bản |
+| Loan mở so với tồn kho | Loan ACTIVE/OVERDUE/PENDING_RETURN phải tương thích số bản đang mượn | 15.886 loan mở; **1.474 sách** có loan mở vượt `total_copies - available_copies` | FAIL nếu xem là dữ liệu nghiệp vụ; nghi là fixture tổng hợp, cần xác nhận nguồn |
+| Bảo toàn tài khoản/lịch sử mượn/tác giả/số bản/rating | Giữ nguyên dữ liệu ngoài thao tác chuẩn hóa | DB có 25 user, 21.202 loan, 20 author, 10.000 book-author link, 0 review; không có snapshot trước import để so sánh | NOT TESTED |
+| Import lặp lại và giữ dữ liệu ngoài nguồn | Không tạo trùng/reset dữ liệu nghiệp vụ, giữ dữ liệu ngoài phạm vi | Không chạy script và chưa kiểm chứng độc lập | NOT TESTED |
 
-- **PASS:** 337/338
-- **FAIL:** 0
-- **ERROR:** 0
-- **SKIPPED:** 1 — `LmsApplicationTests`, bị skip có chủ đích vì cần biến `LMS_IT`; không phải test nghiệp vụ.
-- **Số test class:** 37.
-- **Thời gian test cộng dồn (surefire):** 46,0 s.
+Tài liệu mô tả script có transaction, bảng staging, khóa bảng và ánh xạ dữ liệu. Đây là bằng chứng thiết kế, chưa chứng minh script an toàn hoặc idempotent trên DB hiện hành. Không chạy lại import trong đợt QA này.
 
-### 3.2 JaCoCo
+### 5.2 Kiểm tra test
 
-Nguồn: `target/site/jacoco/jacoco.csv` (82 class), sinh bởi `clean verify`.
+Lệnh: `bash ./mvnw test` từ `backend/src/lms`.
 
-| Chỉ số | Kết quả | Ngưỡng |
-|---|---:|---|
-| Instruction | **94,59%** (5.105/5.397) | — |
-| Branch | **79,17%** (342/432) | — |
-| Line | **94,90%** (1.154/1.216) | ≥ 50% ✅ |
-| Complexity | 82,21% | — |
+Lệnh `bash ./mvnw test` chạy ngày 17/11 với quyền cho phép JVM nạp agent. Kết quả: 187 test, 185 pass, 1 fail, 0 error, 1 skip (`LmsApplicationTests`). Failure `ControllersWebTest.publicSearchAndDetail` tại dòng 130: test cấu hình mock cho overload 2 tham số, còn controller gọi overload 4 tham số; mock không trả Page đã cấu hình nên assertion `$.content[0].title` thất bại. Đây là test lỗi/stale stub; không tự sửa trong lần QA này. Suite cần được chạy xanh sau khi chủ dự án sửa test. Test profile không thay thế kiểm chứng Flyway trên database sạch/production.
 
-Coverage theo tầng:
+### 5.3 Migration, API và truy vấn sách
 
-| Tầng | Line | Branch |
-|---|---:|---:|
-| `controller` | 98,8% (80/81) | 83,3% |
-| `service` | 93,7% (462/493) | 73,9% |
-| `domain` | 98,0% (289/295) | 83,8% |
-| `security` | 86,7% (111/128) | 76,9% |
-| `dto` | 95,0% (38/40) | 66,7% |
-| `exception` | 100% (78/78) | 100% |
-| `mapper` | 100% (44/44) | 50,0% |
-| `validation` | 100% (42/42) | 97,1% |
-| `config` | 81,8% (9/11) | — |
+- Cấu hình `application.yaml` bật Flyway và đặt Hibernate ở `ddl-auto: validate`.
+- DB history có baseline và migration thành công tới V10, bao gồm V5 account sessions, V8 book metadata, V9 catalog schema, V10 book review. Lỗi trùng version V5 ngày 09/11 không tái hiện trong DB hiện tại; **DF-07 được đóng cho trạng thái DB đang chạy**, nhưng vẫn cần migration test trên schema trống/bản sao để xác nhận đường nâng cấp.
+- Cổng `8080` trả HTTP 200 cho `GET /api/v1/public/books`, `/categories` và `/v3/api-docs`. Tìm kiếm `q=Lịch sử`, lọc `category=Thể loại 1`, trang đầu và trang 400 đều trả 200 và page metadata hợp lệ.
+- OpenAPI công bố **51 path / 57 operation**, trong khi static mapping count là **56**. Cần lập diff theo HTTP method/path để giải thích operation thừa hoặc route khác biệt.
+- `BookRepository` dùng tìm kiếm full-text/trigram và lọc category qua `book_category`; `init_search.sql` khai báo hàm/index tìm kiếm. Chưa biết các index có tồn tại và được planner sử dụng trên DB người dùng hay không.
+- `CategoryRepository` có truy vấn đếm và gộp category; chưa test API gộp/đổi tên/xóa hoặc đối chiếu số lượng trên dữ liệu thật.
+- Hướng dẫn chạy có khác biệt cổng DB so với cấu hình hiện tại: cấu hình ứng dụng mặc định 5433, một số hướng dẫn cũ ghi 5432. Cần thống nhất hướng dẫn trước lần xác nhận môi trường tiếp theo.
 
-**Diễn giải:** coverage cao nhưng **không** chứng minh chất lượng. Controller đạt 98,8% line trong khi hợp đồng lỗi vẫn sai (CV-03) và hai endpoint chỉ được assert status. Gate hiện tại (LINE ≥ 0,50) quá thấp để có ý nghĩa nghiệm thu. Vì vậy báo cáo này đánh giá 8 trục độc lập ở §6.
+### 5.4 Đo latency thăm dò
 
-### 3.3 Tính độc lập và lặp lại
+Mỗi URL GET được gọi tuần tự 12 lần từ cùng môi trường. Chỉ số là mili giây; p95/p99 với mẫu nhỏ này là gần với giá trị cực đại, không đại diện tải thật.
 
-- 3 lần chạy full suite (2 lần cùng thứ tự, 1 lần random seed `20261109`) đều cho **cùng kết quả 338/0/0/1**.
-- 2 class chạy **riêng lẻ** đều PASS (`AuthApiTest` 25, `AccessControlTest` 20) → không phụ thuộc thứ tự hay dữ liệu của class khác.
-- Mỗi test DB chạy trong transaction riêng và rollback; container PostgreSQL tạo mới mỗi JVM.
-- Phụ thuộc ngoài: Docker (Testcontainers) bắt buộc; Mailpit chỉ cần cho 1 test và test **tự SKIP** nếu Mailpit không chạy (`assumeTrue`). Lần chạy này Mailpit bật nên test PASS thật.
+| GET | HTTP | p50 | p95 | min–max | Ghi chú |
+|---|---:|---:|---:|---:|---|
+| `/api/v1/public/books/categories` | 200 | 12,00 | 21,93 | 8,88–48,42 | Trả 10 category |
+| `/api/v1/public/books?page=0&size=20` | 200 | 28,01 | 34,51 | 22,07–34,94 | 10.000 kết quả, 500 trang |
+| `/api/v1/public/books?category=Thể loại 1&page=0&size=20` | 200 | 19,95 | 28,60 | 16,43–30,00 | 1.000 kết quả, 50 trang |
+| `/api/v1/public/books?q=Lịch sử&page=0&size=20` | 200 | 98,86 | 145,20 | 87,32–150,86 | 1.667 kết quả, 84 trang |
+| `/api/v1/public/books?page=400&size=20` | 200 | 107,34 | 108,95 | 103,77–115,18 | Trang sâu |
 
-Chi tiết: [`REGRESSION_TEST_RESULTS.md`](REGRESSION_TEST_RESULTS.md).
+Đây là smoke đo tuần tự trên một lần chạy; không đo concurrency, CPU/RAM, pool, query count hoặc `EXPLAIN ANALYZE`. Không có SLA để kết luận đạt/không đạt hiệu năng.
 
----
+## 6. Scorecard hiện tại
 
-## 4. Tổng hợp theo API module
+Giữ nguyên trọng số của scorecard ngày 09/11: 10/20/15/15/15/10/10/5. Điểm ngày 17/11 là điểm tạm dựa trên bằng chứng hiện có; các vùng bị chặn không được mặc định là đạt.
 
-39 endpoint / 6 controller. Không có `DELETE`.
+| Trục | Trọng số | Điểm / 10 | Điểm trọng số | Căn cứ và độ tin cậy |
+|---|---:|---:|---:|---|
+| Kiểm kê API | 10 | 7 | 7,0 | 56 mapping source; OpenAPI có 57 operation/51 path, cần đối chiếu chênh lệch. Tin cậy trung bình. |
+| Độ phủ kiểm thử chức năng | 20 | 4 | 8,0 | 185 test pass; 1 test web fail do stub mock lệch overload; smoke GET catalog/search trả 200, nhưng luồng ghi và loan chưa test. Tin cậy thấp. |
+| Tuân thủ hợp đồng response | 15 | 4 | 6,0 | Một số response GET/page đã kiểm; error contract và auth contract chưa được kiểm tra đầy đủ, findings cũ chưa xác minh. Tin cậy thấp. |
+| Nhất quán dữ liệu | 15 | 2 | 3,0 | Orphan/thiếu category không có; nhưng dữ liệu lệch chuẩn 6.109/36/6.380, 9.000 ISBN sai checksum và loan–tồn kho bất thường. Tin cậy trung bình cho snapshot hiện tại. |
+| Xác thực / phân quyền | 15 | 4 | 6,0 | Có findings lịch sử; suite chạy được nhưng chưa tái kiểm từng kịch bản bảo mật. Tin cậy thấp. |
+| E2E | 10 | 2 | 2,0 | Chưa chạy workflow trên DB/API hiện tại. Tin cậy thấp. |
+| Hiệu năng | 10 | 3 | 3,0 | Smoke 12 request/endpoint có latency p50/p95; chưa có tải đồng thời, plan hay SLA. Tin cậy thấp. |
+| Độ tin cậy | 5 | 2 | 1,0 | Chưa chạy kiểm tra outage/startup/fault injection hiện tại. Tin cậy thấp. |
+| **Tổng** | **100** |  | **36/100** | **NOT READY TO CERTIFY** |
 
-| Module | Endpoint | Test HTTP chính | Kết quả | Phát hiện nổi bật |
-|---|---:|---|---|---|
-| **M1 — Identity & session** (`AuthController`, `EmailVerificationController`, `UserController` phần `/me`) | 12 | `AuthApiTest` 25, `GoogleLoginTest` 11, `ReaderOnboardingWorkflowTest` 6, `AccountRecoveryWorkflowTest` 4, `InputSecurityTest` | 0 fail | DF-01 register không nguyên tử; DF-03/AC-01 token còn hạn sau đổi mật khẩu; AC-02 sau logout; CV-12; CV-19 |
-| **M2 — Book catalog** (`PublicBookController`, `AdminBookController`) | 9 | `BookServiceImplTest` 12, `BookDomainTest` 8, `ApiDatabaseConsistencyTest`, `BorrowReturnWorkflowTest`, `FrontendContractTest` | 0 fail | CV-02 mất `previewUrl/readerUrl`; CV-04 body rỗng xoá tồn kho; CV-05 `ggId` không ghi; CV-07/DF-05 PUT bỏ `totalCopies`; DF-02; DF-06; CV-18 |
-| **M3 — Loan circulation** (`UserController` phần loans, `AdminLoanController`) | 12 | `LoanServiceImplTest` 13, `LoanDomainTest` 12, `LoanLifecycleTest` 5, `BorrowReturnWorkflowTest` 6, `TransactionBoundaryTest` | 0 fail | DF-04/CV-22; CV-25; R6-F1 không timeout; PB-05 thiếu index |
-| **M4 — Admin users** (`AdminUserController`) | 6 | `AdminUserProtectionRulesTest` 10, `AdminUserServiceImplTest` 4, `IdorTest` 10, WF-15/16 | 0 fail | AC-08 dùng 422; CV-17 sort mặc định; `GET /admin/users/{id}` chưa assert body happy path |
-| **Xuyên tầng** | — | DB 42 case, security 59, contract 10, input 31, concurrency 2, transaction 11, migration 1 | 0 fail | DF-07 blocker; CV-03; AC-03/AC-04 |
+> Điểm 36 phản ánh bằng chứng hiện hành: có smoke runtime nhưng catalog thực tế lệch bộ chuẩn và nhiều kiểm tra quan trọng chưa thực hiện. Không so sánh như phép đo hồi quy trực tiếp với điểm 64 ngày 09/11.
 
-> Số test ở bảng không cộng dồn thành 338 vì một test class có thể phủ nhiều module và các test xuyên tầng được liệt kê riêng.
+## 7. Trạng thái phát hiện từ QA ngày 09/11
 
----
+Các trạng thái dưới đây được cập nhật bằng bằng chứng runtime ngày 17/11; phần chưa chạy tiếp tục được đánh dấu chưa xác minh. Không kết luận đã sửa chỉ dựa trên việc mã nguồn hoặc migration đổi tên.
 
-## 5. Endpoint và test case
-
-### 5.1 Endpoint
-
-| Chỉ số | Giá trị |
-|---|---:|
-| Tổng endpoint | **39** |
-| Có ít nhất một test HTTP qua SecurityFilterChain thật | **39/39 (100%)** |
-| Có assertion nội dung/dữ liệu ở happy path | **34/39** |
-| Chỉ assert status/404/authz (thiếu body happy path) | **5/39**: P2 categories, B1 admin list books, L1 admin list loans, L2 admin loan detail, C2 admin user detail |
-| Chưa có test HTTP nào | **0** |
-
-Phase 0 từng ghi 5 endpoint chưa có test HTTP (A1, E1, E2, P2, B1). Sau Phase 2–6, **cả 39 endpoint đều đã được gọi qua filter chain thật**. Khoảng trống còn lại là **độ sâu**, không phải sự tồn tại của test.
-
-### 5.2 Test case
-
-| Kết quả | Số lượng |
-|---|---:|
-| Tổng | **338** |
-| PASS | **337** |
-| FAIL | **0** |
-| ERROR | **0** |
-| SKIPPED | **1** (`LmsApplicationTests`, cần `LMS_IT`) |
-
-Lớp test lớn: `InputSecurityTest` 31, `ControllersWebTest` 26, `AuthApiTest` 25, `AuthServiceTest` 22, `AccessControlTest` 20, `JwtSecurityTest` 18, `ApiDatabaseConsistencyTest` 16, `LoanServiceImplTest` 13, `BookServiceImplTest` 12, `LoanDomainTest` 12, `GoogleLoginTest` 11, `TransactionBoundaryTest` 11, `IdorTest` 10, `FrontendContractTest` 10, `AdminUserProtectionRulesTest` 10.
-
-Ma trận 39 endpoint: [`API_QUALITY_SCORECARD.md`](API_QUALITY_SCORECARD.md) §2.
-
----
-
-## 6. Đánh giá 8 trục (không dựa vào coverage)
-
-Điểm có trọng số; thang 0–10 cho từng trục. Đây là đánh giá của QA Lead dựa trên bằng chứng, **không phải chuẩn công nghiệp đã thống nhất**.
-
-| # | Trục | Trọng số | Điểm | Căn cứ |
-|---|---|---:|---:|---|
-| 1 | API inventory coverage | 10 | **9** | 39/39 endpoint có test HTTP; 5 endpoint thiếu body happy path |
-| 2 | Functional test coverage | 20 | **14** | 338 test, 27 workflow E2E; nhưng Q1–Q12 business rule chưa chốt, 5 endpoint phủ mỏng |
-| 3 | Response contract compliance | 15 | **6** | 1 CRITICAL (CV-03), 2 HIGH mất dữ liệu (CV-02, CV-04), 1 HIGH `ggId` (CV-05), 11 MEDIUM |
-| 4 | Database consistency | 15 | **10** | 42/42 case PASS, borrow/return/lost/recover đúng; DF-01, DF-02, DF-05, DF-06, DF-07 còn mở |
-| 5 | Authentication/authorization | 15 | **11** | 27 endpoint 401 đúng, 20 endpoint admin 403 đúng, 10 IDOR test không lộ dữ liệu; AC-01…AC-04 mở |
-| 6 | E2E workflow coverage | 10 | **8** | 27/27 workflow PASS kèm bằng chứng DB; chưa chạy browser thật, Google thật, Tomcat thật |
-| 7 | Performance | 10 | **4** | Search 6,9 RPS, P99 5,47 s; N+1; pool 10; không có SLA để so |
-| 8 | Reliability | 5 | **2** | DB down → chờ 30 s rồi 500; không timeout lock; SMTP lỗi để lại user mồ côi |
-| | **Tổng** | **100** | **64/100** | **NOT READY** |
-
-Ngưỡng đề xuất để được `READY WITH RISKS`: ≥ 80/100 **và** không còn blocker/critical **và** các tiêu chí bắt buộc ở [`RELEASE_READINESS.md`](RELEASE_READINESS.md) đạt.
-
-### 6.1 Response
-
-- Các response chính đã được chốt key set: login (`accessToken, refreshToken, user`), `LoanDto` 11 field, `ManagedUser` 7 field, `BookResponse` 19 field frontend dùng, `Page` 4 field.
-- Lỗi nghiệp vụ chuẩn `ApiError` (status, code, message, timestamp, fieldErrors) cho 400 validation/401/403/404/409/422.
-- **Chưa đạt:** lỗi sai kiểu tham số/đường dẫn (400) và 415/500 không theo `ApiError`; 403 mang 3 nghĩa; message trộn Việt/Anh; `PageImpl` serialize trực tiếp (cảnh báo của Spring).
-
-### 6.2 Dữ liệu
-
-- 42/42 case Phase 3 PASS: borrow nguyên tử, trả 2 bước, lost/recover đối xứng, không oversell dưới 5 request đồng thời.
-- **Chưa đạt:** register commit user trước khi gửi mail (DF-01); lost update tồn kho (DF-02); PUT bỏ `totalCopies` (DF-05); cho `totalCopies` nhỏ hơn số đang mượn (DF-06, chưa test); Flyway không chạy được (DF-07).
-
-### 6.3 Bảo mật
-
-- Không phát hiện SQL injection ở 7 điểm kiểm tra; bind parameter + allowlist sort.
-- Không liệt kê user qua login; không lộ hash/JWT subject/stack trace/SQL/host.
-- 10 test IDOR: không truy cập tài nguyên người khác; admin 403 trước khi xử lý nghiệp vụ.
-- **Chưa đạt:** token còn hiệu lực sau đổi mật khẩu/logout (AC-01/02); Swagger public (AC-03); không rate limit login — 1.238 lần/12 s không 429 (AC-04); không giới hạn body ở tầng app.
-
-### 6.4 Hiệu năng
-
-- 2 lượt load: **110.235 request, 0 lỗi 5xx**; detail 1.651 RPS; login 102 RPS/P50 95 ms.
-- Search: **6,9 RPS**, P50 2.143 ms, **P99 5,47 s**, plan Seq Scan 10.000 dòng; trang sâu 400: 47,1 RPS; pool tối đa 10 connection.
-- Không có SLA nên **không thể kết luận "đạt"**. Với catalog là chức năng chính, P99 > 5 s được xem là rủi ro HIGH.
-
-### 6.5 Độ tin cậy
-
-- DB down: mỗi request chờ **30 s** rồi 500, không circuit breaker.
-- SMTP down: register trả 503 nhưng user vẫn được commit (DF-01).
-- Lock contention: chờ **5,12 s**, không `statement_timeout`/`lock_timeout`.
-- Không có Actuator health; `/actuator/health` trả 401.
-
----
-
-## 7. Những hành vi đã được chứng minh là đúng
-
-- 27/27 workflow E2E PASS với bằng chứng DB (OTP, mượn/trả/mất, reset mật khẩu, suspend/reactivate, promote/demote, email thật qua Mailpit).
-- Refresh token rotation có reuse detection cấp family.
-- Trả sách 2 bước đúng; reject-return giữ nguyên `due_at`; lost/recover đối xứng.
-- Hết bản sao trả 422 và không để lại loan rác.
-- Suspend/reactivate và promote/demote có hiệu lực ngay với access token đang tồn tại.
-- Không bypass phân quyền, không IDOR, không SQL injection ở các điểm đã kiểm.
-- Chống oversell đúng dưới 5 request đồng thời.
-
----
-
-## 8. NOT TESTED / giới hạn
-
-| # | Hạng mục | Ảnh hưởng |
+| Finding cũ | Trạng thái ngày 17/11 | Căn cứ |
 |---|---|---|
-| 1 | Khởi động app với profile production + Flyway trên DB trống | Chỉ chứng minh qua `MigrationIntegrityTest` (Flyway API), chưa chạy `spring-boot:run` prod |
-| 2 | Google ID token thật | `GoogleIdTokenVerifier` bị mock; chưa kiểm chứng client-id/audience thật |
-| 3 | Tomcat/HTTP thật | MockMvc bỏ qua connector: body limit, header limit, timeout, HTTP/2, TLS |
-| 4 | UI trình duyệt (2 web) | Chỉ kiểm hợp đồng TypeScript, chưa render/Playwright |
-| 5 | SMTP auth/TLS, email HTML | Mailpit dev không auth; email text thuần |
-| 6 | Dataset lớn hơn 10.000 sách / 21.200 loan | Chưa kiểm chứng scale |
-| 7 | DAST/pentest đầy đủ | Chỉ black-box có mục tiêu |
-| 8 | Business rule Q1–Q12 | Chưa có owner chốt (xem `REMAINING_RISKS.md` §5) |
-| 9 | Tài liệu Phase 2 | Không có thư mục `docs/qa/phase-2/`; test tồn tại nhưng không có báo cáo riêng |
+| DF-07 — hai migration version V5 | Đã đóng cho DB đang chạy; còn cần kiểm tra đường migrate sạch/nâng cấp | Flyway history hiện tại thành công tới V10, chỉ một V5; chưa chạy trên DB trống hoặc bản sao schema cũ. |
+| CV-03 — response lỗi không thống nhất | Chưa xác minh | Không chạy API lỗi hiện tại. |
+| CV-02/04/05/07 — dữ liệu sách/contract | Chưa xác minh | Chưa kiểm thử riêng các payload lỗi hoặc đối chiếu dữ liệu API với DB. |
+| DF-01/02/05/06 — transaction và tồn kho | Chưa xác minh | Không chạy test DB/concurrency hiện hành. |
+| AC-01/02/03/04 — token, Swagger, rate limit | Chưa xác minh | Suite đã chạy, nhưng test bảo mật không được đánh giá riêng và các finding này chưa được tái kiểm tra theo từng kịch bản. |
+| PB-01…PB-04 — tìm kiếm, N+1, phân trang sâu, pool | Chưa xác minh đầy đủ | Có smoke latency mới; chưa có query plan, query count, pool metrics hay tải đồng thời. |
+| Timeout DB/SMTP và độ tin cậy | Chưa xác minh | Không chạy fault injection. |
 
----
+### Bằng chứng lịch sử ngày 09/11 (không tái kiểm chứng)
 
-## 9. Điều kiện phát hành lại
+Báo cáo QA Phase 0–7 ghi nhận 338 test, 27 workflow E2E, 42 ca dữ liệu, 39/39 API có test HTTP và điểm **64/100 — NOT READY**. Các vấn đề được nêu gồm response lỗi chưa thống nhất, một số dữ liệu sách không được lưu, lỗi transaction/tồn kho, rủi ro auth, tìm kiếm chậm/N+1 và timeout. Đây là kết quả của revision/môi trường lúc đó; phải xem là lịch sử cho đến khi được chạy lại.
 
-Tối thiểu phải đạt:
+## 8. Hạng mục chưa kiểm tra hoặc bị chặn
 
-1. Sửa **DF-07**: đổi version một migration V5; chạy Flyway trên DB trống; khởi động profile production thành công.
-2. Sửa **CV-03**: handler cho `MethodArgumentTypeMismatchException`, `HttpMediaTypeNotSupportedException`, `DataAccessException` → `ApiError` có `code`.
-3. Sửa **CV-02, CV-04, CV-05, CV-07/DF-05**: không bỏ im lặng dữ liệu client gửi; không cho body rỗng xoá tồn kho.
-4. Sửa **DF-01**: register nguyên tử hoặc có compensation/retry; thêm regression test đảo chiều test hiện tại.
-5. Quyết định **AC-03/AC-04** (tắt Swagger ở prod, rate limit login) và ghi nhận **AC-01/AC-02** nếu chấp nhận rủi ro 15 phút.
-6. Fix **CV-14** (test cũ) và bổ sung assert body cho **P2, B1, L1, L2, C2**.
-7. Lập kế hoạch hiệu năng cho **PB-01…PB-04** hoặc chấp nhận có văn bản.
-8. Chạy lại `clean verify`, random order và 2 class độc lập; cập nhật 6 tài liệu này.
+1. Xác nhận DB 10.000 sách/10 category tên mẫu là fixture hiệu năng hay DB đích; chưa có đối chiếu nguồn gốc dataset.
+2. Kiểm tra độc lập UUID và đối chiếu bản ghi với workbook nguồn; chưa có snapshot trước/sau để chứng minh bảo toàn tài khoản, loan, tác giả, số bản và rating.
+3. Chạy Flyway trên schema trống và bản sao schema cũ; lần hiện tại chỉ xác nhận history của DB đang chạy đến V10.
+4. Sửa stub lỗi trong `ControllersWebTest.publicSearchAndDetail` và chạy lại suite xanh.
+5. Kiểm tra đủ 56 mapping về HTTP/auth/contract; đối chiếu chênh lệch OpenAPI (57 operations/51 paths).
+6. Chạy E2E catalog và mượn/trả; truy vấn hiện tại phát hiện chênh lệch 1.474 sách giữa loan mở và tồn kho.
+7. Đo query plan, query count, connection pool và benchmark tải đồng thời theo SLA; latency hiện có chỉ là smoke tuần tự.
+8. UI trình duyệt, Google token thật, Tomcat/HTTP connector thật, SMTP auth/TLS, DAST/pentest và business rules Q1–Q12 vẫn chưa được kiểm chứng/chốt.
 
-Chi tiết tiêu chí và kế hoạch: [`RELEASE_READINESS.md`](RELEASE_READINESS.md).
+## 9. Việc cần làm trước khi chấm/release lại
 
----
+1. Xác nhận với chủ dữ liệu liệu DB đang chạy là fixture hiệu năng hay DB nghiệm thu. Nếu là DB nghiệm thu catalog, đối chiếu và nạp đúng bộ chuẩn sau backup và phê duyệt vận hành; không dùng dataset hiện tại làm bằng chứng bộ chuẩn.
+2. Điều tra 9.000 ISBN sai check digit và chênh lệch loan–tồn kho; xác định lỗi dữ liệu hay đặc tính fixture tổng hợp.
+3. Thu thập snapshot trước/sau để chứng minh việc giữ nguyên dữ liệu nghiệp vụ khi cập nhật catalog.
+4. Chạy migration trên DB thử nghiệm trống và bản sao schema cũ; kiểm tra khởi động production profile.
+5. Sửa stub trong `ControllersWebTest.publicSearchAndDetail`, rerun toàn bộ test, rồi bổ sung route-to-test matrix đủ 56 API và đối chiếu operation OpenAPI thứ 57.
+6. Chạy regression mượn/trả và mở rộng benchmark hiệu năng theo SLA được chốt.
+7. Hoàn tất các kiểm tra UI, Google thật, Tomcat/HTTP, SMTP và bảo mật nếu thuộc tiêu chí phát hành; chốt Q1–Q12 với owner.
 
-## 10. Chỉ mục bằng chứng
+## 10. Chỉ mục tài liệu và giới hạn
 
-| Bằng chứng | Vị trí |
+| Tài liệu / bằng chứng | Ghi chú |
 |---|---|
-| Build + test + coverage | `/tmp/lms-verify.log`, `target/surefire-reports/`, `target/site/jacoco/jacoco.csv` |
-| Random order | `/tmp/lms-random.log` (seed `20261109`) |
-| Test riêng lẻ | `/tmp/lms-AuthApiTest.log`, `/tmp/lms-AccessControlTest.log` |
-| 42 case dữ liệu | `docs/qa/phase-3/DATA_INTEGRITY_RESULTS.md` |
-| 59 test bảo mật | `docs/qa/phase-4/` |
-| 27 workflow E2E | `docs/qa/phase-5/E2E_TEST_RESULTS.md` |
-| Hiệu năng/độ tin cậy | `docs/qa/phase-6/` |
-| Danh sách lỗi | [`BUG_SUMMARY.md`](BUG_SUMMARY.md) |
-| Ma trận endpoint | [`API_QUALITY_SCORECARD.md`](API_QUALITY_SCORECARD.md) |
-| Regression | [`REGRESSION_TEST_RESULTS.md`](REGRESSION_TEST_RESULTS.md) |
-| Rủi ro | [`REMAINING_RISKS.md`](REMAINING_RISKS.md) |
-| Quyết định phát hành | [`RELEASE_READINESS.md`](RELEASE_READINESS.md) |
+| `docs/qa/API_QUALITY_SCORECARD.md` | Scorecard cũ ngày 09/11, 39 API; chưa được cập nhật thành ma trận 56 API. |
+| `docs/qa/FINAL_QA_REPORT.md` | Báo cáo tổng hợp hiện hành, ngày 17/11/2026. |
+| `database/README.md`, `database/category-normalization.md`, `database/books.sql` | Quy trình và số liệu kỳ vọng; không thay thế truy vấn DB thực tế. |
+| `docs/qa/RAG_DATA_QUALITY_RESEARCH.md` | Nghiên cứu riêng về chất lượng dữ liệu cho RAG, không phải kết quả QA API hiện tại. |
+| `backend/src/lms/src/main/resources/db/migration/` | DB hiện tại đã chạy thành công tới V10; chưa kiểm tra migrate sạch hoặc nâng cấp schema cũ. |
+
+**Giới hạn:** đánh giá này chưa chứng nhận khả năng phát hành. DB/API đã được kiểm tra chỉ đọc; suite còn một test fail do mock lệch overload. Chưa kiểm tra đủ 56 mapping, loan workflow, query plan, tải đồng thời hoặc snapshot trước/sau. Các trục chưa chạy đầy đủ có độ tin cậy thấp.
