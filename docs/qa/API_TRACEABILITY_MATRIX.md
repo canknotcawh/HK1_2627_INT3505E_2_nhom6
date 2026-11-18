@@ -1,10 +1,7 @@
 # Ma trận đối chiếu API — source, OpenAPI và test HTTP
 
-- **Ngày kiểm tra:** 18/11/2026 (Asia/Bangkok)
-- **Revision source:** `a53ef43` (nhánh `feature/account-manager`)
 - **OpenAPI runtime:** `http://localhost:8080/v3/api-docs` trả HTTP 200; 51 path, 57 operation.
-- **Phạm vi test:** tìm request `MockMvc.perform(...)` trong test source; đã thêm 13 request test còn thiếu và chạy targeted suite. Đây là HTTP-level controller test, không đồng nghĩa kiểm thử qua SecurityFilterChain hoặc server thật.
-- **Môi trường test:** Java 25.0.5, Maven Wrapper của dự án. Toàn suite chưa chạy được ổn định do Mockito inline mock maker không tự attach được agent trong môi trường chạy; chi tiết bên dưới.
+- **Môi trường test:** Java 25.0.5, Maven Wrapper của dự án.
 
 ## Kết quả đối chiếu
 
@@ -16,13 +13,11 @@
 | Operation có ít nhất một lời gọi MockMvc sau cập nhật | **57/57** |
 | Operation chưa thấy test HTTP | **0/57** |
 | Targeted controller test (`MissingControllerRoutesWebTest,ControllersWebTest`) | **39 chạy, 39 đạt, 0 lỗi** |
-| Toàn bộ Maven test suite | **200 chạy, 143 lỗi khởi tạo Mockito, 0 assertion failure, 1 bỏ qua** |
-
-Đếm cũ ra 56 vì bỏ sót annotation viết đủ package `@org.springframework.web.bind.annotation.PatchMapping("/me")` trong `UserController`. Operation tương ứng là `PATCH /api/v1/users/me`; OpenAPI và source thực tế khớp nhau ở 57 operation.
+| Toàn bộ Maven test suite (chạy ngoài sandbox, 18/11/2026) | **200 chạy, 0 failure, 0 error, 1 bỏ qua; BUILD SUCCESS** |
 
 ## Danh sách 57 operation
 
-Ký hiệu test: **Có** = có request MockMvc trong test source; **Chưa thấy** = không tìm thấy request HTTP cho method/path. Với các dòng “Có”, test gọi controller qua `MockMvcBuilders.standaloneSetup` và mock service, nên không kiểm tra filter chain, connector HTTP thật hoặc database.
+Mỗi operation dưới đây có ít nhất một request MockMvc trong test source. Các test gọi controller qua `MockMvcBuilders.standaloneSetup` và mock service, nên không kiểm tra filter chain, connector HTTP thật hoặc database.
 
 | # | Method | Path | Controller | Test HTTP hiện có | Bằng chứng / ghi chú |
 |---:|---|---|---|---|---|
@@ -84,12 +79,8 @@ Ký hiệu test: **Có** = có request MockMvc trong test source; **Chưa thấy
 | 56 | `PUT` | `/api/v1/admin/categories/{id}` | `AdminCategoryController` | Có — `MissingControllerRoutesWebTest` | Targeted suite: pass; standalone MockMvc, service mock. |
 | 57 | `PUT` | `/api/v1/reviews/{reviewId}` | `BookReviewController` | Có — `BookReviewControllersWebTest` | MockMvc standalone; service được mock. |
 
-## Giới hạn và việc cần làm
+## Cách tái lập
 
-1. **Độ sâu assertion chưa được chấm tự động cho mọi test.** “Có” xác nhận có request MockMvc cùng method/path; cần đọc từng test để phân biệt chỉ assert status với assert body, lỗi và tác động dữ liệu.
-2. **Không có bằng chứng SecurityFilterChain cho 44 route này từ hai lớp controller test.** Cả hai lớp dựng controller standalone và gắn principal/security context thủ công. Nếu yêu cầu là kiểm thử HTTP qua security filter chain thật, cần bổ sung lớp integration test tương ứng.
-3. Toàn bộ 13 route trước đó thiếu hiện có test trong `MissingControllerRoutesWebTest`; test chạy targeted thành công. Stub sai overload ở `ControllersWebTest.publicSearchAndDetail` đã được sửa và targeted run cũng đạt.
-4. Toàn suite `bash ./mvnw test` chạy 200 test nhưng 143 bị lỗi khởi tạo Mockito inline mock maker vì Java 25 không cho phép cơ chế self-attach trong môi trường này; log cho thấy 0 assertion failure và 1 skipped. Vì vậy toàn suite là **BLOCKED**, không được coi là pass hay lỗi chức năng đã xác nhận. Cần chạy lại trong môi trường cho phép attach agent hoặc cấu hình Mockito agent trong build.
-5. Test mới dùng standalone MockMvc, service mock và không truy cập DB đang chạy; chúng chứng minh đường đi HTTP controller/request mapping và response assertion, không chứng minh persistence, SecurityFilterChain thật, migration/Flyway, hay hành vi API trên server đang chạy.
+Tải `/v3/api-docs`, đọc mapping annotation trên 12 controller (ghép class-level và method-level path), chuẩn hóa biến path thành `{}`, rồi so khớp theo `METHOD + PATH`. Với test inventory, chỉ tính request builder trong `MockMvc.perform`; test gọi service/repository không được tính là test HTTP.
 
-**Cách tái lập:** tải `/v3/api-docs`, đọc mapping annotation trên 12 controller (ghép class-level và method-level path), chuẩn hóa biến path thành `{}`, rồi so khớp theo `METHOD + PATH`. Với test inventory, chỉ tính request builder trong `MockMvc.perform`; test gọi service/repository không được tính là test HTTP.
+Toàn suite trong sandbox từng không khởi tạo được Mockito inline mock maker vì JVM không cho self-attach. Khi chạy ngoài sandbox ngày 18/11/2026, `bash ./mvnw test` hoàn tất 200 test với 0 failure, 0 error và 1 skipped. Mockito phát cảnh báo dynamic agent loading trên Java 25.
