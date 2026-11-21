@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
 import apiClient from "../../lib/api-client";
 import { LoaderCircle, X } from "lucide-react";
 import type { GoogleBooksApi } from "../../lib/google-identity";
@@ -85,12 +86,8 @@ function previewCandidates(ggId: string | null, isbn13?: string | null): string[
 
 function tryLoadViewer(books: GoogleBooksApi, container: HTMLElement, id: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    try {
-      const viewer = new books.DefaultViewer(container);
-      viewer.load(id, () => resolve(false), () => resolve(true));
-    } catch {
-      resolve(false);
-    }
+    const viewer = new books.DefaultViewer(container);
+    viewer.load(id, () => resolve(false), () => resolve(true));
   });
 }
 
@@ -104,7 +101,7 @@ type BookPreviewDialogProps = {
   onClose: () => void;
 };
 
-type PreviewState = "loading" | "ready" | "unavailable" | "error" | "locked";
+type PreviewState = "loading" | "ready" | "unavailable" | "error" | "locked" | "missing";
 
 export default function BookPreviewDialog({ bookId, title, ggId, isbn13, borrowAvailable, onBorrow, onClose }: BookPreviewDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -156,6 +153,9 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, borrowA
       if (reading && next !== "locked") void request("PAUSE").catch(() => {});
       if (next) setState(next);
     };
+    const fail = (error: unknown) => {
+      stop(isAxiosError(error) && error.response?.data?.code === "BOOK_NOT_FOUND" ? "missing" : "error");
+    };
     const grant = async () => {
       const started = performance.now();
       reading = true;
@@ -174,7 +174,7 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, borrowA
       setState("ready");
       const last = access.state === "preview" && access.remainingMs <= access.validMs;
       deadline = window.setTimeout(() => stop(last ? "locked" : "error"), valid);
-      if (!last) renew = window.setTimeout(() => void grant().catch(() => stop("error")), valid / 2);
+      if (!last) renew = window.setTimeout(() => void grant().catch(fail), valid / 2);
     };
     const open = async () => {
       setState("loading");
@@ -193,7 +193,7 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, borrowA
       stop("unavailable");
     };
     deadline = window.setTimeout(() => stop("error"), 20000);
-    void open().catch(() => stop("error"));
+    void open().catch(fail);
     return () => stop();
   }, [bookId, ggId, isbn13, visible]);
 
@@ -250,8 +250,10 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, borrowA
             <span>Đang tải bản xem trước…</span>
           </div>
         )}
-        {state === "unavailable" && (
-          <p className="book-preview-dialog__message book-preview-dialog__message--overlay" role="status">Không có bản xem trước</p>
+        {(state === "unavailable" || state === "missing") && (
+          <p className="book-preview-dialog__message book-preview-dialog__message--overlay" role="alert">
+            {state === "missing" ? "Sách này không còn trong thư viện." : "Không có bản xem trước"}
+          </p>
         )}
         {state === "error" && (
           <p className="book-preview-dialog__message book-preview-dialog__message--overlay" role="alert">

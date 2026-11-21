@@ -3,11 +3,10 @@ package com.soa.gr6.lms.service;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.springframework.http.HttpStatus;
+import com.soa.gr6.lms.exception.BookNotFoundException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class PreviewService {
@@ -37,7 +36,7 @@ public class PreviewService {
     public Access access(UUID book, UUID user, UUID guest, UUID tab, Action action) {
         if (!Boolean.TRUE.equals(db.queryForObject("select exists(select 1 from book where id=?)",
                 Boolean.class, book))) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            throw new BookNotFoundException(book);
         }
         String reader = user == null ? "guest:" + guest : "user:" + user;
         // Lock guest first in every merge, then the account. Concurrent tabs share one budget.
