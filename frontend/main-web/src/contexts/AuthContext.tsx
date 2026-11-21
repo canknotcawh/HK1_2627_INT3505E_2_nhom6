@@ -86,8 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const applyAuthPayload = useCallback((payload: AuthPayload) => {
+  const applyAuthPayload = useCallback(async (payload: AuthPayload) => {
     setTokens(payload.accessToken, payload.refreshToken);
+    await apiClient.post('/api/v1/users/me/preview/claim', {}, { withCredentials: true })
+      .catch(error => console.warn('Preview history sync deferred until the next preview.', error));
     setSignedOut(false);
     setRoleError(null);
     setUser(payload.user);
@@ -97,13 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login with the Google ID token obtained from Google Identity Services
   const loginWithGoogleToken = useCallback(async (googleIdToken: string): Promise<AuthPayload> => {
     const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/google', { idToken: googleIdToken });
-    applyAuthPayload(response.data);
+    await applyAuthPayload(response.data);
     return response.data;
   }, [applyAuthPayload]);
 
   const loginWithPassword = useCallback(async (email: string, password: string): Promise<AuthPayload> => {
     const response = await apiClient.post<AuthPayload>('/api/v1/public/auth/login', { email, password });
-    applyAuthPayload(response.data);
+    await applyAuthPayload(response.data);
     return response.data;
   }, [applyAuthPayload]);
 

@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import apiClient from "../../lib/api-client";
 import { LoaderCircle, X } from "lucide-react";
 import type { GoogleBooksApi } from "../../lib/google-identity";
 
 const GOOGLE_BOOKS_SCRIPT = "https://www.google.com/books/jsapi.js";
-const PREVIEW_DURATION_SECONDS = 180;
-const PREVIEW_EXPIRY_PREFIX = "book-preview-expiry:";
 let googleBooksApiPromise: Promise<GoogleBooksApi> | undefined;
-
-function getPreviewSecondsLeft(ggId: string): number {
-  const expiresAt = Number(window.sessionStorage.getItem(`${PREVIEW_EXPIRY_PREFIX}${ggId}`));
-  return expiresAt > 0
-    ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
-    : PREVIEW_DURATION_SECONDS;
-}
 
 function loadGoogleBooksApi(): Promise<GoogleBooksApi> {
   const readyBooks = window.google?.books;
@@ -93,68 +86,34 @@ function previewCandidates(ggId: string | null, isbn13?: string | null): string[
 
 function tryLoadViewer(books: GoogleBooksApi, container: HTMLElement, id: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    try {
-      const viewer = new books.DefaultViewer(container);
-      viewer.load(id, () => resolve(false), () => resolve(true));
-    } catch {
-      resolve(false);
-    }
+    const viewer = new books.DefaultViewer(container);
+    viewer.load(id, () => resolve(false), () => resolve(true));
   });
 }
 
-const previewProbeCache = new Map<string, Promise<boolean>>();
-
-/** Quietly checks whether Google Books can embed a preview, so the button can say so up front. */
-export function probePreviewAvailable(ggId: string | null, isbn13?: string | null): Promise<boolean> {
-  const candidates = previewCandidates(ggId, isbn13);
-  if (candidates.length === 0) return Promise.resolve(false);
-  const key = candidates.join("|");
-  const cached = previewProbeCache.get(key);
-  if (cached) return cached;
-
-  const probe = loadGoogleBooksApi()
-    .then(async (books) => {
-      const holder = document.createElement("div");
-      holder.setAttribute("aria-hidden", "true");
-      holder.style.cssText = "position:fixed;left:-9999px;top:0;width:320px;height:240px;overflow:hidden";
-      document.body.appendChild(holder);
-      try {
-        for (const id of candidates) {
-          if (await tryLoadViewer(books, holder, id)) return true;
-          holder.innerHTML = "";
-        }
-        return false;
-      } finally {
-        holder.remove();
-      }
-    })
-    .catch(() => {
-      previewProbeCache.delete(key);
-      return true;
-    });
-  previewProbeCache.set(key, probe);
-  return probe;
-}
-
-export function preloadGoogleBooksApi() {
-  void loadGoogleBooksApi().catch(() => undefined);
-}
-
 type BookPreviewDialogProps = {
+  bookId: string;
+  borrowAvailable: boolean;
+  onBorrow: () => void;
   title: string;
   ggId: string | null;
   isbn13?: string | null;
   onClose: () => void;
 };
 
-type PreviewState = "loading" | "ready" | "unavailable" | "error";
+type PreviewState = "loading" | "ready" | "unavailable" | "error" | "locked" | "missing";
 
-export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: BookPreviewDialogProps) {
+export default function BookPreviewDialog({ bookId, title, ggId, isbn13, borrowAvailable, onBorrow, onClose }: BookPreviewDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<PreviewState>(ggId || isbn13 ? "loading" : "unavailable");
-  const [secondsLeft, setSecondsLeft] = useState(() => ggId ? getPreviewSecondsLeft(ggId) : PREVIEW_DURATION_SECONDS);
-  const expired = state === "ready" && secondsLeft === 0;
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [visible, setVisible] = useState(!document.hidden);
+  useEffect(() => {
+    const update = () => setVisible(!document.hidden);
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -165,68 +124,81 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
   }, []);
 
   useEffect(() => {
-    if ((!ggId && !isbn13) || !viewerRef.current) return;
-
-    let active = true;
-    let timedOut = false;
-    let timeoutId: number | undefined;
-    const clearLoadTimeout = () => {
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    const viewport = viewerRef.current;
+    if (!viewport || !visible) return;
+    // Isolate late Google callbacks and lease releases from a reopened dialog.
+    const hex = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, "0")).join("");
+    const tab = [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20)].join("-");
+    const container = document.createElement("div");
+    container.className = "book-preview-dialog__viewer";
+    viewport.replaceChildren(container);
+    let stopped = false;
+    let reading = false;
+    let renew: number;
+    let deadline: number;
+    let display: number;
+    const request = async (action: "STATUS" | "READ" | "PAUSE") => {
+      const response = await apiClient.post<{
+        state: "locked" | "preview" | "borrowed"; remainingMs: number; validMs: number;
+      }>(`/api/v1/public/books/${bookId}/preview`, { tab, action }, { withCredentials: true, timeout: 8000 });
+      return response.data;
     };
-
-    timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      if (active) setState("error");
-    }, 20000);
-
-    loadGoogleBooksApi()
-      .then(async (books) => {
-        if (!active || timedOut || !viewerRef.current) return;
-
-        for (const id of previewCandidates(ggId, isbn13)) {
-          if (!active || timedOut || !viewerRef.current) return;
-          viewerRef.current.innerHTML = "";
-          if (await tryLoadViewer(books, viewerRef.current, id)) {
-            clearLoadTimeout();
-            if (active) setState("ready");
-            return;
-          }
+    const stop = (next?: PreviewState) => {
+      if (stopped) return;
+      stopped = true;
+      window.clearTimeout(renew);
+      window.clearTimeout(deadline);
+      window.clearInterval(display);
+      container.remove();
+      if (reading && next !== "locked") void request("PAUSE").catch(() => {});
+      if (next) setState(next);
+    };
+    const fail = (error: unknown) => {
+      stop(isAxiosError(error) && error.response?.data?.code === "BOOK_NOT_FOUND" ? "missing" : "error");
+    };
+    const grant = async () => {
+      const started = performance.now();
+      reading = true;
+      const access = await request("READ");
+      if (stopped) return;
+      window.clearTimeout(deadline);
+      window.clearInterval(display);
+      if (access.state === "locked") return stop("locked");
+      const elapsed = () => performance.now() - started;
+      const valid = access.validMs - elapsed();
+      if (valid <= 0) return stop("error");
+      const showTime = () => setSecondsLeft(access.state === "borrowed" ? null :
+        Math.max(0, Math.ceil((access.remainingMs - elapsed()) / 1000)));
+      showTime();
+      display = window.setInterval(showTime, 250);
+      setState("ready");
+      const last = access.state === "preview" && access.remainingMs <= access.validMs;
+      deadline = window.setTimeout(() => stop(last ? "locked" : "error"), valid);
+      if (!last) renew = window.setTimeout(() => void grant().catch(fail), valid / 2);
+    };
+    const open = async () => {
+      setState("loading");
+      const access = await request("STATUS");
+      if (stopped) return;
+      if (access.state === "locked") return stop("locked");
+      const books = await loadGoogleBooksApi();
+      for (const id of previewCandidates(ggId, isbn13)) {
+        if (stopped) return;
+        container.replaceChildren();
+        if (await tryLoadViewer(books, container, id)) {
+          if (!stopped) await grant();
+          return;
         }
-        clearLoadTimeout();
-        if (active) setState("unavailable");
-      })
-      .catch(() => {
-        clearLoadTimeout();
-        if (active) setState("error");
-      });
-
-    return () => {
-      active = false;
-      clearLoadTimeout();
+      }
+      stop("unavailable");
     };
-  }, [ggId, isbn13]);
+    deadline = window.setTimeout(() => stop("error"), 20000);
+    void open().catch(fail);
+    return () => stop();
+  }, [bookId, ggId, isbn13, visible]);
 
-  useEffect(() => {
-    if (state !== "ready" || !ggId) return;
-
-    const storageKey = `${PREVIEW_EXPIRY_PREFIX}${ggId}`;
-    let expiresAt = Number(window.sessionStorage.getItem(storageKey));
-    if (expiresAt <= 0) {
-      expiresAt = Date.now() + PREVIEW_DURATION_SECONDS * 1000;
-      window.sessionStorage.setItem(storageKey, String(expiresAt));
-    }
-
-    const tick = () => {
-      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-      setSecondsLeft(remaining);
-      if (remaining === 0) window.clearInterval(intervalId);
-    };
-    const intervalId = window.setInterval(tick, 250);
-    tick();
-    return () => window.clearInterval(intervalId);
-  }, [ggId, state]);
-
-  const clock = `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
+  const seconds = secondsLeft ?? 0;
+  const clock = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
   return (
     <dialog
@@ -245,7 +217,7 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
         <h2 id="book-preview-title" className="truncate text-sm font-semibold text-gray-800 sm:text-base">
           Preview: {title}
         </h2>
-        {state === "ready" && (
+        {state === "ready" && secondsLeft !== null && (
           <span className="book-preview-dialog__timer" role="timer" aria-label={`Thời gian xem trước còn lại ${clock}`}>
             {clock}
           </span>
@@ -260,11 +232,16 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
         </button>
       </header>
 
-      <div className={`book-preview-dialog__canvas${expired ? " book-preview-dialog__canvas--expired" : ""}`}>
-        <div className="book-preview-dialog__viewport" ref={viewerRef} />
-        {expired && (
-          <div className="book-preview-dialog__expired" role="status">
-            <span>Mượn sách để xem tiếp nội dung</span>
+      <div className="book-preview-dialog__canvas">
+        <div className="book-preview-dialog__viewport" ref={viewerRef}
+          style={{ visibility: visible && state === "ready" ? "visible" : "hidden" }} />
+        {state === "locked" && (
+          <div className="book-preview-dialog__message book-preview-dialog__message--overlay flex-col" role="status">
+            <p>Đã hết thời gian đọc thử</p>
+            <button type="button" className="rounded-full bg-amber-300 px-5 py-2 text-slate-900"
+              disabled={!borrowAvailable} onClick={onBorrow}>
+              {borrowAvailable ? "Mượn sách để đọc tiếp" : "Sách đã hết"}
+            </button>
           </div>
         )}
         {state === "loading" && (
@@ -273,8 +250,10 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
             <span>Đang tải bản xem trước…</span>
           </div>
         )}
-        {state === "unavailable" && (
-          <p className="book-preview-dialog__message book-preview-dialog__message--overlay" role="status">Không có bản xem trước</p>
+        {(state === "unavailable" || state === "missing") && (
+          <p className="book-preview-dialog__message book-preview-dialog__message--overlay" role="alert">
+            {state === "missing" ? "Sách này không còn trong thư viện." : "Không có bản xem trước"}
+          </p>
         )}
         {state === "error" && (
           <p className="book-preview-dialog__message book-preview-dialog__message--overlay" role="alert">
