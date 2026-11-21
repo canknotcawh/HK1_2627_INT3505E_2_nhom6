@@ -181,37 +181,19 @@
     user-select: none;
 }
 
-.book-preview-dialog__canvas--expired .book-preview-dialog__viewport {
-    filter: blur(7px);
-}
-
-.book-preview-dialog__expired {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    pointer-events: none;
-    text-align: center;
-}
-
-.book-preview-dialog__expired span {
-    max-width: 100%;
-    color: #111827;
-    font-size: 14px;
-    font-weight: 600;
-    text-shadow: 0 1px 3px white, 0 -1px 3px white;
+.book-preview-dialog__viewer {
+    width: 100%;
+    height: 100%;
 }
 
 /* Google Books renders the controls and footer as siblings of the scrolling pages. */
-.book-preview-dialog__viewport>div>div:last-child,
-.book-preview-dialog__viewport>div>div:first-child>div:nth-child(2) {
+.book-preview-dialog__viewer>div>div:last-child,
+.book-preview-dialog__viewer>div>div:first-child>div:nth-child(2) {
     display: none !important;
 }
 
-.book-preview-dialog__viewport>div,
-.book-preview-dialog__viewport>div>div:first-child,
+.book-preview-dialog__viewer>div,
+.book-preview-dialog__viewer>div>div:first-child,
 .book-preview-dialog__viewport .overflow-scrolling {
     height: 100% !important;
 }
@@ -569,11 +551,6 @@
 
 .dark .book-preview-dialog__message--overlay {
     background: oklch(0.24 0.035 265);
-}
-
-.dark .book-preview-dialog__expired span {
-    color: oklch(0.97 0.005 265);
-    text-shadow: 0 1px 3px black, 0 -1px 3px black;
 }
 
 /* State variants that turn an element white (e.g. the search box on focus) */

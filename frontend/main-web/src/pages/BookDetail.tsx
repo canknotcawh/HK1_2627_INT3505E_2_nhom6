@@ -8,7 +8,7 @@ import { useToast } from "../hooks/useToast";
 import Toast from "../components/ui/Toast";
 import BookCover from "../components/books/BookCover";
 import BorrowConfirmDialog from "../components/loans/BorrowConfirmDialog";
-import BookPreviewDialog, { preloadGoogleBooksApi, probePreviewAvailable } from "../components/books/BookPreviewDialog";
+import BookPreviewDialog from "../components/books/BookPreviewDialog";
 import BookReviewsSection from "../components/books/BookReviewsSection";
 import { Button } from "../components/ui/button";
 import {
@@ -68,7 +68,7 @@ export default function BookDetail() {
     const [notFound, setNotFound] = useState(false);
     const [confirmBook, setConfirmBook] = useState<BookDto | null>(null);
     const [showPreview, setShowPreview] = useState(false);
-    const [previewAvailable, setPreviewAvailable] = useState<boolean | null>(null);
+    const [borrowFromPreview, setBorrowFromPreview] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [backdropFailed, setBackdropFailed] = useState(false);
     const { toast, showToast } = useToast();
@@ -119,15 +119,6 @@ export default function BookDetail() {
         // Reshuffle only when the user opens a different book, not when the same book refreshes.
     }, [bookId]);
 
-    useEffect(() => {
-        if (!book) return;
-        let cancelled = false;
-        setPreviewAvailable(null);
-        probePreviewAvailable(book.ggId, book.isbn13)
-            .then(available => { if (!cancelled) setPreviewAvailable(available); })
-            .catch(() => { if (!cancelled) setPreviewAvailable(true); });
-        return () => { cancelled = true; };
-    }, [bookId]);
 
     useEffect(() => {
         if (!loading && location.hash) {
@@ -138,9 +129,11 @@ export default function BookDetail() {
     const handleBorrow = async () => {
         if (!confirmBook) return;
         const target = confirmBook;
+        setBorrowFromPreview(false);
         setConfirmBook(null);
         try {
             await borrowBookApi(target.id);
+            if (borrowFromPreview) setShowPreview(true);
             showToast(`Mượn "${target.title}" thành công!`, 'success');
             const refreshed = await getBook(target.id);
             setBook(refreshed);
@@ -324,17 +317,12 @@ export default function BookDetail() {
                                 )}
                                 <Button
                                     variant="outline"
-                                    disabled={previewAvailable === false}
+                                    disabled={!book.ggId && !book.isbn13}
                                     onClick={() => setShowPreview(true)}
-                                    onPointerEnter={preloadGoogleBooksApi}
-                                    onFocus={preloadGoogleBooksApi}
-                                    title={previewAvailable === false ? 'Google Books chưa cho đọc thử cuốn này' : undefined}
                                     className="h-12 rounded-full border-white/30 bg-white/10 px-6 text-white backdrop-blur hover:bg-white/20 hover:text-white disabled:opacity-60"
                                 >
-                                    {previewAvailable === null
-                                        ? <LoaderCircle className="animate-spin" aria-hidden="true" />
-                                        : <Eye aria-hidden="true" />}
-                                    {previewAvailable === false ? 'Chưa có bản đọc thử' : 'Đọc thử'}
+                                    <Eye aria-hidden="true" />
+                                    {book.ggId || book.isbn13 ? 'Đọc thử' : 'Chưa có bản đọc thử'}
                                 </Button>
                                 <div className="text-sm">
                                     <div className="flex items-center gap-2 font-semibold">
@@ -495,11 +483,19 @@ export default function BookDetail() {
 
             <BorrowConfirmDialog
                 book={confirmBook}
-                onCancel={() => setConfirmBook(null)}
+                onCancel={() => { setConfirmBook(null); setBorrowFromPreview(false); }}
                 onConfirm={handleBorrow}
             />
             {showPreview && (
                 <BookPreviewDialog
+                    key={book.id}
+                    bookId={book.id}
+                    borrowAvailable={available}
+                    onBorrow={() => {
+                        setShowPreview(false);
+                        if (role === 'guest') navigate('/login', { state: { from: location } });
+                        else { setBorrowFromPreview(true); setConfirmBook(book); }
+                    }}
                     title={book.title}
                     ggId={book.ggId}
                     isbn13={book.isbn13}
