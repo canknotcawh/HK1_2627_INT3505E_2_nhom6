@@ -61,6 +61,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/v1/public/**").permitAll()
+                        // Token trong path là credential; endpoint tự kiểm tra hạn/thu hồi/quyền đọc.
+                        .requestMatchers("/api/v1/reader/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

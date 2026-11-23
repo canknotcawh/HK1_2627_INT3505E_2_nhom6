@@ -39,6 +39,15 @@ app:
   storage:
     root: ${STORAGE_ROOT:./data/books}
     max-file-size: ${BOOK_FILE_MAX_SIZE:50MB}
+  canary:
+    read-ttl: ${CANARY_READ_TTL:30m}
+    preview-ttl: ${CANARY_PREVIEW_TTL:15m}
+    max-ttl: ${CANARY_MAX_TTL:12h}
+    retention: ${CANARY_RETENTION:180d}
+    ip-pepper: ${CANARY_IP_PEPPER:}
+    rate-limit:
+      issue-per-minute: ${CANARY_ISSUE_PER_MINUTE:10}
+      stream-per-minute: ${CANARY_STREAM_PER_MINUTE:120}
   email-verification:
     challenge-ttl: ${EMAIL_VERIFICATION_TTL:10m}
     resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:60s}
