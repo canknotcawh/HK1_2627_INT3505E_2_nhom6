@@ -1,7 +1,7 @@
 # Thiết kế Canary Token cho bản đọc PDF — LMS
 
 - **Ngày:** 2026-11-09
-- **Trạng thái:** P0–P1 đã triển khai (DF-07, `book_file`, storage, upload/quản lý PDF admin); P2–P4 còn ở mức thiết kế
+- **Trạng thái:** P0–P1 đã triển khai (`book_file`, storage, upload/quản lý PDF admin); P2 đã triển khai backend + UI cơ bản (canary token, endpoint stream, admin Canary manager, dialog đọc có watermark); P3–P5 còn ở mức thiết kế
 - **Phạm vi:** backend `backend/src/lms`, `frontend/main-web`, `frontend/admin-web`
 - **Mục tiêu:** mỗi bản PDF được cấp một link có token định danh; khi tài liệu bị lộ, tra ngược được **ai, phiên mượn nào, thời điểm nào** đã nhận bản đó.
 
@@ -555,6 +555,9 @@ app:
     max-file-size: ${CANARY_MAX_FILE_SIZE:50MB}
     retention: ${CANARY_RETENTION:180d}
     ip-pepper: ${CANARY_IP_PEPPER:}   # bắt buộc ở prod, không commit
+    rate-limit:
+      issue-per-minute: ${CANARY_ISSUE_PER_MINUTE:10}    # mỗi user/book
+      stream-per-minute: ${CANARY_STREAM_PER_MINUTE:120}  # mỗi token
 ```
 
 - `CANARY_IP_PEPPER` phải là secret ≥ 32 byte; startup fail nếu prod thiếu.
