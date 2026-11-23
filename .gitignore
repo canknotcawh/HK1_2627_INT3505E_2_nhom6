@@ -51,3 +51,5 @@ doc/
 
 # Planning and project management files
 **/plan/
+# Local PDF storage (app.storage.root)
+backend/src/lms/data/

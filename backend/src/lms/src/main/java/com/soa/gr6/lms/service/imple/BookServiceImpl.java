@@ -1,12 +1,16 @@
 package com.soa.gr6.lms.service.imple;
 
 import com.soa.gr6.lms.domain.Book;
+import com.soa.gr6.lms.domain.BookFile;
+import com.soa.gr6.lms.domain.enums.BookFileKind;
+import com.soa.gr6.lms.domain.enums.BookFileStatus;
 import com.soa.gr6.lms.dto.BookRequest;
 import com.soa.gr6.lms.dto.BookResponse;
 import com.soa.gr6.lms.exception.BookNotFoundException;
 import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.mapper.BookMapper;
 import com.soa.gr6.lms.domain.Category;
+import com.soa.gr6.lms.repository.BookFileRepository;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.repository.CategoryRepository;
 import com.soa.gr6.lms.service.BookService;
@@ -20,19 +24,23 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class BookServiceImpl implements BookService {
     private static final int MAX_PAGE_SIZE = 100;
     private final BookRepository bookRepository;
+    private final BookFileRepository bookFileRepository;
     private final BookMapper bookMapper;
     private final CategoryRepository categoryRepository;
 
-    public BookServiceImpl(BookRepository bookRepository, BookMapper bookMapper,
-            CategoryRepository categoryRepository) {
+    public BookServiceImpl(BookRepository bookRepository, BookFileRepository bookFileRepository,
+            BookMapper bookMapper, CategoryRepository categoryRepository) {
         this.bookRepository = bookRepository;
+        this.bookFileRepository = bookFileRepository;
         this.bookMapper = bookMapper;
         this.categoryRepository = categoryRepository;
     }
@@ -40,7 +48,8 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public BookResponse getBook(UUID bookId) {
-        return bookMapper.toResponse(findBook(bookId));
+        Book book = findBook(bookId);
+        return bookMapper.toResponse(book, fileKinds(book.getId()));
     }
 
     @Override
@@ -61,7 +70,7 @@ public class BookServiceImpl implements BookService {
         } else {
             page = bookRepository.filterBooks(category, availability, sortCode, unpagedSort);
         }
-        return page.map(bookMapper::toResponse);
+        return toResponsePage(page);
     }
 
     private String resolveSortCode(Pageable pageable, boolean hasQuery) {
@@ -103,7 +112,7 @@ public class BookServiceImpl implements BookService {
                 ? bookRepository.findAll(clamped)
                 : bookRepository.findByTitleContainingIgnoreCaseOrIsbn13ContainingIgnoreCase(
                         q.trim(), q.trim(), clamped);
-        return page.map(bookMapper::toResponse);
+        return toResponsePage(page);
     }
 
     @Override
@@ -180,6 +189,26 @@ public class BookServiceImpl implements BookService {
                     .orElseGet(() -> categoryRepository.save(new Category(name))));
         }
         return result;
+    }
+
+    private Page<BookResponse> toResponsePage(Page<Book> page) {
+        Map<UUID, Set<BookFileKind>> kindsByBook = activeFileKinds(page.map(Book::getId).toList());
+        return page.map(book -> bookMapper.toResponse(book,
+                kindsByBook.getOrDefault(book.getId(), Set.of())));
+    }
+
+    private Set<BookFileKind> fileKinds(UUID bookId) {
+        return activeFileKinds(List.of(bookId)).getOrDefault(bookId, Set.of());
+    }
+
+    private Map<UUID, Set<BookFileKind>> activeFileKinds(List<UUID> bookIds) {
+        if (bookIds.isEmpty()) {
+            return Map.of();
+        }
+        return bookFileRepository.findByBookIdInAndStatus(bookIds, BookFileStatus.ACTIVE).stream()
+                .collect(Collectors.groupingBy(
+                        file -> file.getBook().getId(),
+                        Collectors.mapping(BookFile::getKind, Collectors.toSet())));
     }
 
     private void requireIsbnAvailable(String isbn13, UUID ownBookId) {
