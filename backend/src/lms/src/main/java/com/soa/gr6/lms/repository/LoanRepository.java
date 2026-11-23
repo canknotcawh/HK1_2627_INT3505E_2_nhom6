@@ -20,6 +20,9 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
     boolean existsByUserIdAndBookIdAndStatusIn(UUID userId, UUID bookId, Collection<LoanStatus> statuses);
 
+    java.util.Optional<Loan> findFirstByUserIdAndBookIdAndStatusInOrderByBorrowedAtDesc(
+            UUID userId, UUID bookId, Collection<LoanStatus> statuses);
+
     long countByUserIdAndStatusIn(UUID userId, Collection<LoanStatus> statuses);
 
     List<Loan> findByStatusAndDueAtBefore(LoanStatus status, Instant threshold);
