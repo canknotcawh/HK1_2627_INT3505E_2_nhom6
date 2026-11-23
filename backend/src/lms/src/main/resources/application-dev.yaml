@@ -2,3 +2,11 @@ app:
   jwt:
     # Development only. Production must set JWT_SECRET and activate a non-dev profile.
     secret: ${JWT_SECRET:dev-only-change-me-32-bytes-minimum-secret}
+
+spring:
+  flyway:
+    locations:
+      - classpath:db/migration
+      - classpath:db/seed
+    placeholders:
+      readonly_password: ${DB_READONLY_PASSWORD:lms_readonly_dev_pass}
