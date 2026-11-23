@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Archive, ChevronLeft, ChevronRight, FileText, LoaderCircle, Pencil, Plus, RotateCcw, Search, X } from "lucide-react";
 import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
@@ -88,6 +89,7 @@ export default function BookCatalog() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [filesBook, setFilesBook] = useState<Book | null>(null);
+  const navigate = useNavigate();
 
   const loadBooks = useCallback(async () => {
     setLoading(true);
@@ -312,6 +314,9 @@ export default function BookCatalog() {
                           </RowActionMenuItem>
                           <RowActionMenuItem onClick={() => setFilesBook(book)}>
                             <FileText aria-hidden="true" className="size-4" />Tệp PDF
+                          </RowActionMenuItem>
+                          <RowActionMenuItem onClick={() => navigate(`/admin/canary?bookId=${book.id}`)}>
+                            <FileText aria-hidden="true" className="size-4" />Canary của sách
                           </RowActionMenuItem>
                           <RowActionMenuItem destructive={book.status === "ACTIVE"} disabled={working} onClick={() => void changeStatus(book)}>
                             {working ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : book.status === "ACTIVE" ? <Archive aria-hidden="true" className="size-4" /> : <RotateCcw aria-hidden="true" className="size-4" />}
