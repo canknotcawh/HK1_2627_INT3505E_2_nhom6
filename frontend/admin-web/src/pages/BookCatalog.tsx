@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Archive, ChevronLeft, ChevronRight, LoaderCircle, Pencil, Plus, RotateCcw, Search, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, FileText, LoaderCircle, Pencil, Plus, RotateCcw, Search, X } from "lucide-react";
 import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
 import { TruncatedText } from "../components/ui/truncated-text";
 import { RowActionMenuItem, RowActionsMenu } from "../components/ui/row-actions-menu";
+import BookFileManager from "../components/BookFileManager";
 
 const PAGE_SIZE = 10;
 
@@ -23,6 +24,8 @@ type Book = {
   status: "ACTIVE" | "RETIRED";
   authors: string[];
   categories: string[];
+  hasPreviewFile?: boolean;
+  hasFullFile?: boolean;
 };
 
 type BookForm = {
@@ -84,6 +87,7 @@ export default function BookCatalog() {
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  const [filesBook, setFilesBook] = useState<Book | null>(null);
 
   const loadBooks = useCallback(async () => {
     setLoading(true);
@@ -285,7 +289,12 @@ export default function BookCatalog() {
                   <tr key={book.id} className="hover:bg-neutral-50/70">
                     <td className="px-4 py-3">
                       <TruncatedText text={book.title} className="font-medium text-gray-900" />
-                      <TruncatedText text={book.authors?.length ? book.authors.join(", ") : "Chưa có tác giả"} className="mt-0.5 text-xs text-neutral-500" />
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <TruncatedText text={book.authors?.length ? book.authors.join(", ") : "Chưa có tác giả"} className="text-xs text-neutral-500" />
+                        {book.hasPreviewFile && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">PDF xem trước</span>}
+                        {book.hasFullFile && <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">PDF đầy đủ</span>}
+                        {!book.hasPreviewFile && !book.hasFullFile && <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">Chưa có PDF</span>}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-neutral-600"><TruncatedText text={book.isbn13 || "—"} className="text-neutral-600" /></td>
                     <td className="px-4 py-3 text-neutral-600"><TruncatedText text={book.categories?.length ? book.categories.join(", ") : "—"} className="text-neutral-600" /></td>
@@ -300,6 +309,9 @@ export default function BookCatalog() {
                         <RowActionsMenu label={`Thao tác với sách ${book.title}`} busy={working}>
                           <RowActionMenuItem onClick={() => openEdit(book)}>
                             <Pencil aria-hidden="true" className="size-4" />Sửa
+                          </RowActionMenuItem>
+                          <RowActionMenuItem onClick={() => setFilesBook(book)}>
+                            <FileText aria-hidden="true" className="size-4" />Tệp PDF
                           </RowActionMenuItem>
                           <RowActionMenuItem destructive={book.status === "ACTIVE"} disabled={working} onClick={() => void changeStatus(book)}>
                             {working ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : book.status === "ACTIVE" ? <Archive aria-hidden="true" className="size-4" /> : <RotateCcw aria-hidden="true" className="size-4" />}
@@ -322,6 +334,23 @@ export default function BookCatalog() {
           </div>
         </div>
       </div>
+
+      {filesBook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/30 p-4" role="dialog" aria-modal="true" aria-label={`Tệp PDF của sách ${filesBook.title}`}>
+          <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-900">Tệp PDF của sách</h2>
+                <p className="mt-0.5 truncate text-sm text-neutral-500">{filesBook.title}</p>
+              </div>
+              <button type="button" onClick={() => { setFilesBook(null); void loadBooks(); }} className="rounded-md p-2 text-neutral-500 transition hover:bg-gray-100 hover:text-[#e60023]" aria-label="Đóng"><X className="size-5" /></button>
+            </div>
+            <div className="grid gap-4 p-6">
+              <BookFileManager bookId={filesBook.id} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/30 p-4" role="dialog" aria-modal="true" aria-label={editingBook ? "Sửa sách" : "Thêm sách"}>

@@ -24,12 +24,13 @@ import com.soa.gr6.lms.dto.BookRequest;
 import com.soa.gr6.lms.exception.BookNotFoundException;
 import com.soa.gr6.lms.exception.DuplicateResourceException;
 import com.soa.gr6.lms.mapper.BookMapper;
+import com.soa.gr6.lms.repository.BookFileRepository;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.repository.CategoryRepository;
 
 class BookServiceImplTest {
     private final BookRepository repository = mock(BookRepository.class);
-    private final BookServiceImpl service = new BookServiceImpl(repository, new BookMapper(), mock(CategoryRepository.class));
+    private final BookServiceImpl service = new BookServiceImpl(repository, mock(BookFileRepository.class), new BookMapper(), mock(CategoryRepository.class));
     private final Pageable page = PageRequest.of(0, 10);
 
     private static BookRequest request(String isbn, int copies) {

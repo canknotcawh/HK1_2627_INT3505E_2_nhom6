@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import com.soa.gr6.lms.service.identity.EmailVerificationDeliveryException;
 
 @RestControllerAdvice
@@ -24,6 +25,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmailVerificationDeliveryException.class)
     public ResponseEntity<ApiError> handleEmailVerificationDelivery(EmailVerificationDeliveryException e) {
         ErrorCode code = ErrorCode.EMAIL_VERIFICATION_DELIVERY_FAILED;
+        return ResponseEntity.status(code.getStatus()).body(ApiError.of(code));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleUploadTooLarge(MaxUploadSizeExceededException e) {
+        ErrorCode code = ErrorCode.BOOK_FILE_TOO_LARGE;
         return ResponseEntity.status(code.getStatus()).body(ApiError.of(code));
     }
 
