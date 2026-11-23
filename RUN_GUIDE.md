@@ -106,6 +106,12 @@ Crash Course*.
 > **Cấu hình tệp PDF (tuỳ chọn):** `STORAGE_ROOT` (thư mục lưu PDF, mặc định `./data/books`) và
 > `BOOK_FILE_MAX_SIZE` (giới hạn upload, mặc định `50MB`). Tệp không bao giờ public; admin upload
 > và tải nội dung qua `/api/v1/admin/books/{bookId}/files`.
+>
+> **Canary token:** `CANARY_READ_TTL` (mặc định `30m`), `CANARY_PREVIEW_TTL` (`15m`),
+> `CANARY_MAX_TTL` (`12h`), `CANARY_RETENTION` (`180d`), `CANARY_IP_PEPPER` (bắt buộc ≥ 32 byte khi
+> chạy ngoài profile `dev`), `CANARY_ISSUE_PER_MINUTE` (`10`, mỗi user/book) và
+> `CANARY_STREAM_PER_MINUTE` (`120`, mỗi token) — vượt hạn mức trả `429 RATE_LIMITED`. Người đọc xin link qua `POST /api/v1/users/me/books/{bookId}/access`,
+> PDF được stream tại `/api/v1/reader/files/{token}`; admin tra cứu/thu hồi tại `/admin/canary`.
 
 > **Địa chỉ dịch vụ:**
 > - Backend API: `http://localhost:8080`
