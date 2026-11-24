@@ -73,6 +73,7 @@ export default function BookDetail() {
     const [showPreview, setShowPreview] = useState(false);
     const [readingAccess, setReadingAccess] = useState<ReadingAccess | null>(null);
     const [readerLink, setReaderLink] = useState<CanaryLink | null>(null);
+    const [readerPurpose, setReaderPurpose] = useState<'READ' | 'PREVIEW'>('READ');
     const [readerError, setReaderError] = useState<string | null>(null);
     const [openingReader, setOpeningReader] = useState(false);
     const [previewAvailable, setPreviewAvailable] = useState<boolean | null>(null);
@@ -160,6 +161,7 @@ export default function BookDetail() {
         setOpeningReader(true);
         setReaderError(null);
         try {
+            setReaderPurpose(purpose);
             setReaderLink(await requestReadingLink(book.id, purpose));
         } catch (requestError) {
             setReaderError(readingErrorMessage(requestError));
@@ -568,7 +570,7 @@ export default function BookDetail() {
                 <CanaryReaderDialog
                     link={readerLink}
                     title={book.title}
-                    onRefresh={() => openReader('READ')}
+                    onRefresh={() => openReader(readerPurpose)}
                     onClose={() => setReaderLink(null)}
                 />
             )}

@@ -308,9 +308,11 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
         if (distinctIps > 1) {
             riskFlags.add("MANY_IPS");
         }
-        if (token.getLoan() != null && token.getLastSeenAt() != null
-                && !token.getLoan().getStatus().isOpen()
-                && token.getLastSeenAt().isAfter(token.getLoan().getBorrowedAt())) {
+        // So với thời điểm thủ thư nhận lại sách, không phải lúc bắt đầu mượn: mọi lượt đọc
+        // trong thời gian mượn đều hợp lệ, chỉ lần đọc sau returnedAt mới là dấu hiệu bất thường.
+        Instant returnedAt = token.getLoan() == null ? null : token.getLoan().getReturnedAt();
+        if (returnedAt != null && token.getLastSeenAt() != null
+                && token.getLastSeenAt().isAfter(returnedAt)) {
             riskFlags.add("ACCESSED_AFTER_RETURN");
         }
 
