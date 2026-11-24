@@ -1,0 +1,92 @@
+[
+  {
+    "question": "Top 5 bạn đọc mượn nhiều sách nhất quý 4 năm 2026",
+    "status": "OK",
+    "sql": "SELECT user_id, user_full_name, COUNT(*) AS total_borrows FROM v_loan_analytics WHERE borrowed_at >= '2026-10-01 00:00:00+07'::timestamptz AND borrowed_at < '2027-01-01 00:00:00+07'::timestamptz GROUP BY user_id, user_full_name ORDER BY total_borrows DESC, user_id ASC LIMIT 5",
+    "explanation": "Lọc khoản mượn trong Quý 4/2026, nhóm theo độc giả và xếp hạng giảm dần, có tie-breaker bằng user_id."
+  },
+  {
+    "question": "Có bao nhiêu lượt mượn sách trong tháng này?",
+    "status": "OK",
+    "sql": "SELECT COUNT(*) AS total_borrows FROM v_loan_analytics WHERE borrowed_at >= {month_start} AND borrowed_at <= {reference_time}",
+    "explanation": "Dùng mốc {month_start} và {reference_time} được tiêm sẵn để tính lượt mượn từ đầu tháng đến hiện tại."
+  },
+  {
+    "question": "Thống kê số lượt mượn theo từng tháng trong năm 2026",
+    "status": "OK",
+    "sql": "SELECT DATE_TRUNC('month', borrowed_at) AS month_start, COUNT(*) AS total_borrows FROM v_loan_analytics WHERE borrowed_at >= '2026-01-01 00:00:00+07'::timestamptz AND borrowed_at < '2027-01-01 00:00:00+07'::timestamptz GROUP BY 1 ORDER BY 1 ASC",
+    "explanation": "Gom nhóm theo tháng bằng DATE_TRUNC('month', borrowed_at) trong cả năm 2026."
+  },
+  {
+    "question": "Top 10 thể loại sách được mượn nhiều nhất từ trước đến nay",
+    "status": "OK",
+    "sql": "SELECT category_id, category_name, COUNT(loan_id) AS total_borrows FROM v_loan_category_analytics GROUP BY category_id, category_name ORDER BY total_borrows DESC, category_id ASC LIMIT 10",
+    "explanation": "Đọc từ v_loan_category_analytics vì một sách có thể có nhiều thể loại."
+  },
+  {
+    "question": "Danh sách các khoản mượn đang quá hạn tính đến hiện tại",
+    "status": "OK",
+    "sql": "SELECT loan_id, user_full_name, book_title, borrowed_at, due_at FROM v_loan_analytics WHERE status = 'OVERDUE' OR (status IN ('ACTIVE', 'PENDING_RETURN') AND due_at < {reference_time}) ORDER BY due_at ASC, loan_id ASC",
+    "explanation": "Áp dụng định nghĩa nghiệp vụ quá hạn: status = 'OVERDUE' hoặc đang ACTIVE/PENDING_RETURN mà đã qua mốc reference_time."
+  },
+  {
+    "question": "Hiện tại có bao nhiêu cuốn sách đang được bạn đọc mượn?",
+    "status": "OK",
+    "sql": "SELECT COUNT(*) AS active_loans FROM v_loan_analytics WHERE status = 'ACTIVE'",
+    "explanation": "Đang mượn tương ứng với status = 'ACTIVE'."
+  },
+  {
+    "question": "Số lượng yêu cầu trả sách đang chờ thủ thư xác nhận",
+    "status": "OK",
+    "sql": "SELECT COUNT(*) AS pending_return_count FROM v_loan_analytics WHERE status = 'PENDING_RETURN'",
+    "explanation": "Chờ xác nhận trả tương ứng với status = 'PENDING_RETURN'."
+  },
+  {
+    "question": "Danh sách tất cả các thể loại sách hiện có trong thư viện",
+    "status": "OK",
+    "sql": "SELECT category_name FROM v_category_catalog ORDER BY category_name ASC",
+    "explanation": "Đọc danh mục từ v_category_catalog."
+  },
+  {
+    "question": "Top 5 cuốn sách được mượn nhiều nhất trong năm 2026",
+    "status": "OK",
+    "sql": "SELECT book_id, book_title, COUNT(*) AS total_borrows FROM v_loan_analytics WHERE borrowed_at >= '2026-01-01 00:00:00+07'::timestamptz AND borrowed_at < '2027-01-01 00:00:00+07'::timestamptz GROUP BY book_id, book_title ORDER BY total_borrows DESC, book_id ASC LIMIT 5",
+    "explanation": "Đếm số lượt mượn theo sách trong năm 2026."
+  },
+  {
+    "question": "Phân bổ số lượng khoản mượn theo từng trạng thái",
+    "status": "OK",
+    "sql": "SELECT status, COUNT(*) AS count FROM v_loan_analytics GROUP BY status ORDER BY count DESC",
+    "explanation": "Nhóm theo trạng thái status."
+  },
+  {
+    "question": "Số lượt mượn sách thuộc thể loại Science Fiction trong năm 2026",
+    "status": "OK",
+    "sql": "SELECT COUNT(loan_id) AS total_borrows FROM v_loan_category_analytics WHERE category_name = 'Science Fiction' AND borrowed_at >= '2026-01-01 00:00:00+07'::timestamptz AND borrowed_at < '2027-01-01 00:00:00+07'::timestamptz",
+    "explanation": "Lọc thể loại chính xác theo tên trong v_category_catalog kết hợp thời gian."
+  },
+  {
+    "question": "Danh sách những độc giả đã làm mất sách",
+    "status": "OK",
+    "sql": "SELECT DISTINCT user_id, user_full_name FROM v_loan_analytics WHERE status = 'LOST' ORDER BY user_full_name ASC, user_id ASC",
+    "explanation": "Tìm danh sách độc giả duy nhất có khoản mượn ở trạng thái LOST."
+  },
+  {
+    "question": "Số lượt mượn sách trong 7 ngày qua",
+    "status": "OK",
+    "sql": "SELECT COUNT(*) AS total_borrows FROM v_loan_analytics WHERE borrowed_at >= {last_7_days_start} AND borrowed_at <= {reference_time}",
+    "explanation": "Sử dụng mốc {last_7_days_start} và {reference_time} được tiêm sẵn."
+  },
+  {
+    "question": "Thời tiết hôm nay ở Hà Nội thế nào?",
+    "status": "OUT_OF_SCOPE",
+    "sql": null,
+    "message": "Câu hỏi về thời tiết nằm ngoài phạm vi dữ liệu phân tích mượn trả sách của thư viện."
+  },
+  {
+    "question": "Thêm một tài khoản thủ thư mới tên Nguyễn Văn A",
+    "status": "OUT_OF_SCOPE",
+    "sql": null,
+    "message": "Yêu cầu thay đổi dữ liệu hoặc quản trị tài khoản nằm ngoài phạm vi của trợ lý báo cáo chỉ-đọc."
+  }
+]
