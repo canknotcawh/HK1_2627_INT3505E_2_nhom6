@@ -31,7 +31,7 @@ class Settings(BaseSettings):
         description="Google AI Studio Gemini API Key",
     )
     gemini_model: str = Field(
-        default="gemini-2.5-flash",
+        default="gemini-3.8-flash",
         alias="GEMINI_MODEL",
         description="Gemini model name to use for Text-to-SQL generation",
     )

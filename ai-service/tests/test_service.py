@@ -153,6 +153,27 @@ def test_auth_non_admin_role_forbidden(override_jwt_secret):
     assert resp.json()["detail"]["code"] == "FORBIDDEN"
 
 
+def test_auth_token_replay_rejected(override_jwt_secret):
+    """Reusing the same internal JWT within its TTL is rejected with 401 TOKEN_REPLAYED."""
+    token = create_test_jwt()
+    # 1st request with token -> passes auth (rejected by prompt length or mocked next steps)
+    resp1 = client.post(
+        "/internal/v1/analytics",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "Top 5 bạn đọc", "reference_time": "2026-11-21T12:00:00+07:00"},
+    )
+    assert resp1.status_code != 401 or resp1.json()["detail"]["code"] != "TOKEN_REPLAYED"
+
+    # 2nd request with exact same token -> rejected due to JTI replay
+    resp2 = client.post(
+        "/internal/v1/analytics",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "Top 5 bạn đọc", "reference_time": "2026-11-21T12:00:00+07:00"},
+    )
+    assert resp2.status_code == 401
+    assert resp2.json()["detail"]["code"] == "TOKEN_REPLAYED"
+
+
 # 3. TIME BOUNDARY CALCULATION TESTS
 
 def test_time_boundary_calculations_fixed_reference():
@@ -347,4 +368,161 @@ def test_endpoint_db_timeout_returns_504(override_jwt_secret):
 
     assert resp.status_code == 504
     data = resp.json()["detail"]
-    assert data["code"] == "AI_TIMEOUT"
+    assert data["code"] == "QUERY_TIMEOUT"
+
+
+# 6. RETRY MECHANISM & ERROR REFINEMENT TESTS
+
+def test_endpoint_sql_invalid_retry_success(override_jwt_secret):
+    """When Gemini returns syntactically invalid SQL on 1st attempt, retry fixes it and query succeeds."""
+    token = create_test_jwt()
+    mock_llm_1st = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELEC * FORM v_loan_analytics"))
+    mock_llm_retry = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELECT * FROM v_loan_analytics LIMIT 5"))
+
+    mock_db_res = QueryExecutionResult(
+        columns=[ColumnInfo(name="loan_id", type="uuid")],
+        rows=[[str(uuid4())]],
+        truncated=False,
+    )
+    mock_execute = AsyncMock(return_value=mock_db_res)
+
+    with patch("app.main.ask_gemini", mock_llm_1st), \
+         patch("app.main.retry_gemini_fix", mock_llm_retry), \
+         patch("app.main.execute_query", mock_execute):
+        resp = client.post(
+            "/internal/v1/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"prompt": "Danh sách khoản mượn", "reference_time": "2026-11-21T12:00:00+07:00"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "SUCCESS"
+    mock_llm_retry.assert_awaited_once()
+
+
+def test_endpoint_sql_invalid_retry_still_fails(override_jwt_secret):
+    """When Gemini retry still returns invalid SQL syntax, endpoint returns 400 INVALID_SQL."""
+    token = create_test_jwt()
+    mock_llm_1st = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELEC * FORM v_loan_analytics"))
+    mock_llm_retry = AsyncMock(return_value=LlmAnswer(status="OK", sql="STILL BAD SQL SYNTAX !!!"))
+
+    with patch("app.main.ask_gemini", mock_llm_1st), \
+         patch("app.main.retry_gemini_fix", mock_llm_retry):
+        resp = client.post(
+            "/internal/v1/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"prompt": "Danh sách khoản mượn", "reference_time": "2026-11-21T12:00:00+07:00"},
+        )
+
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["code"] == "INVALID_SQL"
+    assert "sau khi thử lại" in detail["message"]
+
+
+def test_endpoint_db_class_42_error_retry_success(override_jwt_secret):
+    """When PostgreSQL raises recoverable class 42 syntax/catalog error, retry fixes it."""
+    token = create_test_jwt()
+    mock_llm_1st = AsyncMock(return_value=LlmAnswer(
+        status="OK",
+        sql="SELECT non_existent_column FROM v_loan_analytics",
+    ))
+    mock_llm_retry = AsyncMock(return_value=LlmAnswer(
+        status="OK",
+        sql="SELECT book_title FROM v_loan_analytics LIMIT 5",
+    ))
+
+    mock_db_res = QueryExecutionResult(
+        columns=[ColumnInfo(name="book_title", type="text")],
+        rows=[["Dế Mèn Phiêu Lưu Ký"]],
+        truncated=False,
+    )
+    mock_execute = AsyncMock(side_effect=[
+        DbSyntaxError("column non_existent_column does not exist", sqlstate="42703"),
+        mock_db_res,
+    ])
+
+    with patch("app.main.ask_gemini", mock_llm_1st), \
+         patch("app.main.retry_gemini_fix", mock_llm_retry), \
+         patch("app.main.execute_query", mock_execute):
+        resp = client.post(
+            "/internal/v1/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"prompt": "Tên sách đã mượn", "reference_time": "2026-11-21T12:00:00+07:00"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "SUCCESS"
+    assert resp.json()["rows"][0][0] == "Dế Mèn Phiêu Lưu Ký"
+    mock_llm_retry.assert_awaited_once()
+
+
+def test_endpoint_retry_budget_exhausted_on_mixed_failures(override_jwt_secret):
+    """When retry is used on AST syntax error and then DB reports class 42 error, no 2nd retry is allowed."""
+    token = create_test_jwt()
+    # 1st attempt: syntax error
+    mock_llm_1st = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELEC * FORM v_loan_analytics"))
+    # 2nd attempt (retry 1): syntactically valid but references non-existent column
+    mock_llm_retry = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELECT bad_col FROM v_loan_analytics LIMIT 1"))
+    # Database execution raises DbSyntaxError
+    mock_execute = AsyncMock(side_effect=DbSyntaxError("column bad_col does not exist", sqlstate="42703"))
+
+    with patch("app.main.ask_gemini", mock_llm_1st), \
+         patch("app.main.retry_gemini_fix", mock_llm_retry), \
+         patch("app.main.execute_query", mock_execute):
+        resp = client.post(
+            "/internal/v1/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"prompt": "Test mixed failure", "reference_time": "2026-11-21T12:00:00+07:00"},
+        )
+
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["code"] == "INVALID_SQL"
+    # Unified counter allows max 1 call to retry_gemini_fix
+    assert mock_llm_retry.await_count == 1
+
+
+def test_endpoint_db_permission_denied_returns_rejected_without_retry(override_jwt_secret):
+    """When PostgreSQL returns 42501 (permission denied), it is treated as a security violation (400 REJECTED, no retry)."""
+    token = create_test_jwt()
+    mock_llm = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELECT * FROM v_loan_analytics"))
+    mock_execute = AsyncMock(side_effect=DbPermissionError("permission denied for relation secret_table", sqlstate="42501"))
+    mock_retry = AsyncMock()
+
+    with patch("app.main.ask_gemini", mock_llm), \
+         patch("app.main.retry_gemini_fix", mock_retry), \
+         patch("app.main.execute_query", mock_execute):
+        resp = client.post(
+            "/internal/v1/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"prompt": "Thử truy cập bảng cấm", "reference_time": "2026-11-21T12:00:00+07:00"},
+        )
+
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["code"] == "REJECTED"
+    mock_retry.assert_not_awaited()
+
+
+def test_endpoint_retry_result_rejected_by_validator(override_jwt_secret):
+    """When Gemini retry returns malicious/forbidden SQL, AST validator rejects with 400 REJECTED."""
+    token = create_test_jwt()
+    # 1st attempt: syntax error
+    mock_llm_1st = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELEC * FORM v_loan_analytics"))
+    # Retry attempt: returns malicious SQL
+    mock_llm_retry = AsyncMock(return_value=LlmAnswer(status="OK", sql="SELECT * FROM app_user"))
+
+    with patch("app.main.ask_gemini", mock_llm_1st), \
+         patch("app.main.retry_gemini_fix", mock_llm_retry):
+        resp = client.post(
+            "/internal/v1/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"prompt": "Hack attempt via retry", "reference_time": "2026-11-21T12:00:00+07:00"},
+        )
+
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["code"] == "REJECTED"
+    assert "app_user" in detail["message"]
+

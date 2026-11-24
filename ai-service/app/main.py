@@ -8,7 +8,13 @@ from pydantic import BaseModel, Field
 
 from app.auth import verify_internal_token
 from app.config import settings
-from app.db import DbExecutionError, DbSyntaxError, DbTimeoutError, execute_query
+from app.db import (
+    DbExecutionError,
+    DbPermissionError,
+    DbSyntaxError,
+    DbTimeoutError,
+    execute_query,
+)
 from app.gemini_client import ask_gemini, retry_gemini_fix
 from app.prompt import build_system_prompt
 from app.validator import SqlInvalid, SqlRejected, validate_sql
@@ -109,6 +115,7 @@ async def handle_analytics_request(
         )
 
     raw_sql = llm_answer.sql.strip()
+    retry_count = 0  # Unified retry counter: max 1 retry for entire request lifecycle
 
     # 4. AST Validation & Sanity checks
     validation_res = None
@@ -122,8 +129,14 @@ async def handle_analytics_request(
             detail={"code": "REJECTED", "message": str(e), "sql": raw_sql},
         )
     except SqlInvalid as e:
-        # Syntax error from Gemini -> retry once
+        # Syntax error from Gemini -> retry once if quota available
+        if retry_count >= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_SQL", "message": f"Câu lệnh SQL sai cú pháp: {e}", "sql": raw_sql},
+            )
         logger.info("SQL syntax invalid on 1st attempt: %s. Retrying with Gemini...", e)
+        retry_count += 1
         try:
             retry_ans = await retry_gemini_fix(
                 system_prompt=system_prompt,
@@ -152,7 +165,7 @@ async def handle_analytics_request(
             logger.error("Failed after Gemini retry: %s", retry_err)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": "INVALID_SQL", "message": f"Câu lệnh SQL sai cú pháp sau khi thử lại: {e}", "sql": raw_sql},
+                detail={"code": "INVALID_SQL", "message": f"Câu lệnh SQL sai cú pháp sau khi thử lại: {retry_err}", "sql": raw_sql},
             )
 
     sanitized_sql = validation_res.sql
@@ -160,9 +173,24 @@ async def handle_analytics_request(
     # 5. Execute query in PostgreSQL using lms_readonly role
     try:
         db_result = await execute_query(sanitized_sql)
+    except DbPermissionError as perm_err:
+        # Permission denied (SQLSTATE 42501) -> Security violation, NO retry, return 400 REJECTED
+        logger.warning("Database permission denied: %s | Query: %s", perm_err, sanitized_sql)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "REJECTED", "message": str(perm_err), "sql": sanitized_sql},
+        )
     except DbSyntaxError as db_syn_err:
-        # Database reported class 42 error -> retry once with Gemini
-        logger.info("Database reported syntax error (class 42): %s. Retrying with Gemini...", db_syn_err)
+        # Database reported recoverable class 42 error (42601, 42703, 42P01, 42883)
+        # Only retry if retry budget has not been exhausted by earlier AST syntax error
+        if retry_count >= 1:
+            logger.info("Database error encountered but retry budget already exhausted.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_SQL", "message": f"Lỗi cú pháp database: {db_syn_err}", "sql": sanitized_sql},
+            )
+        logger.info("Database reported syntax error: %s. Retrying with Gemini...", db_syn_err)
+        retry_count += 1
         try:
             retry_ans = await retry_gemini_fix(
                 system_prompt=system_prompt,
@@ -180,8 +208,14 @@ async def handle_analytics_request(
                     time_grain=None,
                     message=retry_ans.message or "Câu hỏi nằm ngoài phạm vi sau khi thử lại.",
                 )
-            sanitized_sql = validate_sql(retry_ans.sql.strip()).sql
+            retry_raw_sql = retry_ans.sql.strip()
+            sanitized_sql = validate_sql(retry_raw_sql).sql
             db_result = await execute_query(sanitized_sql)
+        except SqlRejected as rej_err:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "REJECTED", "message": str(rej_err), "sql": retry_raw_sql},
+            )
         except Exception as retry_fail:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -190,7 +224,7 @@ async def handle_analytics_request(
     except DbTimeoutError as timeout_err:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail={"code": "AI_TIMEOUT", "message": str(timeout_err)},
+            detail={"code": "QUERY_TIMEOUT", "message": str(timeout_err)},
         )
     except DbExecutionError as db_err:
         raise HTTPException(

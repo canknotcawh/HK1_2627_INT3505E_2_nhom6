@@ -90,7 +90,7 @@ CREATE VIEW v_loan_analytics AS
   user_id UUID,
   user_full_name VARCHAR(255),
   user_email VARCHAR(255),
-  categories VARCHAR,      -- Chuỗi các thể loại cách nhau bằng dấu phẩy
+  categories TEXT,         -- Chuỗi các thể loại cách nhau bằng dấu phẩy
   borrowed_at TIMESTAMPTZ,
   due_at TIMESTAMPTZ,
   returned_at TIMESTAMPTZ, -- Nullable (chỉ có khi đã hoàn trả)
@@ -110,8 +110,7 @@ CREATE VIEW v_loan_category_analytics AS
   borrowed_at TIMESTAMPTZ,
   due_at TIMESTAMPTZ,
   returned_at TIMESTAMPTZ,
-  status VARCHAR(20),
-  renewed_count INTEGER;
+  status VARCHAR(20);
 
 -- 3. v_category_catalog: Danh mục các thể loại sách hiện có
 CREATE VIEW v_category_catalog AS

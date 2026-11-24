@@ -1,9 +1,21 @@
 """Internal JWT authentication and authorization for ai-service."""
 
+import time
 from typing import Any, Dict, Optional
 import jwt
 from fastapi import Header, HTTPException, status
 from app.config import settings
+
+# In-memory storage for seen JTIs to prevent token replay within the 60s TTL window
+# Dict maps jti -> exp_timestamp
+_SEEN_JTIS: Dict[str, int] = {}
+
+
+def _cleanup_expired_jtis(current_time: int) -> None:
+    """Purges expired JTIs from in-memory cache."""
+    expired = [jti for jti, exp in _SEEN_JTIS.items() if exp <= current_time]
+    for jti in expired:
+        _SEEN_JTIS.pop(jti, None)
 
 
 def verify_internal_token(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
@@ -70,5 +82,18 @@ def verify_internal_token(authorization: Optional[str] = Header(None)) -> Dict[s
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "FORBIDDEN", "message": "Admin privileges required to access AI analytics."},
         )
+
+    # Replay protection: Check and record JTI
+    jti = payload.get("jti")
+    exp = payload.get("exp", 0)
+    now = int(time.time())
+    _cleanup_expired_jtis(now)
+
+    if jti in _SEEN_JTIS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "TOKEN_REPLAYED", "message": "Internal JWT with this JTI has already been consumed."},
+        )
+    _SEEN_JTIS[jti] = exp
 
     return payload

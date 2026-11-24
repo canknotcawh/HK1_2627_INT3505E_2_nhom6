@@ -85,7 +85,12 @@ class DbExecutionError(Exception):
 
 
 class DbSyntaxError(DbExecutionError):
-    """Raised when query has syntax error or invalid column/table (SQLSTATE class 42)."""
+    """Raised when query has syntax error or invalid column/table (recoverable class 42 errors)."""
+    pass
+
+
+class DbPermissionError(DbExecutionError):
+    """Raised when query violates access rules (SQLSTATE 42501 permission denied) - security issue, no retry."""
     pass
 
 
@@ -114,6 +119,8 @@ async def execute_query(sql_query: str, db_url: Optional[str] = None) -> QueryEx
     try:
         async with await psycopg.AsyncConnection.connect(url, connect_timeout=3) as aconn:
             async with aconn.cursor(row_factory=tuple_row) as cur:
+                # Enforce execution timeout in session as a second defense line (2000ms)
+                await cur.execute("SET statement_timeout = '2000'")
                 await cur.execute(sql_query)
 
                 # Extract column metadata from cursor description
@@ -147,7 +154,11 @@ async def execute_query(sql_query: str, db_url: Optional[str] = None) -> QueryEx
         raise DbTimeoutError("Truy vấn vượt quá thời gian thực thi cho phép (statement timeout 2s).", sqlstate="57014") from e
     except psycopg.Error as e:
         sqlstate = getattr(e, "sqlstate", None) or ""
-        # SQLSTATE class 42: Syntax Error or Access Rule Violation (e.g. 42601 syntax error, 42703 undefined column)
-        if sqlstate.startswith("42"):
-            raise DbSyntaxError(f"Lỗi cú pháp hoặc cột trong cơ sở dữ liệu ({sqlstate}): {e}", sqlstate=sqlstate) from e
+        # SQLSTATE 42501: insufficient_privilege / permission denied -> Security violation, DO NOT retry
+        if sqlstate == "42501":
+            raise DbPermissionError(f"Từ chối quyền truy cập CSDL ({sqlstate}): {e}", sqlstate=sqlstate) from e
+        # Specific recoverable class 42 errors:
+        # 42601: syntax_error, 42703: undefined_column, 42P01: undefined_table, 42883: undefined_function
+        if sqlstate in ("42601", "42703", "42P01", "42883"):
+            raise DbSyntaxError(f"Lỗi cú pháp hoặc định danh CSDL ({sqlstate}): {e}", sqlstate=sqlstate) from e
         raise DbExecutionError(f"Lỗi thực thi cơ sở dữ liệu ({sqlstate}): {e}", sqlstate=sqlstate) from e
