@@ -81,14 +81,16 @@ def calculate_time_boundaries(reference_time_input: Optional[str] = None) -> Dic
 
 
 VIEWS_DDL = """
--- 1. v_loan_analytics: 1 dòng / 1 khoản mượn (thể loại được gộp trong cột categories)
+-- 1. v_loan_analytics: 1 dòng / 1 khoản mượn (thể loại được gộp chuỗi trong cột categories)
 CREATE VIEW v_loan_analytics AS
   loan_id UUID,
   book_id UUID,
   book_title VARCHAR(255),
+  published_year INTEGER,
   user_id UUID,
   user_full_name VARCHAR(255),
-  categories VARCHAR[], -- Mảng các tên thể loại của cuốn sách
+  user_email VARCHAR(255),
+  categories VARCHAR,      -- Chuỗi các thể loại cách nhau bằng dấu phẩy
   borrowed_at TIMESTAMPTZ,
   due_at TIMESTAMPTZ,
   returned_at TIMESTAMPTZ, -- Nullable (chỉ có khi đã hoàn trả)

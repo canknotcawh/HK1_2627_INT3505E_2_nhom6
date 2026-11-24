@@ -15,7 +15,7 @@ spring:
   flyway:
     enabled: true
     placeholders:
-      readonly_password: ${DB_READONLY_PASSWORD:}
+      readonly_password: ${DB_READONLY_PASSWORD}
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}

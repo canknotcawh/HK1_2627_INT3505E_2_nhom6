@@ -109,7 +109,7 @@ async def execute_query(sql_query: str, db_url: Optional[str] = None) -> QueryEx
         DbTimeoutError: If query execution exceeds statement timeout (57014).
         DbExecutionError: For other execution failures.
     """
-    url = db_url or settings.database_url
+    url = db_url or settings.effective_database_url
 
     try:
         async with await psycopg.AsyncConnection.connect(url, connect_timeout=3) as aconn:

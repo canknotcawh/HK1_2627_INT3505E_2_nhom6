@@ -79,6 +79,8 @@ FORBIDDEN_NODE_TYPES = (
     exp.CurrentVersion,
     # DoS functions
     exp.ExplodingGenerateSeries,
+    # Non-native PostgreSQL functions silently transpiled by sqlglot
+    exp.TryCast,
 )
 
 # Allowed function node classes (sqlglot AST expressions)
@@ -102,9 +104,6 @@ ALLOWED_FUNC_CLASSES = (
     exp.DateTrunc,
     exp.DatetimeTrunc,
     exp.Extract,
-    exp.DateDiff,
-    exp.DateAdd,
-    exp.DateSub,
     # Math / Numeric
     exp.Round,
     exp.Abs,
@@ -125,7 +124,6 @@ ALLOWED_FUNC_CLASSES = (
     exp.ArrayToString,
     # Conversion & Conditional
     exp.Cast,
-    exp.TryCast,
     exp.Coalesce,
     exp.Nullif,
 )

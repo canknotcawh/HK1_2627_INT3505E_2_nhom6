@@ -47,11 +47,12 @@ REJECTED_TEST_CASES = [
     ("COPY app_user TO '/tmp/data'", "admin_copy"),
     ("SET statement_timeout = 0", "admin_set"),
 
-    # --- SELECT INTO / Lock (2) ---
+    # --- SELECT INTO / Lock / Fetch (3) ---
     ("SELECT * INTO hacked FROM v_loan_analytics", "select_into"),
     ("SELECT * FROM v_loan_analytics FOR UPDATE", "row_lock_update"),
+    ("SELECT * FROM v_loan_analytics FETCH FIRST 10 ROWS ONLY", "fetch_clause_forbidden"),
 
-    # --- Forbidden Tables, Schema Qualification & Scope Bypass Tricks (9) ---
+    # --- Forbidden Tables, Schema Qualification & Scope Bypass Tricks (12) ---
     ("SELECT * FROM pg_class", "forbidden_pg_class_unaliased"),
     ("SELECT * FROM app_user", "forbidden_app_user_unaliased"),
     ("SELECT * FROM app_user u", "forbidden_app_user_aliased"),
@@ -61,21 +62,36 @@ REJECTED_TEST_CASES = [
     ("WITH v_loan_analytics AS (SELECT * FROM app_user) SELECT * FROM v_loan_analytics", "cte_shadowing_allowed_view"),
     ("SELECT * FROM (SELECT * FROM pg_class) sub", "subquery_targeting_forbidden_table"),
     ("SELECT (SELECT email FROM app_user LIMIT 1) FROM v_loan_analytics", "scalar_subquery_forbidden_table"),
+    ("SELECT * FROM generate_series(1, 10)", "generate_series_table"),
+    ("SELECT 1", "no_analytical_view_constant"),
+    ("SELECT 'hello' AS greeting", "no_analytical_view_literal"),
 
-    # --- Forbidden Functions (sleep, clock, session discovery) (5) ---
+    # --- Forbidden Functions (sleep, clock, session discovery) (9) ---
     ("SELECT pg_sleep(5) FROM v_loan_analytics", "func_pg_sleep"),
     ("SELECT pg_catalog.pg_sleep(5) FROM v_loan_analytics", "func_pg_catalog_pg_sleep"),
     ("SELECT NOW() FROM v_loan_analytics", "func_clock_now"),
     ("SELECT CURRENT_TIMESTAMP FROM v_loan_analytics", "func_clock_current_timestamp"),
     ("SELECT CURRENT_DATE FROM v_loan_analytics", "func_clock_current_date"),
+    ("SELECT generate_series(1, 10) FROM v_loan_analytics", "generate_series_function"),
+    ("SELECT current_user FROM v_loan_analytics", "current_user_discovery"),
+    ("SELECT session_user FROM v_loan_analytics", "session_user_discovery"),
+    ("SELECT version() FROM v_loan_analytics", "version_discovery"),
 
-    # --- Relative Date/Time String Literals (3) ---
+    # --- Non-native PostgreSQL functions (sqlglot transpile risks) (2) ---
+    ("SELECT DATEDIFF(day, borrowed_at, due_at) FROM v_loan_analytics", "unsupported_datediff_function"),
+    ("SELECT TRY_CAST(borrowed_at AS date) FROM v_loan_analytics", "unsupported_try_cast_function"),
+
+    # --- Relative Date/Time String Literals with whitespace and case variants (7) ---
     ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= 'now'", "literal_now_bare"),
     ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= 'today'", "literal_today"),
     ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= 'yesterday'", "literal_yesterday"),
+    ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= '  nOw  '", "literal_now_whitespace_mixedcase"),
+    ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= 'now - 1 day'", "literal_now_minus_interval"),
+    ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= ' NOW - 7 days '", "literal_now_minus_interval_whitespace"),
+    ("SELECT * FROM v_loan_analytics WHERE borrowed_at >= 'TODAY + 1 day'", "literal_today_plus_interval"),
 ]
 
-assert len(REJECTED_TEST_CASES) == 32, f"Expected 32 rejected test cases, got {len(REJECTED_TEST_CASES)}"
+assert len(REJECTED_TEST_CASES) == 46, f"Expected 46 rejected test cases, got {len(REJECTED_TEST_CASES)}"
 
 
 @pytest.mark.parametrize("sql,case_id", REJECTED_TEST_CASES, ids=[c[1] for c in REJECTED_TEST_CASES])
@@ -140,17 +156,42 @@ ACCEPTED_TEST_CASES = [
         "SELECT loan_id, 'ACTIVE' AS type FROM v_loan_analytics UNION ALL SELECT loan_id, 'LOST' AS type FROM v_loan_analytics WHERE status = 'LOST'",
         "union_all_valid_views",
     ),
+    # Substring search on book title / user name containing 'now', 'know', 'snow' without being blocked
+    (
+        "SELECT * FROM v_loan_analytics WHERE book_title ILIKE '%Snow%'",
+        "search_book_title_with_snow",
+    ),
+    (
+        "SELECT * FROM v_loan_analytics WHERE book_title ILIKE '%know%'",
+        "search_book_title_with_know",
+    ),
+    (
+        "SELECT * FROM v_loan_analytics WHERE user_full_name ILIKE '%Nowhere%'",
+        "search_user_name_with_nowhere",
+    ),
 ]
 
-assert len(ACCEPTED_TEST_CASES) == 13, f"Expected 13 accepted test cases, got {len(ACCEPTED_TEST_CASES)}"
+assert len(ACCEPTED_TEST_CASES) == 16, f"Expected 16 accepted test cases, got {len(ACCEPTED_TEST_CASES)}"
 
 
 @pytest.mark.parametrize("sql,case_id", ACCEPTED_TEST_CASES, ids=[c[1] for c in ACCEPTED_TEST_CASES])
 def test_accepted_queries(sql: str, case_id: str):
-    """Verifies that all 13 valid business reporting queries pass validation."""
+    """Verifies that all 16 valid business reporting queries pass validation."""
     result = validate_sql(sql)
     assert isinstance(result, ValidationResult)
     assert result.sql is not None and len(result.sql) > 0
+
+
+@pytest.mark.parametrize("sql,case_id", ACCEPTED_TEST_CASES, ids=[c[1] for c in ACCEPTED_TEST_CASES])
+def test_accepted_queries_regenerated_sql_valid_postgres(sql: str, case_id: str):
+    """Verifies that regenerated SQL from all accepted queries parses cleanly as Postgres dialect."""
+    import sqlglot
+    result = validate_sql(sql)
+    parsed = sqlglot.parse_one(result.sql, read="postgres")
+    assert parsed is not None
+    sql_upper = result.sql.upper()
+    assert "DATEDIFF" not in sql_upper
+    assert "TRY_CAST" not in sql_upper
 
 
 # 4. LIMIT AND TIME GRAIN CASES (5 tests)

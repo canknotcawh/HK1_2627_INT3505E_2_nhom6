@@ -32,9 +32,10 @@ SELECT
     l.renewed_count,
     u.id AS user_id,
     u.full_name AS user_full_name,
-    u.email AS user_email,
+    u.email AS user_email, -- Chu y: Day la thong tin PII co y dinh de thu thu lien he xac minh khi can doi soat muon tra
     b.id AS book_id,
     b.title AS book_title,
+    b.published_year AS published_year,
     COALESCE(string_agg(c.name, ', ' ORDER BY c.name), '') AS categories
 FROM loan l
 JOIN app_user u ON l.user_id = u.id
@@ -52,7 +53,8 @@ GROUP BY
     u.full_name,
     u.email,
     b.id,
-    b.title;
+    b.title,
+    b.published_year;
 
 -- View 2: v_loan_category_analytics
 -- Grain: 1 row / (loan, category). Preserves category granularity and loan timestamp for category analytics.
@@ -77,10 +79,11 @@ JOIN category c ON bc.category_id = c.id;
 
 -- View 3: v_category_catalog
 -- Grain: 1 row / category. Used for dynamic category catalog injection into the system prompt.
+-- Dong bo dinh danh category_id, category_name voi v_loan_category_analytics.
 CREATE OR REPLACE VIEW v_category_catalog AS
 SELECT
-    id,
-    name
+    id AS category_id,
+    name AS category_name
 FROM category;
 
 -- 4. Permissions for lms_readonly
@@ -89,8 +92,15 @@ GRANT USAGE ON SCHEMA public TO lms_readonly;
 -- Revoke all permissions on existing public tables, sequences, and routines
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM lms_readonly;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM lms_readonly;
-REVOKE ALL ON ALL ROUTINES IN SCHEMA public FROM lms_readonly;
 REVOKE CREATE ON SCHEMA public FROM lms_readonly;
+
+-- LUU Y KY THUAT VE ROUTINES VA SYSTEM CATALOGS:
+-- 1) PostgreSQL mac dinh cap quyen EXECUTE tren public routines cho pseudo-role PUBLIC.
+--    Lenh REVOKE ALL ON ALL ROUTINES ... FROM lms_readonly KHONG thu hoi duoc quyen mac dinh do cua PUBLIC.
+-- 2) PostgreSQL cho phep moi authenticated role doc he thong catalog (pg_class, pg_proc, information_schema).
+-- Chinh vi vay, viec chan goi ham khong cho phep va chan doc catalog he thong HOAN TOAN DUOC DAM BAO boi
+-- Layer 4 (AST Validator Allowlist) cua ai-service chu khong the dua vao quyen database don thuan.
+REVOKE ALL ON ALL ROUTINES IN SCHEMA public FROM lms_readonly;
 
 -- Explicitly allow SELECT ONLY on the 3 reporting views
 GRANT SELECT ON v_loan_analytics TO lms_readonly;
