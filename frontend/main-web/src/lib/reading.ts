@@ -18,7 +18,7 @@ export type CanaryLink = {
   fileName: string;
 };
 
-export type ReadingPurpose = "READ" | "PREVIEW";
+type ReadingPurpose = "READ" | "PREVIEW";
 
 export async function getReadingAccess(bookId: string): Promise<ReadingAccess> {
   const response = await apiClient.get<ReadingAccess>(`/api/v1/users/me/books/${bookId}/reading-access`);

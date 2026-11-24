@@ -269,6 +269,24 @@ class CanaryTokenServiceImplTest {
     }
 
     @Test
+    void detailFlagsAccessAfterReturnedAtOnlyAfterTheBookComesBack() {
+        CanaryToken active = token(Instant.now().plus(Duration.ofMinutes(10)), CanaryPurpose.READ, loan);
+        Instant borrowedAt = Instant.now().minus(Duration.ofHours(2));
+        when(loan.getBorrowedAt()).thenReturn(borrowedAt);
+        active.registerAccess(borrowedAt.plus(Duration.ofMinutes(30)));
+        when(tokens.findById(active.getId())).thenReturn(Optional.of(active));
+
+        assertThat(service.detail(active.getId()).riskFlags()).doesNotContain("ACCESSED_AFTER_RETURN");
+
+        Instant returnedAt = borrowedAt.plus(Duration.ofHours(1));
+        when(loan.getStatus()).thenReturn(LoanStatus.RETURNED);
+        when(loan.getReturnedAt()).thenReturn(returnedAt);
+        active.registerAccess(returnedAt.plus(Duration.ofMinutes(5)));
+
+        assertThat(service.detail(active.getId()).riskFlags()).contains("ACCESSED_AFTER_RETURN");
+    }
+
+    @Test
     void lookupRejectsTooShortPrefix() {
         assertThatThrownBy(() -> service.lookup("cnr"))
                 .isInstanceOf(ApiException.class)
