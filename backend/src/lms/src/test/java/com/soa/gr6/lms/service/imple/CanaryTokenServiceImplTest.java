@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -22,6 +23,7 @@ import org.springframework.mock.env.MockEnvironment;
 import com.soa.gr6.lms.domain.Book;
 import com.soa.gr6.lms.domain.BookFile;
 import com.soa.gr6.lms.domain.CanaryAccess;
+import com.soa.gr6.lms.domain.CanaryReadingEvent;
 import com.soa.gr6.lms.domain.CanaryToken;
 import com.soa.gr6.lms.domain.Loan;
 import com.soa.gr6.lms.domain.User;
@@ -506,8 +508,8 @@ class CanaryTokenServiceImplTest {
         var fingerprint = new CanaryTokenService.ClientFingerprint("203.113.131.1", "JUnit");
         service.recordReadingEvent("cnr_known", fingerprint, CanaryReadingEventType.SUSPICIOUS, "right-click");
 
-        var saved = org.mockito.ArgumentCaptor.forClass(com.soa.gr6.lms.domain.CanaryReadingEvent.class);
-        org.mockito.Mockito.verify(readingEvents).save(saved.capture());
+        var saved = org.mockito.ArgumentCaptor.forClass(CanaryReadingEvent.class);
+        verify(readingEvents).save(saved.capture());
         assertThat(saved.getValue().getTokenId()).isEqualTo(tokenId);
         assertThat(saved.getValue().getEvent()).isEqualTo(CanaryReadingEventType.SUSPICIOUS);
         assertThat(saved.getValue().getDetail()).isEqualTo("right-click");
