@@ -6,8 +6,10 @@ import java.util.UUID;
 public record CanaryTokenDetail(
         CanaryTokenSummary summary,
         String revokeReason,
+        String createdIpAddress,
         String createdIpHash,
         String createdUaHash,
+        ClientLocationResponse createdLocation,
         FileRef file,
         List<String> riskFlags) {
 

@@ -132,6 +132,7 @@ CREATE INDEX idx_book_file_book ON book_file (book_id, created_at DESC);
 | `revoked_by` | UUID FK `app_user(id)` | null nếu hệ thống tự thu hồi |
 | `last_seen_at` | TIMESTAMPTZ | cập nhật mỗi lần đọc |
 | `access_count` | INT DEFAULT 0 | |
+| `created_ip_address` | VARCHAR(45) | IP thô của thiết bị xin cấp link (IPv4/IPv6) |
 | `created_ip_hash` | CHAR(64) | HMAC-SHA256(IP, server pepper) |
 | `created_ua_hash` | CHAR(64) | |
 
@@ -143,7 +144,7 @@ CREATE INDEX idx_canary_token_user ON canary_token (user_id, issued_at DESC);
 CREATE INDEX idx_canary_token_expiry ON canary_token (expires_at);
 ```
 
-Không lưu IP/UA thô: chỉ hash có pepper để vẫn đối chiếu được khi cần mà giảm rủi ro PII.
+IP thô được lưu (`created_ip_address`) để biết thiết bị nào đã xin link; `ip_hash` có pepper vẫn được giữ để đối chiếu ẩn danh. UA chỉ lưu hash.
 
 ### 4.3 `canary_access` — lịch sử đọc
 
@@ -152,14 +153,25 @@ Không lưu IP/UA thô: chỉ hash có pepper để vẫn đối chiếu đượ
 | `id` | BIGSERIAL PK | |
 | `token_id` | UUID FK | |
 | `accessed_at` | TIMESTAMPTZ | |
-| `ip_hash` | CHAR(64) | |
+| `ip_hash` | CHAR(64) | hash có pepper, đối chiếu ẩn danh |
 | `ua_hash` | CHAR(64) | |
+| `ip_address` | VARCHAR(45) | IP thô của thiết bị (IPv4/IPv6) |
+| `ip_version` | VARCHAR(10) | `IPv4` \| `IPv6` |
+| `country_code` | VARCHAR(2) | ISO-3166 alpha-2, ví dụ `VN` |
+| `country_name` | VARCHAR(100) | |
+| `region_name` | VARCHAR(120) | tỉnh/bang |
+| `city_name` | VARCHAR(120) | thành phố |
+| `latitude` / `longitude` | DOUBLE PRECISION | toạ độ ước lượng |
+| `time_zone` | VARCHAR(64) | ví dụ `Asia/Bangkok` |
+| `isp` | VARCHAR(150) | nhà mạng/tổ chức |
+| `location_source` | VARCHAR(20) | `GEOIP` \| `LOCAL` \| `UNKNOWN` |
 | `outcome` | VARCHAR(20) | `OK` \| `EXPIRED` \| `REVOKED` \| `FORBIDDEN` \| `NOT_FOUND` |
 | `bytes_sent` | BIGINT | |
 | `range_header` | VARCHAR(50) | `bytes=0-` hoặc null |
 | `request_id` | VARCHAR(64) | trace id, không chứa token |
 
 - Ghi **bất đồng bộ** (Spring `@Async`/event) để không làm chậm stream; nếu lỗi ghi log thì vẫn phục vụ, nhưng phải có metric.
+- **IP & vị trí:** IP được lấy qua `ClientIpResolver` (chỉ tin `X-Forwarded-For` khi peer là proxy nội bộ) và ghi ngay cùng lượt truy cập. Vị trí do `IpGeolocationService` phân giải qua HTTP API cấu hình bằng `app.canary.geolocation.*` (mặc định ip-api.com, không cần key; timeout 800 ms, cache 6 giờ theo IP) nhưng **chạy sau commit trên executor riêng** (`CanaryAccessLocationEnricher`), nên luồng stream PDF không phải chờ mạng. Trong lúc chờ, `location_source = PENDING`; lỗi/timeout thành `UNKNOWN` và **không chặn** việc đọc; IP nội bộ/loopback thành `LOCAL`.
 - Giữ 180 ngày, sau đó job xoá theo `accessed_at` (cấu hình).
 - Với `EXPIRED/REVOKED/NOT_FOUND`, `token_id` có thể null nếu không tìm thấy hash; khi đó không log token thô.
 
@@ -306,6 +318,7 @@ Lỗi: `409 FILE_ALREADY_EXISTS` (nếu muốn bắt buộc xoá trước), `413
 | Method | Path | Query/Body | Response |
 |---|---|---|---|
 | `GET` | `/api/v1/admin/canary-tokens` | `bookId, userId, status=ACTIVE\|EXPIRED\|REVOKED, q, page, size` | `Page<CanaryTokenSummary>` |
+| `GET` | `/api/v1/admin/canary-tokens/groups` | `bookId`, `q` (email/họ tên/tên sách/mã token), `page, size` | `Page<CanaryGroupSummary>` — gom theo cặp (người đọc, sách), phân trang bằng LIMIT/OFFSET ở DB |
 | `GET` | `/api/v1/admin/canary-tokens/{tokenId}` | — | `CanaryTokenDetail` |
 | `GET` | `/api/v1/admin/canary-tokens/{tokenId}/accesses` | `page, size` | `Page<CanaryAccessResponse>` |
 | `POST` | `/api/v1/admin/canary-tokens/{tokenId}/revoke` | `{reason}` | `CanaryTokenDetail` |
@@ -524,7 +537,7 @@ GET /api/v1/reader/files/{token}
 | Storage lộ | Private bucket/local; không trả `storageKey`; stream qua backend |
 | Upload độc hại | Chỉ admin; kiểm tra magic `%PDF-`; giới hạn size/page; quét malware nếu có |
 | Dò token | Rate limit theo IP + token; không phân biệt expired/revoked qua message |
-| PII trong log | IP/UA hash có pepper; email chỉ hiện trong admin có quyền |
+| PII trong log | Không log IP/token ra file log; DB lưu IP thô (bắt buộc cho truy vết) + hash có pepper, UA chỉ hash; email/IP chỉ hiện trong admin có quyền |
 | Admin lạm dụng | Audit `CANARY_LOOKUP`/`CANARY_REVOKE`; chỉ ADMIN |
 | Swagger lộ endpoint | Tắt Swagger ở prod (AC-03) hoặc giới hạn admin |
 | Rò rỉ qua cache/proxy | `no-store`, `private`, không CDN cho endpoint token |

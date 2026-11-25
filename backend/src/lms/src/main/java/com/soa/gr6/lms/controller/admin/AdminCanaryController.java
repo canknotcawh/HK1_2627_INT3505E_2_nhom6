@@ -2,6 +2,7 @@ package com.soa.gr6.lms.controller.admin;
 
 import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.dto.CanaryAccessResponse;
+import com.soa.gr6.lms.dto.CanaryGroupSummary;
 import com.soa.gr6.lms.dto.CanaryLookupResult;
 import com.soa.gr6.lms.dto.CanaryRevokeCountResponse;
 import com.soa.gr6.lms.dto.CanaryRevokeForUserRequest;
@@ -44,6 +45,14 @@ public class AdminCanaryController {
                                          @PageableDefault(size = 20, sort = "issuedAt", direction = Sort.Direction.DESC)
                                          Pageable pageable) {
         return canaryTokenService.list(bookId, userId, status, q, pageable);
+    }
+
+    /** Danh sách gom theo người đọc + sách; bấm vào một nhóm mới tải các token bên trong. */
+    @GetMapping("/groups")
+    public Page<CanaryGroupSummary> groups(@RequestParam(required = false) String q,
+                                           @RequestParam(required = false) UUID bookId,
+                                           @PageableDefault(size = 10) Pageable pageable) {
+        return canaryTokenService.groups(bookId, q, pageable);
     }
 
     @GetMapping("/{tokenId}")

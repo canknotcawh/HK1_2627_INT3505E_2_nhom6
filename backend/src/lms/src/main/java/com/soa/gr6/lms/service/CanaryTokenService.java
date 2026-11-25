@@ -3,6 +3,7 @@ package com.soa.gr6.lms.service;
 import com.soa.gr6.lms.domain.enums.CanaryPurpose;
 import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.dto.CanaryAccessResponse;
+import com.soa.gr6.lms.dto.CanaryGroupSummary;
 import com.soa.gr6.lms.dto.CanaryLinkResponse;
 import com.soa.gr6.lms.dto.CanaryLookupResult;
 import com.soa.gr6.lms.dto.CanaryTokenDetail;
@@ -24,6 +25,9 @@ public interface CanaryTokenService {
     ReaderPayload open(String rawToken, ClientFingerprint fingerprint, String rangeHeader, String requestId);
 
     Page<CanaryTokenSummary> list(UUID bookId, UUID userId, String status, String q, Pageable pageable);
+
+    /** Gom theo cặp (người đọc, sách); q tìm theo mã token, email, họ tên hoặc tên sách. */
+    Page<CanaryGroupSummary> groups(UUID bookId, String q, Pageable pageable);
 
     CanaryTokenDetail detail(UUID tokenId);
 

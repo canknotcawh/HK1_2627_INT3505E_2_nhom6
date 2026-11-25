@@ -2098,6 +2098,57 @@ paths:
       summary: Danh sách canary token (lọc, phân trang)
       security:
       - bearerAuth: []
+  /api/v1/admin/canary-tokens/groups:
+    get:
+      tags:
+      - Quản trị — Canary
+      operationId: groups
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Tìm theo email, họ tên người đọc, tên sách hoặc mã token.
+      - name: bookId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Chỉ lấy nhóm của một sách.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+        description: Số trang, bắt đầu từ 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 10
+          minimum: 1
+        description: Số nhóm mỗi trang.
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCanaryGroupSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      summary: Token gom theo người đọc và sách
+      security:
+      - bearerAuth: []
   /api/v1/admin/canary-tokens/{tokenId}:
     get:
       tags:
@@ -2774,10 +2825,15 @@ components:
           $ref: '#/components/schemas/CanaryTokenSummary'
         revokeReason:
           type: string
+        createdIpAddress:
+          type: string
+          description: IP của thiết bị đã yêu cầu cấp token.
         createdIpHash:
           type: string
         createdUaHash:
           type: string
+        createdLocation:
+          $ref: '#/components/schemas/ClientLocationResponse'
         file:
           $ref: '#/components/schemas/FileRef'
         riskFlags:
@@ -3217,6 +3273,42 @@ components:
           type: boolean
         empty:
           type: boolean
+    ClientLocationResponse:
+      type: object
+      description: IP và vị trí ước lượng của thiết bị tại thời điểm truy cập.
+      properties:
+        ipAddress:
+          type: string
+        ipVersion:
+          type: string
+          enum:
+          - IPv4
+          - IPv6
+        countryCode:
+          type: string
+        country:
+          type: string
+        region:
+          type: string
+        city:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        timezone:
+          type: string
+        isp:
+          type: string
+        source:
+          type: string
+          enum:
+          - PENDING
+          - GEOIP
+          - LOCAL
+          - UNKNOWN
     CanaryAccessResponse:
       type: object
       properties:
@@ -3230,6 +3322,11 @@ components:
           type: string
         uaHash:
           type: string
+        ipAddress:
+          type: string
+          description: Địa chỉ IP của thiết bị đã dùng token.
+        location:
+          $ref: '#/components/schemas/ClientLocationResponse'
         outcome:
           type: string
           enum:
@@ -3245,6 +3342,64 @@ components:
           type: string
         requestId:
           type: string
+    CanaryGroupSummary:
+      type: object
+      description: Một nhóm token của cùng một người đọc cho cùng một bản PDF.
+      properties:
+        book:
+          $ref: '#/components/schemas/BookRef'
+        user:
+          $ref: '#/components/schemas/UserRef'
+        tokenCount:
+          type: integer
+          format: int64
+        activeTokenCount:
+          type: integer
+          format: int64
+        accessCount:
+          type: integer
+          format: int64
+        distinctIpCount:
+          type: integer
+          format: int64
+        lastSeenAt:
+          type: string
+          format: date-time
+        lastIssuedAt:
+          type: string
+          format: date-time
+    PageCanaryGroupSummary:
+      type: object
+      properties:
+        totalPages:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        size:
+          type: integer
+          format: int32
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CanaryGroupSummary'
+        number:
+          type: integer
+          format: int32
+        pageable:
+          $ref: '#/components/schemas/PageableObject'
+        sort:
+          $ref: '#/components/schemas/SortObject'
+        numberOfElements:
+          type: integer
+          format: int32
+        first:
+          type: boolean
+        last:
+          type: boolean
+        empty:
+          type: boolean
     PageCanaryAccessResponse:
       type: object
       properties:

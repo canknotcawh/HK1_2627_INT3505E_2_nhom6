@@ -15,10 +15,13 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.env.MockEnvironment;
 
 import com.soa.gr6.lms.domain.Book;
 import com.soa.gr6.lms.domain.BookFile;
+import com.soa.gr6.lms.domain.CanaryAccess;
 import com.soa.gr6.lms.domain.CanaryToken;
 import com.soa.gr6.lms.domain.Loan;
 import com.soa.gr6.lms.domain.User;
@@ -28,6 +31,7 @@ import com.soa.gr6.lms.domain.enums.CanaryOutcome;
 import com.soa.gr6.lms.domain.enums.CanaryPurpose;
 import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
+import com.soa.gr6.lms.dto.CanaryGroupRow;
 import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.repository.BookFileRepository;
@@ -37,6 +41,9 @@ import com.soa.gr6.lms.repository.CanaryTokenRepository;
 import com.soa.gr6.lms.repository.LoanRepository;
 import com.soa.gr6.lms.repository.UserRepository;
 import com.soa.gr6.lms.service.CanaryTokenService;
+import com.soa.gr6.lms.service.support.CanaryAccessLocationEnricher;
+import com.soa.gr6.lms.service.support.IpGeolocationService;
+import com.soa.gr6.lms.service.support.IpLocation;
 import com.soa.gr6.lms.service.support.RateLimiter;
 import com.soa.gr6.lms.storage.StorageService;
 
@@ -49,6 +56,8 @@ class CanaryTokenServiceImplTest {
     private final LoanRepository loans = mock(LoanRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final StorageService storage = mock(StorageService.class);
+    private final IpGeolocationService geolocation = mock(IpGeolocationService.class);
+    private final CanaryAccessLocationEnricher locationEnricher = mock(CanaryAccessLocationEnricher.class);
 
     private final UUID userId = UUID.randomUUID();
     private final UUID bookId = UUID.randomUUID();
@@ -64,8 +73,10 @@ class CanaryTokenServiceImplTest {
     void setUp() {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("dev");
+        when(geolocation.resolve(any())).thenReturn(new IpLocation("1.2.3.4", "IPv4", "VN", "Vietnam",
+                "Hanoi", "Hanoi", 21.03, 105.85, "Asia/Bangkok", "Viettel", IpLocation.SOURCE_GEOIP));
         service = new CanaryTokenServiceImpl(tokens, accesses, books, files, loans, users, storage, new RateLimiter(),
-                environment, Duration.ofMinutes(30), Duration.ofMinutes(15), Duration.ofHours(12), "", 10, 120);
+                geolocation, locationEnricher, environment, Duration.ofMinutes(30), Duration.ofMinutes(15), Duration.ofHours(12), "", 10, 120);
 
         book = new Book(bookId, "Clean Code");
         book.updateCopyCounts(2, 2);
@@ -100,14 +111,14 @@ class CanaryTokenServiceImplTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("dev");
         return new CanaryTokenServiceImpl(tokens, accesses, books, files, loans, users, storage, new RateLimiter(),
-                environment, Duration.ofMinutes(30), Duration.ofMinutes(15), Duration.ofHours(12), "",
+                geolocation, locationEnricher, environment, Duration.ofMinutes(30), Duration.ofMinutes(15), Duration.ofHours(12), "",
                 issueLimit, streamLimit);
     }
 
     private CanaryToken token(Instant expiresAt, CanaryPurpose purpose, Loan attachedLoan) {
         return new CanaryToken(UUID.randomUUID(), CanaryTokenServiceImpl.sha256("cnr_abcdefghijklmnopqrstuv"),
                 "cnr_abcdef", book, fullFile, user, attachedLoan, purpose,
-                Instant.now().minus(Duration.ofMinutes(1)), expiresAt, null, null);
+                Instant.now().minus(Duration.ofMinutes(1)), expiresAt, "1.2.3.4", null, null);
     }
 
     @Test
@@ -163,6 +174,167 @@ class CanaryTokenServiceImplTest {
         assertThat(payload.partial()).isFalse();
         assertThat(active.getAccessCount()).isEqualTo(1);
         assertThat(active.getLastSeenAt()).isNotNull();
+    }
+
+    @Test
+    void openRecordsClientIpWithoutResolvingLocationInsideTheStreamTransaction() {
+        CanaryToken active = token(Instant.now().plus(Duration.ofMinutes(10)), CanaryPurpose.READ, loan);
+        when(tokens.findByTokenHash(any())).thenReturn(Optional.of(active));
+        when(storage.open("books/x/f.pdf")).thenReturn(new ByteArrayInputStream("%PDF".getBytes()));
+
+        service.open("cnr_abcdefghijklmnopqrstuv",
+                new CanaryTokenService.ClientFingerprint("1.2.3.4", "JUnit"), null, "req-geo");
+
+        var captor = org.mockito.ArgumentCaptor.forClass(com.soa.gr6.lms.domain.CanaryAccess.class);
+        org.mockito.Mockito.verify(accesses).save(captor.capture());
+        var access = captor.getValue();
+        assertThat(access.getIpAddress()).isEqualTo("1.2.3.4");
+        assertThat(access.getIpVersion()).isEqualTo("IPv4");
+        assertThat(access.getLocationSource()).isEqualTo(IpLocation.SOURCE_PENDING);
+        assertThat(access.getCityName()).isNull();
+        assertThat(access.getIpHash()).isNotEqualTo("1.2.3.4");
+        // Không gọi dịch vụ geolocation trên luồng đọc PDF.
+        org.mockito.Mockito.verifyNoInteractions(geolocation);
+    }
+
+    @Test
+    void openHandsLocationResolutionToTheBackgroundEnricherAfterTheRowExists() {
+        CanaryToken active = token(Instant.now().plus(Duration.ofMinutes(10)), CanaryPurpose.READ, loan);
+        when(tokens.findByTokenHash(any())).thenReturn(Optional.of(active));
+        when(storage.open("books/x/f.pdf")).thenReturn(new ByteArrayInputStream("%PDF".getBytes()));
+        when(accesses.save(any(com.soa.gr6.lms.domain.CanaryAccess.class))).thenAnswer(call -> {
+            var saved = (com.soa.gr6.lms.domain.CanaryAccess) call.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(saved, "id", 42L);
+            return saved;
+        });
+
+        service.open("cnr_abcdefghijklmnopqrstuv",
+                new CanaryTokenService.ClientFingerprint("1.2.3.4", "JUnit"), null, "req-geo");
+
+        org.mockito.Mockito.verify(locationEnricher).enrich(42L, "1.2.3.4");
+    }
+
+    @Test
+    void accessesResolvesRowsLeftPendingWhenTheBackgroundTaskNeverRan() {
+        UUID tokenId = UUID.randomUUID();
+        CanaryAccess stuck = pendingAccessRow(99L, "203.113.1.1");
+        when(tokens.existsById(tokenId)).thenReturn(true);
+        when(accesses.findByTokenIdOrderByAccessedAtDesc(any(), any()))
+                .thenReturn(new PageImpl<>(List.of(stuck), PageRequest.of(0, 20), 1));
+        when(locationEnricher.resolveNow(99L, "203.113.1.1"))
+                .thenReturn(new IpLocation("203.113.1.1", "IPv4", "VN", "Vietnam", "Hanoi", "Hanoi",
+                        21.03, 105.85, "Asia/Bangkok", "Viettel", IpLocation.SOURCE_GEOIP));
+
+        var page = service.accesses(tokenId, PageRequest.of(0, 20));
+
+        var row = page.getContent().get(0);
+        assertThat(row.ipAddress()).isEqualTo("203.113.1.1");
+        assertThat(row.location().city()).isEqualTo("Hanoi");
+        assertThat(row.location().source()).isEqualTo(IpLocation.SOURCE_GEOIP);
+    }
+
+    @Test
+    void accessesDoesNotResolveRowsThatAlreadyHaveALocation() {
+        UUID tokenId = UUID.randomUUID();
+        CanaryAccess resolved = pendingAccessRow(5L, "1.2.3.4");
+        resolved.applyLocation(new IpLocation("1.2.3.4", "IPv4", "VN", "Vietnam", "Hanoi", "Hanoi",
+                21.03, 105.85, "Asia/Bangkok", "Viettel", IpLocation.SOURCE_GEOIP));
+        when(tokens.existsById(tokenId)).thenReturn(true);
+        when(accesses.findByTokenIdOrderByAccessedAtDesc(any(), any()))
+                .thenReturn(new PageImpl<>(List.of(resolved), PageRequest.of(0, 20), 1));
+
+        service.accesses(tokenId, PageRequest.of(0, 20));
+
+        org.mockito.Mockito.verify(locationEnricher, org.mockito.Mockito.never()).resolveNow(any(), any());
+    }
+
+    private CanaryAccess pendingAccessRow(long id, String ipAddress) {
+        CanaryAccess access = new CanaryAccess(UUID.randomUUID(), Instant.now(), "hash", "ua",
+                CanaryOutcome.OK, 1L, null, "req", ipAddress);
+        org.springframework.test.util.ReflectionTestUtils.setField(access, "id", id);
+        return access;
+    }
+
+    @Test
+    void groupsAggregateTokensPerReaderAndBook() {
+        Instant lastSeen = Instant.now();
+        var row = new CanaryGroupRow(bookId, "Clean Code", userId, "reader@example.com", "Reader",
+                3, 12, 2, lastSeen, Instant.now().minus(Duration.ofHours(2)));
+        when(tokens.findGroups(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("reader@example.com"), any(), any())).thenReturn(List.of(row));
+        when(tokens.countGroups(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("reader@example.com"))).thenReturn(1L);
+        when(accesses.countDistinctIpsForReader(bookId, userId)).thenReturn(2L);
+
+        var page = service.groups(null, "reader@example.com", PageRequest.of(0, 10));
+
+        assertThat(page.getTotalElements()).isEqualTo(1);
+        var group = page.getContent().get(0);
+        assertThat(group.book().title()).isEqualTo("Clean Code");
+        assertThat(group.user().email()).isEqualTo("reader@example.com");
+        assertThat(group.user().fullName()).isEqualTo("Reader");
+        assertThat(group.tokenCount()).isEqualTo(3);
+        assertThat(group.activeTokenCount()).isEqualTo(2);
+        assertThat(group.accessCount()).isEqualTo(12);
+        assertThat(group.distinctIpCount()).isEqualTo(2);
+        assertThat(group.lastSeenAt()).isEqualTo(lastSeen);
+    }
+
+    @Test
+    void groupsPassPaginationAndBookFilterToTheQuery() {
+        var first = new CanaryGroupRow(bookId, "Clean Code", UUID.randomUUID(), "c@example.com", "C",
+                1, 1, 1, Instant.now(), Instant.now());
+        var second = new CanaryGroupRow(bookId, "Clean Code", UUID.randomUUID(), "d@example.com", "D",
+                1, 1, 1, Instant.now(), Instant.now());
+        when(tokens.findGroups(org.mockito.ArgumentMatchers.eq(bookId), org.mockito.ArgumentMatchers.eq(""),
+                any(), any())).thenReturn(List.of(first, second));
+        when(tokens.countGroups(org.mockito.ArgumentMatchers.eq(bookId),
+                org.mockito.ArgumentMatchers.eq(""))).thenReturn(12L);
+
+        var page = service.groups(bookId, "",
+                PageRequest.of(1, 5, org.springframework.data.domain.Sort.by("issuedAt")));
+
+        var pageableCaptor = org.mockito.ArgumentCaptor
+                .forClass(org.springframework.data.domain.Pageable.class);
+        org.mockito.Mockito.verify(tokens).findGroups(org.mockito.ArgumentMatchers.eq(bookId),
+                org.mockito.ArgumentMatchers.eq(""), any(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
+        // Sort của client bị bỏ để thứ tự cố định trong query không bị phá.
+        assertThat(pageableCaptor.getValue().getSort().isSorted()).isFalse();
+        assertThat(page.getTotalElements()).isEqualTo(12);
+        assertThat(page.getTotalPages()).isEqualTo(3);
+        assertThat(page.getContent()).hasSize(2);
+        assertThat(page.getContent().get(0).user().email()).isEqualTo("c@example.com");
+        org.mockito.Mockito.verify(tokens).countGroups(bookId, "");
+        // Chỉ 2 nhóm của trang hiện tại được đếm IP, không phải 12 nhóm trong toàn bộ kết quả.
+        org.mockito.Mockito.verify(accesses, org.mockito.Mockito.times(2))
+                .countDistinctIpsForReader(any(), any());
+    }
+
+    @Test
+    void groupsUseGlobalCountWhenNoBookFilterIsGiven() {
+        when(tokens.findGroups(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(""),
+                any(), any())).thenReturn(List.of());
+        when(tokens.countGroups(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(""))).thenReturn(42L);
+
+        var page = service.groups(null, null, PageRequest.of(0, 10));
+
+        assertThat(page.getTotalElements()).isEqualTo(42);
+        assertThat(page.getContent()).isEmpty();
+        org.mockito.Mockito.verify(tokens).countGroups(null, "");
+    }
+
+    @Test
+    void detailResolvesLocationOfTheIssuingIp() {
+        CanaryToken active = token(Instant.now().plus(Duration.ofMinutes(10)), CanaryPurpose.READ, loan);
+        when(tokens.findById(active.getId())).thenReturn(Optional.of(active));
+
+        var detail = service.detail(active.getId());
+
+        assertThat(detail.createdLocation()).isNotNull();
+        assertThat(detail.createdLocation().city()).isEqualTo("Hanoi");
     }
 
     @Test
