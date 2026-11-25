@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Locale;
 
 /**
  * Lấy IP thật của thiết bị đã mở link canary.
@@ -32,26 +33,47 @@ public class ClientIpResolver {
         if (!trustForwardedHeaders || !isInternal(peer)) {
             return peer;
         }
-        String forwarded = firstAddress(request.getHeader("X-Forwarded-For"));
+        String forwarded = forwardedClient(request.getHeader("X-Forwarded-For"));
         if (forwarded != null) {
             return forwarded;
         }
-        String realIp = firstAddress(request.getHeader("X-Real-IP"));
+        String realIp = literalIp(request.getHeader("X-Real-IP"));
         if (realIp != null) {
             return realIp;
         }
         return peer;
     }
 
-    private static String firstAddress(String header) {
+    /**
+     * Đọc {@code X-Forwarded-For} từ phải sang trái và lấy địa chỉ công cộng đầu tiên.
+     *
+     * <p>Header này do client tự gửi, còn mỗi proxy chỉ nối thêm địa chỉ peer của nó vào cuối.
+     * Vì vậy phần bên trái có thể là giá trị giả mạo; địa chỉ đúng là hop gần ta nhất mà không
+     * phải proxy nội bộ — tức client thật.</p>
+     */
+    private static String forwardedClient(String header) {
         if (header == null || header.isBlank()) {
             return null;
         }
-        String first = header.split(",")[0].trim();
-        return looksLikeIp(first) ? normalize(first) : null;
+        String[] parts = header.split(",");
+        for (int i = parts.length - 1; i >= 0; i--) {
+            String candidate = literalIp(parts[i]);
+            if (candidate != null && !isInternal(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
-    /** Chuẩn hoá "::ffff:1.2.3.4" → "1.2.3.4"; giá trị lạ được trả nguyên văn (đã trim). */
+    private static String literalIp(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        return looksLikeIp(value) ? normalize(value) : null;
+    }
+
+    /** Chuẩn hoá "::ffff:1.2.3.4" → "1.2.3.4", "[::1]" và "0:0:0:0:0:0:0:1" → "::1". */
     public static String normalize(String ip) {
         if (ip == null) {
             return null;
@@ -60,9 +82,18 @@ public class ClientIpResolver {
         if (value.isEmpty()) {
             return null;
         }
-        String lower = value.toLowerCase();
+        if (value.startsWith("[") && value.endsWith("]") && value.length() > 2) {
+            value = value.substring(1, value.length() - 1);
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
         if (lower.startsWith("::ffff:") && lower.indexOf('.') > 0) {
             return value.substring(value.lastIndexOf(':') + 1);
+        }
+        if ("0:0:0:0:0:0:0:1".equals(lower)) {
+            return "::1";
+        }
+        if ("0:0:0:0:0:0:0:0".equals(lower)) {
+            return "::";
         }
         return value;
     }

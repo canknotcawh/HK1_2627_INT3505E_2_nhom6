@@ -4,6 +4,7 @@ import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.dto.CanaryAccessResponse;
 import com.soa.gr6.lms.dto.CanaryGroupSummary;
 import com.soa.gr6.lms.dto.CanaryLookupResult;
+import com.soa.gr6.lms.dto.CanaryReadingEventResponse;
 import com.soa.gr6.lms.dto.CanaryRevokeCountResponse;
 import com.soa.gr6.lms.dto.CanaryRevokeForUserRequest;
 import com.soa.gr6.lms.dto.CanaryRevokeRequest;
@@ -64,6 +65,13 @@ public class AdminCanaryController {
     public Page<CanaryAccessResponse> accesses(@PathVariable UUID tokenId,
                                                @PageableDefault(size = 20) Pageable pageable) {
         return canaryTokenService.accesses(tokenId, pageable);
+    }
+
+    /** Dòng thời gian mở/đóng/tải lại/hành vi đáng ngờ trên bản PDF của token. */
+    @GetMapping("/{tokenId}/events")
+    public Page<CanaryReadingEventResponse> events(@PathVariable UUID tokenId,
+                                                   @PageableDefault(size = 20) Pageable pageable) {
+        return canaryTokenService.readingEvents(tokenId, pageable);
     }
 
     @GetMapping("/lookup")

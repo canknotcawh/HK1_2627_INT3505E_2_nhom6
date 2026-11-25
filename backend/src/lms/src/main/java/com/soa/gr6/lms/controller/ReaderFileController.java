@@ -1,8 +1,11 @@
 package com.soa.gr6.lms.controller;
 
+import com.soa.gr6.lms.domain.enums.CanaryReadingEventType;
+import com.soa.gr6.lms.dto.CanaryReadingEventRequest;
 import com.soa.gr6.lms.service.CanaryTokenService;
 import com.soa.gr6.lms.service.support.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -10,8 +13,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URLEncoder;
@@ -63,6 +69,19 @@ public class ReaderFileController {
                     "bytes " + payload.start() + "-" + (payload.start() + payload.length() - 1) + "/" + payload.totalSize());
         }
         return builder.body(new InputStreamResource(payload.stream()));
+    }
+
+    /**
+     * Ghi hành vi người đọc trên bản PDF (mở/đóng/tải lại/đáng ngờ).
+     * Token là credential nên không cần đăng nhập; token lạ bị bỏ qua im lặng.
+     */
+    @PostMapping("/{token}/events")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void recordEvent(@PathVariable String token,
+                            @Valid @RequestBody CanaryReadingEventRequest body,
+                            HttpServletRequest request) {
+        canaryTokenService.recordReadingEvent(
+                token, fingerprint(request), CanaryReadingEventType.parse(body.event()), body.detail());
     }
 
     private CanaryTokenService.ClientFingerprint fingerprint(HttpServletRequest request) {

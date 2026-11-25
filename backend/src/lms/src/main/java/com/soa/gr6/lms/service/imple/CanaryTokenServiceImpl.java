@@ -3,6 +3,7 @@ package com.soa.gr6.lms.service.imple;
 import com.soa.gr6.lms.domain.Book;
 import com.soa.gr6.lms.domain.BookFile;
 import com.soa.gr6.lms.domain.CanaryAccess;
+import com.soa.gr6.lms.domain.CanaryReadingEvent;
 import com.soa.gr6.lms.domain.CanaryToken;
 import com.soa.gr6.lms.domain.Loan;
 import com.soa.gr6.lms.domain.User;
@@ -10,6 +11,7 @@ import com.soa.gr6.lms.domain.enums.BookFileKind;
 import com.soa.gr6.lms.domain.enums.BookFileStatus;
 import com.soa.gr6.lms.domain.enums.CanaryOutcome;
 import com.soa.gr6.lms.domain.enums.CanaryPurpose;
+import com.soa.gr6.lms.domain.enums.CanaryReadingEventType;
 import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
 import com.soa.gr6.lms.domain.enums.UserStatus;
@@ -18,6 +20,7 @@ import com.soa.gr6.lms.dto.CanaryGroupRow;
 import com.soa.gr6.lms.dto.CanaryGroupSummary;
 import com.soa.gr6.lms.dto.CanaryLinkResponse;
 import com.soa.gr6.lms.dto.CanaryLookupResult;
+import com.soa.gr6.lms.dto.CanaryReadingEventResponse;
 import com.soa.gr6.lms.dto.CanaryTokenDetail;
 import com.soa.gr6.lms.dto.CanaryTokenSummary;
 import com.soa.gr6.lms.dto.ClientLocationResponse;
@@ -28,6 +31,7 @@ import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.repository.BookFileRepository;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.repository.CanaryAccessRepository;
+import com.soa.gr6.lms.repository.CanaryReadingEventRepository;
 import com.soa.gr6.lms.repository.CanaryTokenRepository;
 import com.soa.gr6.lms.repository.LoanRepository;
 import com.soa.gr6.lms.repository.UserRepository;
@@ -85,6 +89,8 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
     private static final int MAX_PAGE_SIZE = 100;
     /** Chặn trần số lần phân giải lại khi admin mở lịch sử truy cập có nhiều dòng kẹt PENDING. */
     private static final int MAX_LOCATION_RECOVERY_PER_PAGE = 10;
+    /** Cắt phần mô tả hành vi do client gửi lên để không phình bảng sự kiện. */
+    private static final int MAX_EVENT_DETAIL_LENGTH = 160;
     private static final String DEV_PEPPER = "dev-only-canary-ip-pepper-32-bytes-minimum";
     private static final DateTimeFormatter WATERMARK_TIME =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -93,6 +99,7 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
 
     private final CanaryTokenRepository tokenRepository;
     private final CanaryAccessRepository accessRepository;
+    private final CanaryReadingEventRepository readingEventRepository;
     private final BookRepository bookRepository;
     private final BookFileRepository bookFileRepository;
     private final LoanRepository loanRepository;
@@ -109,9 +116,11 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
     private final String ipPepper;
     private final int issueLimitPerMinute;
     private final int streamLimitPerMinute;
+    private final int eventLimitPerMinute;
 
     public CanaryTokenServiceImpl(CanaryTokenRepository tokenRepository,
                                   CanaryAccessRepository accessRepository,
+                                  CanaryReadingEventRepository readingEventRepository,
                                   BookRepository bookRepository,
                                   BookFileRepository bookFileRepository,
                                   LoanRepository loanRepository,
@@ -129,6 +138,7 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
                                   @Value("${app.canary.rate-limit.stream-per-minute:120}") int streamLimitPerMinute) {
         this.tokenRepository = tokenRepository;
         this.accessRepository = accessRepository;
+        this.readingEventRepository = readingEventRepository;
         this.bookRepository = bookRepository;
         this.bookFileRepository = bookFileRepository;
         this.loanRepository = loanRepository;
@@ -144,6 +154,8 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
         this.ipPepper = ipPepper;
         this.issueLimitPerMinute = issueLimitPerMinute;
         this.streamLimitPerMinute = streamLimitPerMinute;
+        this.eventLimitPerMinute = environment.getProperty(
+                "app.canary.rate-limit.event-per-minute", Integer.class, 120);
     }
 
     /** Ở prod bắt buộc có pepper riêng; dev dùng pepper cố định để không phải cấu hình. */
@@ -496,6 +508,47 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
         }
         String upper = status.trim().toUpperCase(Locale.ROOT);
         return upper.equals("ACTIVE") || upper.equals("EXPIRED") || upper.equals("REVOKED") ? upper : "";
+    }
+
+    @Override
+    @Transactional
+    public void recordReadingEvent(String rawToken, ClientFingerprint fingerprint,
+                                   CanaryReadingEventType event, String detail) {
+        if (rawToken == null || rawToken.isBlank() || event == null) {
+            return;
+        }
+        String tokenHash = sha256(rawToken.trim());
+        if (!rateLimiter.tryAcquire("event:" + tokenHash, eventLimitPerMinute, Duration.ofMinutes(1))) {
+            return;
+        }
+        CanaryToken token = tokenRepository.findByTokenHash(tokenHash).orElse(null);
+        if (token == null) {
+            // Không ghi, không báo lỗi: tránh dùng endpoint này để dò token.
+            return;
+        }
+        String ip = fingerprint == null ? null : fingerprint.ip();
+        String note = detail == null || detail.isBlank() ? null : detail.trim();
+        if (note != null && note.length() > MAX_EVENT_DETAIL_LENGTH) {
+            note = note.substring(0, MAX_EVENT_DETAIL_LENGTH);
+        }
+        readingEventRepository.save(new CanaryReadingEvent(
+                token.getId(),
+                event,
+                note,
+                ip,
+                hmac(fingerprint == null ? null : fingerprint.userAgent()),
+                Instant.now()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CanaryReadingEventResponse> readingEvents(UUID tokenId, Pageable pageable) {
+        if (!tokenRepository.existsById(tokenId)) {
+            throw new ApiException(ErrorCode.CANARY_TOKEN_NOT_FOUND);
+        }
+        return readingEventRepository.findByTokenIdOrderByOccurredAtDesc(
+                        tokenId, PageableSupport.clamp(pageable, MAX_PAGE_SIZE))
+                .map(CanaryReadingEventResponse::from);
     }
 
     private void record(UUID tokenId, CanaryOutcome outcome, ClientFingerprint fingerprint,

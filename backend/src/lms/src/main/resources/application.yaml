@@ -55,7 +55,21 @@ app:
     rate-limit:
       issue-per-minute: ${CANARY_ISSUE_PER_MINUTE:10}
       stream-per-minute: ${CANARY_STREAM_PER_MINUTE:120}
+      # Sự kiện mở/đóng/tải lại do trình đọc gửi lên: chặn spam làm phình bảng sự kiện.
+      event-per-minute: ${CANARY_EVENT_PER_MINUTE:120}
   email-verification:
     challenge-ttl: ${EMAIL_VERIFICATION_TTL:10m}
     resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:60s}
     max-attempts: ${EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+# Không có cờ dev/debug nào bật được log chi tiết của dữ liệu người đọc:
+# SQL, tham số bind và IP không bao giờ được ghi ra log. Chỉ đổi khi sửa file này.
+spring.jpa.show-sql: false
+
+logging:
+  level:
+    root: INFO
+    com.soa.gr6.lms: INFO
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.orm.jdbc.extract: OFF
+    org.springframework.orm.jpa: WARN

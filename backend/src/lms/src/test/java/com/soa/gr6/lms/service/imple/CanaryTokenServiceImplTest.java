@@ -29,6 +29,7 @@ import com.soa.gr6.lms.domain.enums.BookFileKind;
 import com.soa.gr6.lms.domain.enums.BookFileStatus;
 import com.soa.gr6.lms.domain.enums.CanaryOutcome;
 import com.soa.gr6.lms.domain.enums.CanaryPurpose;
+import com.soa.gr6.lms.domain.enums.CanaryReadingEventType;
 import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
 import com.soa.gr6.lms.dto.CanaryGroupRow;
@@ -37,6 +38,7 @@ import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.repository.BookFileRepository;
 import com.soa.gr6.lms.repository.BookRepository;
 import com.soa.gr6.lms.repository.CanaryAccessRepository;
+import com.soa.gr6.lms.repository.CanaryReadingEventRepository;
 import com.soa.gr6.lms.repository.CanaryTokenRepository;
 import com.soa.gr6.lms.repository.LoanRepository;
 import com.soa.gr6.lms.repository.UserRepository;
@@ -51,6 +53,7 @@ class CanaryTokenServiceImplTest {
 
     private final CanaryTokenRepository tokens = mock(CanaryTokenRepository.class);
     private final CanaryAccessRepository accesses = mock(CanaryAccessRepository.class);
+    private final CanaryReadingEventRepository readingEvents = mock(CanaryReadingEventRepository.class);
     private final BookRepository books = mock(BookRepository.class);
     private final BookFileRepository files = mock(BookFileRepository.class);
     private final LoanRepository loans = mock(LoanRepository.class);
@@ -75,7 +78,7 @@ class CanaryTokenServiceImplTest {
         environment.setActiveProfiles("dev");
         when(geolocation.resolve(any())).thenReturn(new IpLocation("1.2.3.4", "IPv4", "VN", "Vietnam",
                 "Hanoi", "Hanoi", 21.03, 105.85, "Asia/Bangkok", "Viettel", IpLocation.SOURCE_GEOIP));
-        service = new CanaryTokenServiceImpl(tokens, accesses, books, files, loans, users, storage, new RateLimiter(),
+        service = new CanaryTokenServiceImpl(tokens, accesses, readingEvents, books, files, loans, users, storage, new RateLimiter(),
                 geolocation, locationEnricher, environment, Duration.ofMinutes(30), Duration.ofMinutes(15), Duration.ofHours(12), "", 10, 120);
 
         book = new Book(bookId, "Clean Code");
@@ -110,7 +113,7 @@ class CanaryTokenServiceImplTest {
     private CanaryTokenServiceImpl serviceWithLimits(int issueLimit, int streamLimit) {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("dev");
-        return new CanaryTokenServiceImpl(tokens, accesses, books, files, loans, users, storage, new RateLimiter(),
+        return new CanaryTokenServiceImpl(tokens, accesses, readingEvents, books, files, loans, users, storage, new RateLimiter(),
                 geolocation, locationEnricher, environment, Duration.ofMinutes(30), Duration.ofMinutes(15), Duration.ofHours(12), "",
                 issueLimit, streamLimit);
     }
@@ -490,6 +493,30 @@ class CanaryTokenServiceImplTest {
 
         assertThat(active.getRevokeReason()).isEqualTo(CanaryRevokeReason.ADMIN);
         assertThat(active.getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    void recordsReadingEventForKnownTokenAndIgnoresUnknownToken() {
+        CanaryToken token = mock(CanaryToken.class);
+        UUID tokenId = UUID.randomUUID();
+        when(token.getId()).thenReturn(tokenId);
+        when(tokens.findByTokenHash(any())).thenReturn(Optional.of(token));
+        when(readingEvents.save(any())).thenAnswer(call -> call.getArgument(0));
+
+        var fingerprint = new CanaryTokenService.ClientFingerprint("203.113.131.1", "JUnit");
+        service.recordReadingEvent("cnr_known", fingerprint, CanaryReadingEventType.SUSPICIOUS, "right-click");
+
+        var saved = org.mockito.ArgumentCaptor.forClass(com.soa.gr6.lms.domain.CanaryReadingEvent.class);
+        org.mockito.Mockito.verify(readingEvents).save(saved.capture());
+        assertThat(saved.getValue().getTokenId()).isEqualTo(tokenId);
+        assertThat(saved.getValue().getEvent()).isEqualTo(CanaryReadingEventType.SUSPICIOUS);
+        assertThat(saved.getValue().getDetail()).isEqualTo("right-click");
+        assertThat(saved.getValue().getIpAddress()).isEqualTo("203.113.131.1");
+
+        when(tokens.findByTokenHash(any())).thenReturn(Optional.empty());
+        service.recordReadingEvent("cnr_unknown", fingerprint, CanaryReadingEventType.OPEN, null);
+
+        assertThat(saved.getAllValues()).hasSize(1);
     }
 
     @Test

@@ -20,6 +20,40 @@ export type CanaryLink = {
 
 type ReadingPurpose = "READ" | "PREVIEW";
 
+/** Hành vi của người đọc trên bản PDF, ghi nhận cho trang admin canary. */
+export type ReadingEventType = "OPEN" | "CLOSE" | "RELOAD" | "SUSPICIOUS";
+
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//localhost:8080`).replace(/\/$/, "");
+
+/** URL tuyệt đối tới endpoint stream canary (link backend trả về là đường dẫn tương đối). */
+export function readerFileUrl(url: string) {
+  return url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+}
+
+const recentEvents = new Map<string, number>();
+
+/**
+ * Gửi hành vi đọc lên backend (không chặn UI, không ném lỗi).
+ * Bỏ qua bản trùng trong 800ms để StrictMode/React re-render không nhân đôi sự kiện.
+ */
+export function sendReadingEvent(url: string, event: ReadingEventType, detail?: string) {
+  const key = `${url}|${event}`;
+  const now = Date.now();
+  const last = recentEvents.get(key) ?? 0;
+  if (now - last < 800) return;
+  recentEvents.set(key, now);
+  try {
+    void fetch(`${readerFileUrl(url)}/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, ...(detail ? { detail } : {}) }),
+      keepalive: true,
+    }).catch(() => undefined);
+  } catch {
+    // Theo dõi hành vi không bao giờ được làm hỏng việc đọc.
+  }
+}
+
 export async function getReadingAccess(bookId: string): Promise<ReadingAccess> {
   const response = await apiClient.get<ReadingAccess>(`/api/v1/users/me/books/${bookId}/reading-access`);
   return response.data;
