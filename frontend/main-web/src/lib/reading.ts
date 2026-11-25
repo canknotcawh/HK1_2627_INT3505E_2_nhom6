@@ -30,6 +30,16 @@ export function readerFileUrl(url: string) {
   return url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
 }
 
+/**
+ * Body dạng form thay vì JSON: trình duyệt gửi thẳng được (CORS "simple request", không preflight)
+ * nên cả fetch keepalive lẫn sendBeacon lúc đóng tab đều tới server.
+ */
+function eventBody(event: ReadingEventType, detail?: string) {
+  const body = new URLSearchParams({ event });
+  if (detail) body.set("detail", detail);
+  return body;
+}
+
 const recentEvents = new Map<string, number>();
 
 /**
@@ -39,19 +49,35 @@ const recentEvents = new Map<string, number>();
 export function sendReadingEvent(url: string, event: ReadingEventType, detail?: string) {
   const key = `${url}|${event}`;
   const now = Date.now();
-  const last = recentEvents.get(key) ?? 0;
-  if (now - last < 800) return;
+  if (now - (recentEvents.get(key) ?? 0) < 800) return;
+  if (recentEvents.size > 40) {
+    for (const [seenKey, seenAt] of recentEvents) {
+      if (now - seenAt > 5_000) recentEvents.delete(seenKey);
+    }
+  }
   recentEvents.set(key, now);
   try {
     void fetch(`${readerFileUrl(url)}/events`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event, ...(detail ? { detail } : {}) }),
+      body: eventBody(event, detail),
       keepalive: true,
     }).catch(() => undefined);
   } catch {
     // Theo dõi hành vi không bao giờ được làm hỏng việc đọc.
   }
+}
+
+/**
+ * Báo CLOSE khi tab bị đóng/điều hướng đi: lúc đó cleanup của React không chạy, còn fetch thường
+ * thì bị trình duyệt cắt. sendBeacon vẫn gửi nốt request sau khi trang đã bị huỷ.
+ */
+export function sendReadingCloseBeacon(url: string) {
+  try {
+    if (navigator.sendBeacon(`${readerFileUrl(url)}/events`, eventBody("CLOSE"))) return;
+  } catch {
+    // Trình duyệt chặn beacon: rơi xuống fetch keepalive bên dưới.
+  }
+  sendReadingEvent(url, "CLOSE");
 }
 
 export async function getReadingAccess(bookId: string): Promise<ReadingAccess> {
