@@ -1,8 +1,10 @@
 package com.soa.gr6.lms.service;
 
 import com.soa.gr6.lms.domain.enums.CanaryPurpose;
+import com.soa.gr6.lms.domain.enums.CanaryReadingEventType;
 import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.dto.CanaryAccessResponse;
+import com.soa.gr6.lms.dto.CanaryReadingEventResponse;
 import com.soa.gr6.lms.dto.CanaryGroupSummary;
 import com.soa.gr6.lms.dto.CanaryLinkResponse;
 import com.soa.gr6.lms.dto.CanaryLookupResult;
@@ -32,6 +34,15 @@ public interface CanaryTokenService {
     CanaryTokenDetail detail(UUID tokenId);
 
     Page<CanaryAccessResponse> accesses(UUID tokenId, Pageable pageable);
+
+    /**
+     * Ghi một hành vi của người đọc trên bản PDF (mở, đóng, tải lại, đáng ngờ).
+     * Token không tồn tại thì bỏ qua im lặng để endpoint không tiết lộ token có thật hay không.
+     */
+    void recordReadingEvent(String rawToken, ClientFingerprint fingerprint, CanaryReadingEventType event, String detail);
+
+    /** Dòng thời gian hành vi trên PDF của một token (mới nhất trước). */
+    Page<CanaryReadingEventResponse> readingEvents(UUID tokenId, Pageable pageable);
 
     CanaryTokenDetail revoke(UUID tokenId, CanaryRevokeReason reason, UUID adminId);
 

@@ -1,8 +1,6 @@
 package com.soa.gr6.lms.service.support;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -25,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class IpGeolocationService {
 
-    private static final Logger log = LoggerFactory.getLogger(IpGeolocationService.class);
+    
     private static final int MAX_CACHE_ENTRIES = 5_000;
     private static final Duration UNKNOWN_CACHE_TTL = Duration.ofMinutes(5);
 
@@ -100,7 +98,7 @@ public class IpGeolocationService {
                     IpLocation.SOURCE_GEOIP);
         } catch (RuntimeException e) {
             // Fail open: thiếu vị trí vẫn phải giữ được IP và lượt truy cập.
-            log.debug("Không phân giải được vị trí cho IP {}: {}", ip, e.getMessage());
+            // Không log IP hay lỗi chi tiết: log dev/debug không được phép bật cho dữ liệu này.
             return IpLocation.unknown(ip);
         }
     }

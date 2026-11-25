@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, ChevronDown, ChevronRight, History, LoaderCircle, MapPin, Search, ShieldOff, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, History, LoaderCircle, MapPin, MousePointerClick, Search, ShieldOff, ShieldCheck } from "lucide-react";
 import apiClient from "../lib/api-client";
 import type { Page } from "../lib/page";
 import { actionErrorMessage, listErrorMessage } from "../lib/http-errors";
@@ -56,6 +56,14 @@ type LocationInfo = {
   source: string | null;
 };
 
+type ReadingEventRow = {
+  id: number;
+  occurredAt: string;
+  event: "OPEN" | "CLOSE" | "RELOAD" | "SUSPICIOUS";
+  detail: string | null;
+  ipAddress: string | null;
+};
+
 type AccessRow = {
   id: number;
   accessedAt: string;
@@ -84,6 +92,35 @@ const outcomeStyles: Record<AccessRow["outcome"], string> = {
   REVOKED: "text-red-700",
   FORBIDDEN: "text-amber-700",
   NOT_FOUND: "text-neutral-500",
+};
+
+const readingEventLabels: Record<ReadingEventRow["event"], string> = {
+  OPEN: "Mở bản đọc",
+  CLOSE: "Đóng bản đọc",
+  RELOAD: "Tải lại / xin phiên mới",
+  SUSPICIOUS: "Hành vi đáng ngờ",
+};
+
+/** Nhãn tiếng Việt cho mã lý do do trình đọc gửi lên khi bắt được thao tác tải/sao chép. */
+const suspiciousReasons: Record<string, string> = {
+  "right-click": "Bấm chuột phải (menu lưu ảnh/PDF)",
+  "save-shortcut": "Ctrl/Cmd + S (lưu tệp)",
+  "print-shortcut": "Ctrl/Cmd + P (in / lưu PDF)",
+  "screenshot-key": "Phím PrintScreen",
+  "copy": "Sao chép nội dung",
+  "copy-shortcut": "Ctrl/Cmd + C",
+  "select-all-shortcut": "Ctrl/Cmd + A",
+};
+
+function suspiciousReason(detail: string) {
+  return suspiciousReasons[detail] ?? detail;
+}
+
+const readingEventStyles: Record<ReadingEventRow["event"], string> = {
+  OPEN: "bg-emerald-50 text-emerald-700",
+  CLOSE: "bg-neutral-100 text-neutral-600",
+  RELOAD: "bg-sky-50 text-sky-700",
+  SUSPICIOUS: "bg-amber-50 text-amber-800",
 };
 
 function locationLabel(location: LocationInfo | null) {
@@ -122,6 +159,8 @@ export default function CanaryManager() {
   const [accesses, setAccesses] = useState<Record<string, AccessRow[]>>({});
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const [readingEvents, setReadingEvents] = useState<Record<string, ReadingEventRow[]>>({});
+  const [eventError, setEventError] = useState<string | null>(null);
 
   const [lookupValue, setLookupValue] = useState("");
   const [lookupResult, setLookupResult] = useState<LookupResult | null>(null);
@@ -200,13 +239,21 @@ export default function CanaryManager() {
     }
     setOpenAccessTokenId(token.id);
     setAccessError(null);
+    setEventError(null);
     if (accesses[token.id]) return;
     setAccessLoading(true);
     try {
-      const response = await apiClient.get<Page<AccessRow>>(`/admin/canary-tokens/${token.id}/accesses`, {
-        params: { page: 0, size: 20 },
-      });
-      setAccesses(current => ({ ...current, [token.id]: response.data.content }));
+      const [accessResponse, eventResponse] = await Promise.all([
+        apiClient.get<Page<AccessRow>>(`/admin/canary-tokens/${token.id}/accesses`, {
+          params: { page: 0, size: 20 },
+        }),
+        apiClient.get<Page<ReadingEventRow>>(`/admin/canary-tokens/${token.id}/events`, {
+          params: { page: 0, size: 50 },
+        }).catch(() => null),
+      ]);
+      setAccesses(current => ({ ...current, [token.id]: accessResponse.data.content }));
+      setReadingEvents(current => ({ ...current, [token.id]: eventResponse?.data.content ?? [] }));
+      if (!eventResponse) setEventError("Không tải được hành vi trên PDF.");
     } catch (requestError) {
       setAccessError(actionErrorMessage(requestError, "Không tải được lịch sử truy cập."));
     } finally {
@@ -304,6 +351,46 @@ export default function CanaryManager() {
           </tbody>
         </table>
       )}
+
+      {eventError && <p role="alert" className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800">{eventError}</p>}
+      <div className="mt-3 border-t border-gray-100 pt-2">
+        <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          <MousePointerClick className="size-3.5" /> Hành vi trên bản PDF
+          {(readingEvents[token.id] ?? []).some(row => row.event === "SUSPICIOUS") && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium normal-case text-amber-800">
+              {(readingEvents[token.id] ?? []).filter(row => row.event === "SUSPICIOUS").length} đáng ngờ
+            </span>
+          )}
+        </div>
+        {(readingEvents[token.id] ?? []).length === 0 ? (
+          <p className="py-2 text-xs text-neutral-500">Chưa ghi nhận hành vi nào (mở / đóng / tải lại) trên bản PDF.</p>
+        ) : (
+          <table className="w-full text-left text-xs">
+            <thead className="text-[10px] uppercase tracking-wide text-neutral-400">
+              <tr>
+                <th className="py-1.5 pr-3 font-medium">Thời điểm</th>
+                <th className="py-1.5 pr-3 font-medium">Hành vi</th>
+                <th className="py-1.5 pr-3 font-medium">Chi tiết</th>
+                <th className="py-1.5 font-medium">IP</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {(readingEvents[token.id] ?? []).map(row => (
+                <tr key={row.id}>
+                  <td className="py-2 pr-3 whitespace-nowrap text-neutral-600">{formatDateTime(row.occurredAt)}</td>
+                  <td className="py-2 pr-3">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readingEventStyles[row.event]}`}>
+                      {readingEventLabels[row.event]}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-neutral-600">{row.detail ? suspiciousReason(row.detail) : "—"}</td>
+                  <td className="py-2 font-mono text-gray-800">{row.ipAddress ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 
