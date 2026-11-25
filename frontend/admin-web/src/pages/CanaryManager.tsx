@@ -160,7 +160,6 @@ export default function CanaryManager() {
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [readingEvents, setReadingEvents] = useState<Record<string, ReadingEventRow[]>>({});
-  const [eventError, setEventError] = useState<string | null>(null);
 
   const [lookupValue, setLookupValue] = useState("");
   const [lookupResult, setLookupResult] = useState<LookupResult | null>(null);
@@ -239,7 +238,6 @@ export default function CanaryManager() {
     }
     setOpenAccessTokenId(token.id);
     setAccessError(null);
-    setEventError(null);
     if (accesses[token.id]) return;
     setAccessLoading(true);
     try {
@@ -249,13 +247,12 @@ export default function CanaryManager() {
         }),
         apiClient.get<Page<ReadingEventRow>>(`/admin/canary-tokens/${token.id}/events`, {
           params: { page: 0, size: 50 },
-        }).catch(() => null),
+        }),
       ]);
       setAccesses(current => ({ ...current, [token.id]: accessResponse.data.content }));
-      setReadingEvents(current => ({ ...current, [token.id]: eventResponse?.data.content ?? [] }));
-      if (!eventResponse) setEventError("Không tải được hành vi trên PDF.");
+      setReadingEvents(current => ({ ...current, [token.id]: eventResponse.data.content }));
     } catch (requestError) {
-      setAccessError(actionErrorMessage(requestError, "Không tải được lịch sử truy cập."));
+      setAccessError(actionErrorMessage(requestError, "Không tải được lịch sử truy cập và hành vi đọc."));
     } finally {
       setAccessLoading(false);
     }
@@ -352,7 +349,6 @@ export default function CanaryManager() {
         </table>
       )}
 
-      {eventError && <p role="alert" className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800">{eventError}</p>}
       <div className="mt-3 border-t border-gray-100 pt-2">
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
           <MousePointerClick className="size-3.5" /> Hành vi trên bản PDF
