@@ -14,10 +14,13 @@ import com.soa.gr6.lms.domain.enums.CanaryRevokeReason;
 import com.soa.gr6.lms.domain.enums.LoanStatus;
 import com.soa.gr6.lms.domain.enums.UserStatus;
 import com.soa.gr6.lms.dto.CanaryAccessResponse;
+import com.soa.gr6.lms.dto.CanaryGroupRow;
+import com.soa.gr6.lms.dto.CanaryGroupSummary;
 import com.soa.gr6.lms.dto.CanaryLinkResponse;
 import com.soa.gr6.lms.dto.CanaryLookupResult;
 import com.soa.gr6.lms.dto.CanaryTokenDetail;
 import com.soa.gr6.lms.dto.CanaryTokenSummary;
+import com.soa.gr6.lms.dto.ClientLocationResponse;
 import com.soa.gr6.lms.dto.ReadingAccessResponse;
 import com.soa.gr6.lms.exception.ApiException;
 import com.soa.gr6.lms.exception.BookNotFoundException;
@@ -29,6 +32,9 @@ import com.soa.gr6.lms.repository.CanaryTokenRepository;
 import com.soa.gr6.lms.repository.LoanRepository;
 import com.soa.gr6.lms.repository.UserRepository;
 import com.soa.gr6.lms.service.CanaryTokenService;
+import com.soa.gr6.lms.service.support.CanaryAccessLocationEnricher;
+import com.soa.gr6.lms.service.support.IpGeolocationService;
+import com.soa.gr6.lms.service.support.IpLocation;
 import com.soa.gr6.lms.service.support.PageableSupport;
 import com.soa.gr6.lms.service.support.RateLimiter;
 import com.soa.gr6.lms.storage.StorageException;
@@ -38,11 +44,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -74,6 +83,8 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
     private static final int VISIBLE_PREFIX_LENGTH = 10;
     private static final int SUFFIX_LENGTH = 6;
     private static final int MAX_PAGE_SIZE = 100;
+    /** Chặn trần số lần phân giải lại khi admin mở lịch sử truy cập có nhiều dòng kẹt PENDING. */
+    private static final int MAX_LOCATION_RECOVERY_PER_PAGE = 10;
     private static final String DEV_PEPPER = "dev-only-canary-ip-pepper-32-bytes-minimum";
     private static final DateTimeFormatter WATERMARK_TIME =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -88,6 +99,8 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
     private final UserRepository userRepository;
     private final StorageService storageService;
     private final RateLimiter rateLimiter;
+    private final IpGeolocationService geolocationService;
+    private final CanaryAccessLocationEnricher locationEnricher;
     private final Environment environment;
 
     private final Duration readTtl;
@@ -105,6 +118,8 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
                                   UserRepository userRepository,
                                   StorageService storageService,
                                   RateLimiter rateLimiter,
+                                  IpGeolocationService geolocationService,
+                                  CanaryAccessLocationEnricher locationEnricher,
                                   Environment environment,
                                   @Value("${app.canary.read-ttl:30m}") Duration readTtl,
                                   @Value("${app.canary.preview-ttl:15m}") Duration previewTtl,
@@ -120,6 +135,8 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
         this.userRepository = userRepository;
         this.storageService = storageService;
         this.rateLimiter = rateLimiter;
+        this.geolocationService = geolocationService;
+        this.locationEnricher = locationEnricher;
         this.environment = environment;
         this.readTtl = readTtl;
         this.previewTtl = previewTtl;
@@ -189,6 +206,7 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
                 purpose,
                 now,
                 expiresAt,
+                fingerprint == null ? null : fingerprint.ip(),
                 hmac(fingerprint == null ? null : fingerprint.ip()),
                 hmac(fingerprint == null ? null : fingerprint.userAgent()));
         tokenRepository.save(token);
@@ -298,6 +316,22 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<CanaryGroupSummary> groups(UUID bookId, String q, Pageable pageable) {
+        Pageable clamped = PageableSupport.clamp(pageable, MAX_PAGE_SIZE);
+        // Thứ tự đã cố định trong query; bỏ Sort của client để LIMIT/OFFSET lấy đúng trang.
+        PageRequest pageRequest = PageRequest.of(clamped.getPageNumber(), clamped.getPageSize());
+        String query = q == null || q.isBlank() ? "" : q.trim();
+        List<CanaryGroupRow> rows = tokenRepository.findGroups(bookId, query, Instant.now(), pageRequest);
+        long total = tokenRepository.countGroups(bookId, query);
+        List<CanaryGroupSummary> content = rows.stream()
+                .map(row -> CanaryGroupSummary.from(row,
+                        accessRepository.countDistinctIpsForReader(row.bookId(), row.userId())))
+                .toList();
+        return new PageImpl<>(content, pageRequest, total);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CanaryTokenDetail detail(UUID tokenId) {
         Instant now = Instant.now();
         CanaryToken token = tokenRepository.findById(tokenId)
@@ -317,11 +351,16 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
         }
 
         BookFile file = token.getFile();
+        ClientLocationResponse createdLocation = token.getCreatedIpAddress() == null
+                ? null
+                : ClientLocationResponse.from(geolocationService.resolve(token.getCreatedIpAddress()));
         return new CanaryTokenDetail(
                 CanaryTokenSummary.of(token, now, distinctIps),
                 token.getRevokeReason() == null ? null : token.getRevokeReason().name(),
+                token.getCreatedIpAddress(),
                 token.getCreatedIpHash(),
                 token.getCreatedUaHash(),
+                createdLocation,
                 new CanaryTokenDetail.FileRef(file.getId(), file.getKind().name(), file.getOriginalName(),
                         file.getSizeBytes(), file.getSha256()),
                 riskFlags);
@@ -333,8 +372,28 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
         if (!tokenRepository.existsById(tokenId)) {
             throw new ApiException(ErrorCode.CANARY_TOKEN_NOT_FOUND);
         }
-        return accessRepository.findByTokenIdOrderByAccessedAtDesc(tokenId, PageableSupport.clamp(pageable, MAX_PAGE_SIZE))
-                .map(CanaryAccessResponse::from);
+        Page<CanaryAccess> page = accessRepository.findByTokenIdOrderByAccessedAtDesc(
+                tokenId, PageableSupport.clamp(pageable, MAX_PAGE_SIZE));
+        recoverStuckLocations(page.getContent());
+        return page.map(CanaryAccessResponse::from);
+    }
+
+    /**
+     * Task nền có thể không chạy (app restart, hàng đợi đầy), để lại dòng {@code PENDING} vĩnh viễn.
+     * Khi admin đọc lịch sử, phân giải lại ngay và ghi vào chính entity đang trả về.
+     */
+    private void recoverStuckLocations(List<CanaryAccess> rows) {
+        int recovered = 0;
+        for (CanaryAccess access : rows) {
+            if (!IpLocation.SOURCE_PENDING.equals(access.getLocationSource())) {
+                continue;
+            }
+            if (recovered >= MAX_LOCATION_RECOVERY_PER_PAGE) {
+                return;
+            }
+            access.applyLocation(locationEnricher.resolveNow(access.getId(), access.getIpAddress()));
+            recovered++;
+        }
     }
 
     @Override
@@ -441,15 +500,43 @@ public class CanaryTokenServiceImpl implements CanaryTokenService {
 
     private void record(UUID tokenId, CanaryOutcome outcome, ClientFingerprint fingerprint,
                         Long bytesSent, String rangeHeader, String requestId) {
-        accessRepository.save(new CanaryAccess(
+        String ip = fingerprint == null ? null : fingerprint.ip();
+        // Chỉ ghi IP thô ở đây; vị trí được phân giải sau khi commit (xem bên dưới) nên
+        // lượt đọc đầu tiên của một IP mới không phải chờ dịch vụ geolocation.
+        CanaryAccess access = new CanaryAccess(
                 tokenId,
                 Instant.now(),
-                hmac(fingerprint == null ? null : fingerprint.ip()),
+                hmac(ip),
                 hmac(fingerprint == null ? null : fingerprint.userAgent()),
                 outcome,
                 bytesSent,
                 rangeHeader == null ? null : rangeHeader.length() > 50 ? rangeHeader.substring(0, 50) : rangeHeader,
-                requestId));
+                requestId,
+                ip);
+        accessRepository.save(access);
+        resolveLocationAfterCommit(access);
+    }
+
+    /**
+     * Đẩy việc phân giải vị trí ra sau commit và ra khỏi luồng request: transaction stream
+     * PDF không bị kéo dài bởi một lời gọi HTTP. Chỉ chạy khi dòng access đã có id.
+     */
+    private void resolveLocationAfterCommit(CanaryAccess access) {
+        if (access.getId() == null || access.getIpAddress() == null) {
+            return;
+        }
+        Long accessId = access.getId();
+        String ipAddress = access.getIpAddress();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    locationEnricher.enrich(accessId, ipAddress);
+                }
+            });
+        } else {
+            locationEnricher.enrich(accessId, ipAddress);
+        }
     }
 
     /** Trả về {start, length}; header sai/không có thì trả toàn bộ file. */

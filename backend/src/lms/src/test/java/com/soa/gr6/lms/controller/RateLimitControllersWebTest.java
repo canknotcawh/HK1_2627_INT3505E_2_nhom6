@@ -29,6 +29,7 @@ import com.soa.gr6.lms.exception.ErrorCode;
 import com.soa.gr6.lms.exception.GlobalExceptionHandler;
 import com.soa.gr6.lms.security.AuthenticatedUser;
 import com.soa.gr6.lms.service.CanaryTokenService;
+import com.soa.gr6.lms.service.support.ClientIpResolver;
 
 /** Vượt hạn mức phải trả 429 thay vì 500 hay 403. */
 class RateLimitControllersWebTest {
@@ -46,12 +47,12 @@ class RateLimitControllersWebTest {
                 new UsernamePasswordAuthenticationToken(
                         new AuthenticatedUser(userId, "reader@example.com", UserRole.USER), null, List.of()));
         readingAccessMvc = MockMvcBuilders
-                .standaloneSetup(new ReadingAccessController(service))
+                .standaloneSetup(new ReadingAccessController(service, new ClientIpResolver(true)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
         readerFileMvc = MockMvcBuilders
-                .standaloneSetup(new ReaderFileController(service))
+                .standaloneSetup(new ReaderFileController(service, new ClientIpResolver(true)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

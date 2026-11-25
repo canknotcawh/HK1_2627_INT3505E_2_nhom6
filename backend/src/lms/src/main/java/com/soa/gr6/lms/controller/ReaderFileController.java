@@ -1,6 +1,7 @@
 package com.soa.gr6.lms.controller;
 
 import com.soa.gr6.lms.service.CanaryTokenService;
+import com.soa.gr6.lms.service.support.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -26,9 +27,11 @@ import java.util.UUID;
 public class ReaderFileController {
 
     private final CanaryTokenService canaryTokenService;
+    private final ClientIpResolver clientIpResolver;
 
-    public ReaderFileController(CanaryTokenService canaryTokenService) {
+    public ReaderFileController(CanaryTokenService canaryTokenService, ClientIpResolver clientIpResolver) {
         this.canaryTokenService = canaryTokenService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @GetMapping("/{token}")
@@ -62,11 +65,7 @@ public class ReaderFileController {
         return builder.body(new InputStreamResource(payload.stream()));
     }
 
-    private static CanaryTokenService.ClientFingerprint fingerprint(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        String ip = forwarded == null || forwarded.isBlank()
-                ? request.getRemoteAddr()
-                : forwarded.split(",")[0].trim();
-        return new CanaryTokenService.ClientFingerprint(ip, request.getHeader("User-Agent"));
+    private CanaryTokenService.ClientFingerprint fingerprint(HttpServletRequest request) {
+        return new CanaryTokenService.ClientFingerprint(clientIpResolver.resolve(request), request.getHeader("User-Agent"));
     }
 }

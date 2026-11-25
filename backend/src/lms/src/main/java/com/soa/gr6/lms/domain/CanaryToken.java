@@ -80,6 +80,9 @@ public class CanaryToken {
     @Column(name = "access_count", nullable = false)
     private int accessCount;
 
+    @Column(name = "created_ip_address", length = 45)
+    private String createdIpAddress;
+
     @Column(name = "created_ip_hash", length = 64)
     private String createdIpHash;
 
@@ -88,7 +91,7 @@ public class CanaryToken {
 
     public CanaryToken(UUID id, String tokenHash, String tokenPrefix, Book book, BookFile file,
                        User user, Loan loan, CanaryPurpose purpose, Instant issuedAt, Instant expiresAt,
-                       String createdIpHash, String createdUaHash) {
+                       String createdIpAddress, String createdIpHash, String createdUaHash) {
         this.id = id;
         this.tokenHash = tokenHash;
         this.tokenPrefix = tokenPrefix;
@@ -99,6 +102,7 @@ public class CanaryToken {
         this.purpose = purpose;
         this.issuedAt = issuedAt;
         this.expiresAt = expiresAt;
+        this.createdIpAddress = createdIpAddress;
         this.createdIpHash = createdIpHash;
         this.createdUaHash = createdUaHash;
     }

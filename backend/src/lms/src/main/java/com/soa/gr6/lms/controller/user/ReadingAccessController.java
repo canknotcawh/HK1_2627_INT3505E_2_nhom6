@@ -5,6 +5,7 @@ import com.soa.gr6.lms.dto.ReadingAccessRequest;
 import com.soa.gr6.lms.dto.ReadingAccessResponse;
 import com.soa.gr6.lms.security.AuthenticatedUser;
 import com.soa.gr6.lms.service.CanaryTokenService;
+import com.soa.gr6.lms.service.support.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,9 +24,11 @@ import java.util.UUID;
 public class ReadingAccessController {
 
     private final CanaryTokenService canaryTokenService;
+    private final ClientIpResolver clientIpResolver;
 
-    public ReadingAccessController(CanaryTokenService canaryTokenService) {
+    public ReadingAccessController(CanaryTokenService canaryTokenService, ClientIpResolver clientIpResolver) {
         this.canaryTokenService = canaryTokenService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @GetMapping("/reading-access")
@@ -42,11 +45,7 @@ public class ReadingAccessController {
         return canaryTokenService.issue(user.id(), bookId, request.purpose(), fingerprint(httpRequest));
     }
 
-    private static CanaryTokenService.ClientFingerprint fingerprint(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        String ip = forwarded == null || forwarded.isBlank()
-                ? request.getRemoteAddr()
-                : forwarded.split(",")[0].trim();
-        return new CanaryTokenService.ClientFingerprint(ip, request.getHeader("User-Agent"));
+    private CanaryTokenService.ClientFingerprint fingerprint(HttpServletRequest request) {
+        return new CanaryTokenService.ClientFingerprint(clientIpResolver.resolve(request), request.getHeader("User-Agent"));
     }
 }

@@ -18,4 +18,13 @@ public interface CanaryAccessRepository extends JpaRepository<CanaryAccess, Long
             where a.tokenId = :tokenId and a.outcome = com.soa.gr6.lms.domain.enums.CanaryOutcome.OK
             """)
     long countDistinctIps(@Param("tokenId") UUID tokenId);
+
+    /** Số IP khác nhau của tất cả token mà một người đọc đã dùng cho cùng một sách. */
+    @Query("""
+            select count(distinct a.ipHash) from CanaryAccess a
+            where a.outcome = com.soa.gr6.lms.domain.enums.CanaryOutcome.OK
+              and a.tokenId in (select t.id from CanaryToken t
+                                where t.book.id = :bookId and t.user.id = :userId)
+            """)
+    long countDistinctIpsForReader(@Param("bookId") UUID bookId, @Param("userId") UUID userId);
 }

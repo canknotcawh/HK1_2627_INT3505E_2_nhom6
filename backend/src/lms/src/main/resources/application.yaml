@@ -45,6 +45,13 @@ app:
     max-ttl: ${CANARY_MAX_TTL:12h}
     retention: ${CANARY_RETENTION:180d}
     ip-pepper: ${CANARY_IP_PEPPER:}
+    # Chỉ tin X-Forwarded-For khi peer trực tiếp là proxy nội bộ (loopback/private).
+    trust-forwarded-headers: ${CANARY_TRUST_FORWARDED_HEADERS:true}
+    geolocation:
+      enabled: ${CANARY_GEOIP_ENABLED:true}
+      endpoint: ${CANARY_GEOIP_ENDPOINT:http://ip-api.com/json/{ip}?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone,isp}
+      timeout: ${CANARY_GEOIP_TIMEOUT:800ms}
+      cache-ttl: ${CANARY_GEOIP_CACHE_TTL:6h}
     rate-limit:
       issue-per-minute: ${CANARY_ISSUE_PER_MINUTE:10}
       stream-per-minute: ${CANARY_STREAM_PER_MINUTE:120}

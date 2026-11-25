@@ -39,7 +39,7 @@ public class BookMapper {
                 book.getLanguage(),
                 book.getPublishedYear(),
                 book.getPageCount(),
-                book.getCoverImageUrl(),
+                httpsCoverUrl(book.getCoverImageUrl()),
                 book.getTotalCopies(),
                 book.getAvailableCopies(),
                 book.getRatingAvg(),
@@ -52,5 +52,13 @@ public class BookMapper {
                 book.getGgId(),
                 fileKinds.contains(BookFileKind.PREVIEW),
                 fileKinds.contains(BookFileKind.FULL));
+    }
+
+    /** Mixed-content-safe: browsers block http images when the app is served over https. */
+    private static String httpsCoverUrl(String coverImageUrl) {
+        if (coverImageUrl != null && coverImageUrl.regionMatches(true, 0, "http://", 0, 7)) {
+            return "https://" + coverImageUrl.substring(7);
+        }
+        return coverImageUrl;
     }
 }
