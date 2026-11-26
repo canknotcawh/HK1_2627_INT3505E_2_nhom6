@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle, ShieldAlert, X } from "lucide-react";
+import { EyeOff, LoaderCircle, ShieldAlert, X } from "lucide-react";
 import type { GoogleBooksApi } from "../../lib/google-identity";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -159,9 +159,55 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
 
   const [state, setState] = useState<PreviewState>(ggId || isbn13 ? "loading" : "unavailable");
   const [secondsLeft, setSecondsLeft] = useState(() => ggId ? getPreviewSecondsLeft(ggId) : PREVIEW_DURATION_SECONDS);
+  const [isObscured, setIsObscured] = useState(false);
+  const [obscureReason, setObscureReason] = useState("Tài liệu tạm ẩn vì cửa sổ mất tiêu điểm.");
   const [isTampered, setIsTampered] = useState(false);
 
   const expired = state === "ready" && secondsLeft === 0;
+
+  // Blur/obscure screen when window loses focus or tab is hidden
+  useEffect(() => {
+    let blurTimeout: number | undefined;
+    const handleBlur = () => {
+      if (blurTimeout !== undefined) window.clearTimeout(blurTimeout);
+      blurTimeout = window.setTimeout(() => {
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === "IFRAME" || activeEl.closest(".book-preview-dialog__viewport"))
+        ) {
+          return;
+        }
+        setIsObscured(true);
+        setObscureReason("Tài liệu tạm ẩn vì mất focus.");
+      }, 80);
+    };
+
+    const handleFocus = () => {
+      if (blurTimeout !== undefined) window.clearTimeout(blurTimeout);
+      setIsObscured(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        setIsObscured(true);
+        setObscureReason("Tài liệu tạm ẩn vì mất focus.");
+      } else if (document.visibilityState === "visible" && document.hasFocus()) {
+        setIsObscured(false);
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (blurTimeout !== undefined) window.clearTimeout(blurTimeout);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   // MutationObserver to protect the watermark overlay from being hidden or deleted
   useEffect(() => {
@@ -380,6 +426,25 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
               </defs>
               <rect width="100%" height="100%" fill="url(#preview-watermark-pattern)" />
             </svg>
+          </div>
+        )}
+
+        {/* Focus Loss Obscured Overlay */}
+        {!isTampered && isObscured && (
+          <div
+            className="book-preview-dialog__obscured"
+            role="status"
+            onClick={() => {
+              if (document.hasFocus()) {
+                setIsObscured(false);
+              }
+            }}
+          >
+            <EyeOff className="size-10 mb-3 text-amber-400" aria-hidden="true" />
+            <p className="text-sm sm:text-base font-semibold">{obscureReason}</p>
+            <p className="mt-2 text-xs text-gray-300">
+              Nhấp chuột vào đây để tiếp tục đọc
+            </p>
           </div>
         )}
 
