@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { EyeOff, LoaderCircle, ShieldAlert, X } from "lucide-react";
 import type { GoogleBooksApi } from "../../lib/google-identity";
 import { useAuth } from "../../contexts/AuthContext";
+import { reportSecurityEvent } from "../../lib/security-events";
 
 const GOOGLE_BOOKS_SCRIPT = "https://www.google.com/books/jsapi.js";
 const PREVIEW_DURATION_SECONDS = 180;
@@ -142,6 +143,7 @@ export function preloadGoogleBooksApi() {
 }
 
 type BookPreviewDialogProps = {
+  bookId?: string;
   title: string;
   ggId: string | null;
   isbn13?: string | null;
@@ -150,7 +152,7 @@ type BookPreviewDialogProps = {
 
 type PreviewState = "loading" | "ready" | "unavailable" | "error";
 
-export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: BookPreviewDialogProps) {
+export default function BookPreviewDialog({ bookId, title, ggId, isbn13, onClose }: BookPreviewDialogProps) {
   const { user } = useAuth();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -180,6 +182,13 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
         }
         setIsObscured(true);
         setObscureReason("Tài liệu tạm ẩn vì mất focus.");
+        reportSecurityEvent({
+          eventType: "PREVIEW_FOCUS_LOST",
+          severity: "LOW",
+          bookId,
+          bookTitle: title,
+          details: "Window blur outside preview iframe",
+        });
       }, 80);
     };
 
@@ -192,6 +201,13 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
       if (document.visibilityState === "hidden") {
         setIsObscured(true);
         setObscureReason("Tài liệu tạm ẩn vì mất focus.");
+        reportSecurityEvent({
+          eventType: "PREVIEW_FOCUS_LOST",
+          severity: "LOW",
+          bookId,
+          bookTitle: title,
+          details: "Document visibility changed to hidden during preview",
+        });
       } else if (document.visibilityState === "visible" && document.hasFocus()) {
         setIsObscured(false);
       }
@@ -207,7 +223,7 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [bookId, title]);
 
   // MutationObserver to protect the watermark overlay from being hidden or deleted
   useEffect(() => {
@@ -216,11 +232,26 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
     if (!canvasEl || !watermarkEl) return;
 
     let unmounted = false;
+    let reportedTamper = false;
+
+    const triggerTamper = (details: string) => {
+      setIsTampered(true);
+      if (!reportedTamper) {
+        reportedTamper = true;
+        reportSecurityEvent({
+          eventType: "WATERMARK_TAMPERED",
+          severity: "CRITICAL",
+          bookId,
+          bookTitle: title,
+          details,
+        });
+      }
+    };
 
     const verifyWatermark = () => {
       if (unmounted) return true;
       if (!canvasEl.contains(watermarkEl)) {
-        setIsTampered(true);
+        triggerTamper("Watermark node removed from canvas");
         return false;
       }
       const style = window.getComputedStyle(watermarkEl);
@@ -229,7 +260,7 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
         style.visibility === "hidden" ||
         parseFloat(style.opacity || "1") < 0.05
       ) {
-        setIsTampered(true);
+        triggerTamper(`Watermark style tampered (display=${style.display}, visibility=${style.visibility}, opacity=${style.opacity})`);
         return false;
       }
       return true;
@@ -241,7 +272,7 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
         if (m.type === "childList") {
           for (const node of Array.from(m.removedNodes)) {
             if (node === watermarkEl) {
-              setIsTampered(true);
+              triggerTamper("Watermark node removed via DOM mutation");
               return;
             }
           }
@@ -269,7 +300,7 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
       watermarkObserver.disconnect();
       window.clearInterval(intervalId);
     };
-  }, [state]);
+  }, [bookId, state, title]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
