@@ -251,6 +251,23 @@
     overflow: hidden;
 }
 
+.book-preview-dialog__obscured {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.95);
+    color: #f9fafb;
+    padding: 24px;
+    text-align: center;
+    user-select: none;
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+}
+
 .book-preview-dialog__tampered {
     position: absolute;
     inset: 0;
@@ -609,6 +626,10 @@
 .dark .book-preview-dialog__expired span {
     color: oklch(0.97 0.005 265);
     text-shadow: 0 1px 3px black, 0 -1px 3px black;
+}
+
+.dark .book-preview-dialog__obscured {
+    background: rgba(10, 10, 15, 0.96);
 }
 
 .dark .book-preview-dialog__tampered {
