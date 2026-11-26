@@ -44,6 +44,41 @@ export default function ShortcutBlock() {
         });
         return;
       }
+
+      if (e.key === "PrintScreen") {
+        e.preventDefault();
+        navigator.clipboard?.writeText?.("").catch(() => {});
+        const combo = e.metaKey ? "Win+PrintScreen" : e.altKey ? "Alt+PrintScreen" : "PrintScreen";
+        reportSecurityEvent({
+          eventType: "SCREENSHOT_ATTEMPT",
+          severity: "HIGH",
+          details: `Screenshot key detected: ${combo}`,
+        });
+        return;
+      }
+
+      if (e.metaKey && e.shiftKey && ["s", "S", "3", "4", "5"].includes(e.key)) {
+        e.preventDefault();
+        reportSecurityEvent({
+          eventType: "SCREENSHOT_ATTEMPT",
+          severity: "HIGH",
+          details: `Screenshot shortcut detected: Win/Cmd+Shift+${e.key.toUpperCase()}`,
+        });
+        return;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "PrintScreen") {
+        e.preventDefault();
+        navigator.clipboard?.writeText?.("").catch(() => {});
+        const combo = e.metaKey ? "Win+PrintScreen" : e.altKey ? "Alt+PrintScreen" : "PrintScreen";
+        reportSecurityEvent({
+          eventType: "SCREENSHOT_ATTEMPT",
+          severity: "HIGH",
+          details: `Screenshot key detected: ${combo}`,
+        });
+      }
     };
 
     const handleBeforePrint = () => {
@@ -56,11 +91,13 @@ export default function ShortcutBlock() {
 
     window.addEventListener("contextmenu", handleContextMenu, { capture: true });
     window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("keyup", handleKeyUp, { capture: true });
     window.addEventListener("beforeprint", handleBeforePrint);
 
     return () => {
       window.removeEventListener("contextmenu", handleContextMenu, { capture: true });
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("beforeprint", handleBeforePrint);
     };
   }, []);
