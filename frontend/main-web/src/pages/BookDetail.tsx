@@ -500,6 +500,7 @@ export default function BookDetail() {
             />
             {showPreview && (
                 <BookPreviewDialog
+                    bookId={book.id}
                     title={book.title}
                     ggId={book.ggId}
                     isbn13={book.isbn13}

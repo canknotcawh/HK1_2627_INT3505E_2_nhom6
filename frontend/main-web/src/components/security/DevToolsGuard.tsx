@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ShieldAlert } from "lucide-react";
+import { reportSecurityEvent } from "../../lib/security-events";
 
 function runDebuggerCheck(): boolean {
   const start = performance.now();
@@ -10,6 +11,20 @@ function runDebuggerCheck(): boolean {
 
 export default function DevToolsGuard({ children }: { children: ReactNode }) {
   const [devToolsOpen, setDevToolsOpen] = useState(() => runDebuggerCheck());
+  const reportedRef = useRef(false);
+
+  useEffect(() => {
+    if (devToolsOpen && !reportedRef.current) {
+      reportedRef.current = true;
+      reportSecurityEvent({
+        eventType: "DEVTOOLS_DETECTED",
+        severity: "HIGH",
+        details: "Debugger timing check exceeded 100ms threshold",
+      });
+    } else if (!devToolsOpen) {
+      reportedRef.current = false;
+    }
+  }, [devToolsOpen]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
