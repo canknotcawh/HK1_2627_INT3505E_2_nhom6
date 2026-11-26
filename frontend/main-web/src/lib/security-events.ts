@@ -7,7 +7,8 @@ export type SecurityEventType =
   | "SHORTCUT_BLOCKED"
   | "CONTEXT_MENU_BLOCKED"
   | "PREVIEW_FOCUS_LOST"
-  | "PRINT_ATTEMPT";
+  | "PRINT_ATTEMPT"
+  | "SCREENSHOT_ATTEMPT";
 
 export type SecurityEventSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 

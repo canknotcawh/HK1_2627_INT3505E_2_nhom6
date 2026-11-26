@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS security_event_log (
         'SHORTCUT_BLOCKED',
         'CONTEXT_MENU_BLOCKED',
         'PREVIEW_FOCUS_LOST',
-        'PRINT_ATTEMPT'
+        'PRINT_ATTEMPT',
+        'SCREENSHOT_ATTEMPT'
     )),
     CONSTRAINT ck_security_event_severity CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'))
 );
