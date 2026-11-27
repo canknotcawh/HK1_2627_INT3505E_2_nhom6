@@ -12,8 +12,8 @@ export type BookDto = {
   publishedYear: number | null;
   pageCount: number | null;
   coverImageUrl: string | null;
-  previewUrl: string | null;
-  readerUrl: string | null;
+  hasPreviewFile?: boolean;
+  hasFullFile?: boolean;
   totalCopies: number;
   availableCopies: number;
   ratingAvg?: number | null;

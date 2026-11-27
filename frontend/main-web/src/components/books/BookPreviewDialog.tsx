@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle, X } from "lucide-react";
+import { EyeOff, LoaderCircle, ShieldAlert, X } from "lucide-react";
 import type { GoogleBooksApi } from "../../lib/google-identity";
+import { useAuth } from "../../contexts/AuthContext";
+import { reportSecurityEvent } from "../../lib/security-events";
 
 const GOOGLE_BOOKS_SCRIPT = "https://www.google.com/books/jsapi.js";
 const PREVIEW_DURATION_SECONDS = 180;
@@ -141,6 +143,7 @@ export function preloadGoogleBooksApi() {
 }
 
 type BookPreviewDialogProps = {
+  bookId?: string;
   title: string;
   ggId: string | null;
   isbn13?: string | null;
@@ -149,12 +152,159 @@ type BookPreviewDialogProps = {
 
 type PreviewState = "loading" | "ready" | "unavailable" | "error";
 
-export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: BookPreviewDialogProps) {
+export default function BookPreviewDialog({ bookId, title, ggId, isbn13, onClose }: BookPreviewDialogProps) {
+  const { user } = useAuth();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const watermarkRef = useRef<HTMLDivElement>(null);
+  // Ghi nhớ đã báo can thiệp: effect dưới phụ thuộc `state` nên sẽ chạy lại khi viewer
+  // chuyển loading → ready, và nếu chỉ dùng biến cục bộ thì sự kiện bị ghi trùng.
+  const tamperReportedRef = useRef(false);
+
   const [state, setState] = useState<PreviewState>(ggId || isbn13 ? "loading" : "unavailable");
   const [secondsLeft, setSecondsLeft] = useState(() => ggId ? getPreviewSecondsLeft(ggId) : PREVIEW_DURATION_SECONDS);
+  const [isObscured, setIsObscured] = useState(false);
+  const [obscureReason, setObscureReason] = useState("Tài liệu tạm ẩn vì cửa sổ mất tiêu điểm.");
+  const [isTampered, setIsTampered] = useState(false);
+
   const expired = state === "ready" && secondsLeft === 0;
+
+  // Blur/obscure screen when window loses focus or tab is hidden
+  useEffect(() => {
+    let blurTimeout: number | undefined;
+    const handleBlur = () => {
+      if (blurTimeout !== undefined) window.clearTimeout(blurTimeout);
+      blurTimeout = window.setTimeout(() => {
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === "IFRAME" || activeEl.closest(".book-preview-dialog__viewport"))
+        ) {
+          return;
+        }
+        setIsObscured(true);
+        setObscureReason("Tài liệu tạm ẩn vì mất focus.");
+        reportSecurityEvent({
+          eventType: "PREVIEW_FOCUS_LOST",
+          severity: "LOW",
+          bookId,
+          bookTitle: title,
+          details: "Window blur outside preview iframe",
+        });
+      }, 80);
+    };
+
+    const handleFocus = () => {
+      if (blurTimeout !== undefined) window.clearTimeout(blurTimeout);
+      setIsObscured(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        setIsObscured(true);
+        setObscureReason("Tài liệu tạm ẩn vì mất focus.");
+        reportSecurityEvent({
+          eventType: "PREVIEW_FOCUS_LOST",
+          severity: "LOW",
+          bookId,
+          bookTitle: title,
+          details: "Document visibility changed to hidden during preview",
+        });
+      } else if (document.visibilityState === "visible" && document.hasFocus()) {
+        setIsObscured(false);
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (blurTimeout !== undefined) window.clearTimeout(blurTimeout);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [bookId, title]);
+
+  // MutationObserver to protect the watermark overlay from being hidden or deleted
+  useEffect(() => {
+    const canvasEl = canvasRef.current;
+    const watermarkEl = watermarkRef.current;
+    if (!canvasEl || !watermarkEl) return;
+
+    let unmounted = false;
+    let reportedTamper = tamperReportedRef.current;
+
+    const triggerTamper = (details: string) => {
+      setIsTampered(true);
+      if (!reportedTamper) {
+        reportedTamper = true;
+        tamperReportedRef.current = true;
+        reportSecurityEvent({
+          eventType: "WATERMARK_TAMPERED",
+          severity: "CRITICAL",
+          bookId,
+          bookTitle: title,
+          details,
+        });
+      }
+    };
+
+    const verifyWatermark = () => {
+      if (unmounted) return true;
+      if (!canvasEl.contains(watermarkEl)) {
+        triggerTamper("Watermark node removed from canvas");
+        return false;
+      }
+      const style = window.getComputedStyle(watermarkEl);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        parseFloat(style.opacity || "1") < 0.05
+      ) {
+        triggerTamper(`Watermark style tampered (display=${style.display}, visibility=${style.visibility}, opacity=${style.opacity})`);
+        return false;
+      }
+      return true;
+    };
+
+    const canvasObserver = new MutationObserver((mutations) => {
+      if (unmounted) return;
+      for (const m of mutations) {
+        if (m.type === "childList") {
+          for (const node of Array.from(m.removedNodes)) {
+            if (node === watermarkEl) {
+              triggerTamper("Watermark node removed via DOM mutation");
+              return;
+            }
+          }
+        }
+      }
+      verifyWatermark();
+    });
+
+    const watermarkObserver = new MutationObserver(() => {
+      if (unmounted) return;
+      verifyWatermark();
+    });
+
+    canvasObserver.observe(canvasEl, { childList: true });
+    watermarkObserver.observe(watermarkEl, {
+      attributes: true,
+      attributeFilter: ["style", "class", "hidden", "aria-hidden"],
+    });
+
+    const intervalId = window.setInterval(verifyWatermark, 1000);
+
+    return () => {
+      unmounted = true;
+      canvasObserver.disconnect();
+      watermarkObserver.disconnect();
+      window.clearInterval(intervalId);
+    };
+  }, [bookId, state, title]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -169,15 +319,13 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
 
     let active = true;
     let timedOut = false;
-    let timeoutId: number | undefined;
-    const clearLoadTimeout = () => {
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-    };
-
-    timeoutId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       timedOut = true;
       if (active) setState("error");
     }, 20000);
+    const clearLoadTimeout = () => {
+      window.clearTimeout(timeoutId);
+    };
 
     loadGoogleBooksApi()
       .then(async (books) => {
@@ -227,6 +375,12 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
   }, [ggId, state]);
 
   const clock = `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
+  const userIdentifier = user?.email || (user?.fullName ? `${user.fullName} (${user.id.slice(0, 8)})` : "Khách (Guest)");
+  const timestampStr = new Date().toLocaleDateString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 
   return (
     <dialog
@@ -260,8 +414,96 @@ export default function BookPreviewDialog({ title, ggId, isbn13, onClose }: Book
         </button>
       </header>
 
-      <div className={`book-preview-dialog__canvas${expired ? " book-preview-dialog__canvas--expired" : ""}`}>
+      <div
+        ref={canvasRef}
+        className={`book-preview-dialog__canvas${expired ? " book-preview-dialog__canvas--expired" : ""}`}
+      >
         <div className="book-preview-dialog__viewport" ref={viewerRef} />
+
+        {/* Dynamic Watermark Overlay.
+            Luôn mount kể cả khi đã phát hiện can thiệp: nếu ai đó gỡ node này khỏi DOM,
+            việc React unmount nó sau đó sẽ ném removeChild và làm sập cả app.
+            Overlay cảnh báo (z-40) nằm trên watermark (z-10) nên vẫn che nội dung. */}
+        {(
+          <div
+            ref={watermarkRef}
+            id="preview-watermark-overlay"
+            className="book-preview-dialog__watermark"
+            aria-hidden="true"
+          >
+            <svg className="h-full w-full opacity-15" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern
+                  id="preview-watermark-pattern"
+                  width="260"
+                  height="150"
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(-25)"
+                >
+                  <text
+                    x="15"
+                    y="45"
+                    fill="currentColor"
+                    fontSize="12"
+                    fontWeight="600"
+                    className="fill-gray-900 dark:fill-gray-100"
+                  >
+                    {userIdentifier}
+                  </text>
+                  <text
+                    x="15"
+                    y="70"
+                    fill="currentColor"
+                    fontSize="10"
+                    fontWeight="500"
+                    className="fill-gray-700 dark:fill-gray-300"
+                  >
+                    {timestampStr} • UET LMS
+                  </text>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#preview-watermark-pattern)" />
+            </svg>
+          </div>
+        )}
+
+        {/* Focus Loss Obscured Overlay */}
+        {!isTampered && isObscured && (
+          <div
+            className="book-preview-dialog__obscured"
+            role="status"
+            onClick={() => {
+              if (document.hasFocus()) {
+                setIsObscured(false);
+              }
+            }}
+          >
+            <EyeOff className="size-10 mb-3 text-amber-400" aria-hidden="true" />
+            <p className="text-sm sm:text-base font-semibold">{obscureReason}</p>
+            <p className="mt-2 text-xs text-gray-300">
+              Nhấp chuột vào đây để tiếp tục đọc
+            </p>
+          </div>
+        )}
+
+        {/* Tamper Warning Overlay */}
+        {isTampered && (
+          <div className="book-preview-dialog__tampered" role="alert">
+            <ShieldAlert className="size-12 text-red-500 mb-3" aria-hidden="true" />
+            <p className="text-base font-bold text-red-500">CẢNH BÁO AN TOÀN NỘI DUNG</p>
+            <p className="mt-2 text-sm text-gray-200 max-w-sm">
+              Phát hiện can thiệp vào các thành phần bảo vệ bản quyền. Bản xem trước đã bị tạm khóa.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+            >
+              Đóng xem trước
+            </button>
+          </div>
+        )}
+
         {expired && (
           <div className="book-preview-dialog__expired" role="status">
             <span>Mượn sách để xem tiếp nội dung</span>

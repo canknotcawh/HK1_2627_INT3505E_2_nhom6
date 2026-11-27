@@ -14,6 +14,10 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${BOOK_FILE_MAX_SIZE:50MB}
+      max-request-size: ${BOOK_FILE_MAX_SIZE:50MB}
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -32,7 +36,40 @@ app:
     from: ${MAIL_FROM:no-reply@lms.local}
   frontend:
     main-url: ${MAIN_WEB_URL:http://localhost:5173}
+  storage:
+    root: ${STORAGE_ROOT:./data/books}
+    max-file-size: ${BOOK_FILE_MAX_SIZE:50MB}
+  canary:
+    read-ttl: ${CANARY_READ_TTL:30m}
+    preview-ttl: ${CANARY_PREVIEW_TTL:15m}
+    max-ttl: ${CANARY_MAX_TTL:12h}
+    retention: ${CANARY_RETENTION:180d}
+    ip-pepper: ${CANARY_IP_PEPPER:}
+    # Chỉ tin X-Forwarded-For khi peer trực tiếp là proxy nội bộ (loopback/private).
+    trust-forwarded-headers: ${CANARY_TRUST_FORWARDED_HEADERS:true}
+    geolocation:
+      enabled: ${CANARY_GEOIP_ENABLED:true}
+      endpoint: ${CANARY_GEOIP_ENDPOINT:http://ip-api.com/json/{ip}?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone,isp}
+      timeout: ${CANARY_GEOIP_TIMEOUT:800ms}
+      cache-ttl: ${CANARY_GEOIP_CACHE_TTL:6h}
+    rate-limit:
+      issue-per-minute: ${CANARY_ISSUE_PER_MINUTE:10}
+      stream-per-minute: ${CANARY_STREAM_PER_MINUTE:120}
+      # Sự kiện mở/đóng/tải lại do trình đọc gửi lên: chặn spam làm phình bảng sự kiện.
+      event-per-minute: ${CANARY_EVENT_PER_MINUTE:120}
   email-verification:
     challenge-ttl: ${EMAIL_VERIFICATION_TTL:10m}
     resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:60s}
     max-attempts: ${EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+# Không có cờ dev/debug nào bật được log chi tiết của dữ liệu người đọc:
+# SQL, tham số bind và IP không bao giờ được ghi ra log. Chỉ đổi khi sửa file này.
+spring.jpa.show-sql: false
+
+logging:
+  level:
+    root: INFO
+    com.soa.gr6.lms: INFO
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.orm.jdbc.extract: OFF
+    org.springframework.orm.jpa: WARN

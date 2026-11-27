@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Script/thư mục tạm khi kiểm thử cục bộ (probe E2E, profile Chromium)
+tmp-*.mjs
+.tmp-*/

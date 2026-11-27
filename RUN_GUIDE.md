@@ -53,7 +53,8 @@ Crash Course*.
 ### Công nghệ sử dụng
 - **Ngôn ngữ & Nền tảng**: Java 25
 - **Framework**: Spring Boot 4.1.1
-- **Cơ sở dữ liệu**: PostgreSQL 16, schema do **Flyway** tạo từ `db/migration` (V1…V9), Hibernate chỉ kiểm tra (`ddl-auto: validate`)
+- **Cơ sở dữ liệu**: PostgreSQL 16, schema do **Flyway** tạo từ `db/migration` (V1…V11), Hibernate chỉ kiểm tra (`ddl-auto: validate`)
+- **Lưu PDF gốc của sách**: `book_file` + `StorageService` (mặc định ghi đĩa dưới `./data/books`)
 - **Xác thực**: JWT tự ký (HMAC) ở backend + Google OAuth2 (không còn Keycloak, không còn Redis)
 - **Email dev**: Mailpit tại `http://localhost:8025` để nhận liên kết đặt lại mật khẩu
 - **Tài liệu API**: SpringDoc OpenAPI / Swagger UI
@@ -101,6 +102,16 @@ Crash Course*.
      ```bash
      ./run-dev.sh
      ```
+
+> **Cấu hình tệp PDF (tuỳ chọn):** `STORAGE_ROOT` (thư mục lưu PDF, mặc định `./data/books`) và
+> `BOOK_FILE_MAX_SIZE` (giới hạn upload, mặc định `50MB`). Tệp không bao giờ public; admin upload
+> và tải nội dung qua `/api/v1/admin/books/{bookId}/files`.
+>
+> **Canary token:** `CANARY_READ_TTL` (mặc định `30m`), `CANARY_PREVIEW_TTL` (`15m`),
+> `CANARY_MAX_TTL` (`12h`), `CANARY_RETENTION` (`180d`), `CANARY_IP_PEPPER` (bắt buộc ≥ 32 byte khi
+> chạy ngoài profile `dev`), `CANARY_ISSUE_PER_MINUTE` (`10`, mỗi user/book) và
+> `CANARY_STREAM_PER_MINUTE` (`120`, mỗi token) — vượt hạn mức trả `429 RATE_LIMITED`. Người đọc xin link qua `POST /api/v1/users/me/books/{bookId}/access`,
+> PDF được stream tại `/api/v1/reader/files/{token}`; admin tra cứu/thu hồi tại `/admin/canary`.
 
 > **Địa chỉ dịch vụ:**
 > - Backend API: `http://localhost:8080`
@@ -220,6 +231,16 @@ curl -X POST http://localhost:8080/api/v1/admin/books \
 
 ```bash
 cd backend/src/lms
-./mvnw clean test              # unit + integration test, không cần Postgres chạy
+./mvnw clean test              # unit + web test, không cần Postgres chạy
 ./mvnw clean verify            # thêm báo cáo coverage: target/site/jacoco/index.html
+```
+
+Hai test trong `database/MigrationIntegrityTest` kiểm tra migration thật trên PostgreSQL: chạy
+Flyway trên một database tạm (`lms_flyway_check`) rồi cho Hibernate `validate` đối chiếu schema
+với entity, nên drift kiểu "entity map bảng/cột mà migration không tạo" sẽ làm test đỏ. Chúng
+tự **skip** nếu không có biến môi trường, và cần role có quyền `CREATEDB` khi bật:
+
+```bash
+LMS_TEST_DB_URL='jdbc:postgresql://127.0.0.1:5433/lms_test' \
+LMS_TEST_DB_USER=lms LMS_TEST_DB_PASSWORD=lms ./mvnw clean test
 ```

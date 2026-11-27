@@ -10,6 +10,7 @@ import Borrow from "../pages/Borrow";
 import BookCatalog from "../pages/BookCatalog";
 import Categories from "../pages/Categories";
 import ReviewManagement from "../pages/ReviewManagement";
+import CanaryManager from "../pages/CanaryManager";
 
 export interface AdminRouteDef {
     path: string;
@@ -25,6 +26,7 @@ export const adminRoutes: AdminRouteDef[] = [
     { path: "books", fullPath: "/admin/books", element: <BookCatalog />, handle: { title: "Quản lý sách", label: "Quản lý sách" } },
     { path: "reviews", fullPath: "/admin/reviews", element: <ReviewManagement />, handle: { title: "Quản lý đánh giá", label: "Quản lý đánh giá" } },
     { path: "categories", fullPath: "/admin/categories", element: <Categories />, handle: { title: "Quản lý danh mục", label: "Quản lý danh mục" } },
+    { path: "canary", fullPath: "/admin/canary", element: <CanaryManager />, handle: { title: "Canary & bản đọc", label: "Canary & bản đọc" } },
     { path: "loans", fullPath: "/admin/loans", element: <Borrow />, handle: { title: "Quản lý mượn/trả", label: "Quản lý mượn/trả" } },
     { path: "return-requests", fullPath: "/admin/return-requests", element: <UserRequest />, handle: { title: "Yêu cầu trả sách", label: "Yêu cầu trả sách" } },
     { path: "logs", fullPath: "/admin/logs", element: <></>, handle: { title: "Nhật ký", label: "Nhật ký" } },

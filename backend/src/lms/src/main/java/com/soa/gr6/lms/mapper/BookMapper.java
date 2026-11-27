@@ -3,14 +3,21 @@ package com.soa.gr6.lms.mapper;
 import com.soa.gr6.lms.domain.Author;
 import com.soa.gr6.lms.domain.Book;
 import com.soa.gr6.lms.domain.Category;
+import com.soa.gr6.lms.domain.enums.BookFileKind;
 import com.soa.gr6.lms.dto.BookResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class BookMapper {
     public BookResponse toResponse(Book book) {
+        return toResponse(book, Set.of());
+    }
+
+    /** {@code fileKinds} là các loại file PDF đang ACTIVE của sách. */
+    public BookResponse toResponse(Book book, Set<BookFileKind> fileKinds) {
         List<String> authors = book.getAuthors() != null
                 ? book.getAuthors().stream()
                         .map(Author::getName)
@@ -32,7 +39,7 @@ public class BookMapper {
                 book.getLanguage(),
                 book.getPublishedYear(),
                 book.getPageCount(),
-                book.getCoverImageUrl(),
+                httpsCoverUrl(book.getCoverImageUrl()),
                 book.getTotalCopies(),
                 book.getAvailableCopies(),
                 book.getRatingAvg(),
@@ -42,6 +49,16 @@ public class BookMapper {
                 book.getUpdatedAt(),
                 authors,
                 categories,
-                book.getGgId());
+                book.getGgId(),
+                fileKinds.contains(BookFileKind.PREVIEW),
+                fileKinds.contains(BookFileKind.FULL));
+    }
+
+    /** Mixed-content-safe: browsers block http images when the app is served over https. */
+    private static String httpsCoverUrl(String coverImageUrl) {
+        if (coverImageUrl != null && coverImageUrl.regionMatches(true, 0, "http://", 0, 7)) {
+            return "https://" + coverImageUrl.substring(7);
+        }
+        return coverImageUrl;
     }
 }

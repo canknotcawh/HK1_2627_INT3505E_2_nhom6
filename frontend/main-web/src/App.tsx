@@ -1,7 +1,7 @@
 import { RouterProvider } from "react-router-dom";
 import router from "./routes";
-import { AuthProvider } from "./contexts/AuthContext";
-import { useAuth } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import ShortcutBlock from "./components/security/ShortcutBlock";
 
 function MainWebGate() {
   const { role, initialized, roleError, logout } = useAuth();
@@ -25,8 +25,11 @@ function MainWebGate() {
 }
 
 export default function App() {
+  // DevToolsGuard chỉ gắn quanh các bề mặt đọc/tải tài liệu (xem BookDetail),
+  // không chặn trang đăng nhập hay các trang công khai.
   return (
     <AuthProvider>
+      <ShortcutBlock />
       <MainWebGate />
     </AuthProvider>
   );

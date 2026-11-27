@@ -10,6 +10,10 @@ import BookCover from "../components/books/BookCover";
 import BorrowConfirmDialog from "../components/loans/BorrowConfirmDialog";
 import BookPreviewDialog, { preloadGoogleBooksApi, probePreviewAvailable } from "../components/books/BookPreviewDialog";
 import BookReviewsSection from "../components/books/BookReviewsSection";
+import CanaryReaderDialog from "../components/books/CanaryReaderDialog";
+import DevToolsGuard from "../components/security/DevToolsGuard";
+import { getReadingAccess, requestReadingLink, readingErrorMessage } from "../lib/reading";
+import type { CanaryLink, ReadingAccess } from "../lib/reading";
 import { Button } from "../components/ui/button";
 import {
     ArrowLeft,
@@ -68,6 +72,11 @@ export default function BookDetail() {
     const [notFound, setNotFound] = useState(false);
     const [confirmBook, setConfirmBook] = useState<BookDto | null>(null);
     const [showPreview, setShowPreview] = useState(false);
+    const [readingAccess, setReadingAccess] = useState<ReadingAccess | null>(null);
+    const [readerLink, setReaderLink] = useState<CanaryLink | null>(null);
+    const [readerPurpose, setReaderPurpose] = useState<'READ' | 'PREVIEW'>('READ');
+    const [readerError, setReaderError] = useState<string | null>(null);
+    const [openingReader, setOpeningReader] = useState(false);
     const [previewAvailable, setPreviewAvailable] = useState<boolean | null>(null);
     const [expanded, setExpanded] = useState(false);
     const [backdropFailed, setBackdropFailed] = useState(false);
@@ -134,6 +143,33 @@ export default function BookDetail() {
             document.querySelector(location.hash)?.scrollIntoView();
         }
     }, [loading, location.hash]);
+
+    useEffect(() => {
+        if (!book || role === 'guest') {
+            setReadingAccess(null);
+            return;
+        }
+        let cancelled = false;
+        getReadingAccess(book.id)
+            .then(access => { if (!cancelled) setReadingAccess(access); })
+            .catch(() => { if (!cancelled) setReadingAccess(null); });
+        return () => { cancelled = true; };
+    }, [book, role]);
+
+    /** Xin link đọc có canary token; token chỉ nằm trong state, đóng dialog là mất. */
+    const openReader = async (purpose: 'READ' | 'PREVIEW') => {
+        if (!book) return;
+        setOpeningReader(true);
+        setReaderError(null);
+        try {
+            setReaderPurpose(purpose);
+            setReaderLink(await requestReadingLink(book.id, purpose));
+        } catch (requestError) {
+            setReaderError(readingErrorMessage(requestError));
+        } finally {
+            setOpeningReader(false);
+        }
+    };
 
     const handleBorrow = async () => {
         if (!confirmBook) return;
@@ -336,6 +372,31 @@ export default function BookDetail() {
                                         : <Eye aria-hidden="true" />}
                                     {previewAvailable === false ? 'Chưa có bản đọc thử' : 'Đọc thử'}
                                 </Button>
+                                {readingAccess?.canRead && (
+                                    <Button
+                                        variant="outline"
+                                        disabled={openingReader}
+                                        onClick={() => void openReader('READ')}
+                                        className="h-12 rounded-full border-emerald-300/40 bg-emerald-400/15 px-6 text-emerald-100 backdrop-blur hover:bg-emerald-400/25 hover:text-white disabled:opacity-60"
+                                    >
+                                        {openingReader ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileText aria-hidden="true" />}
+                                        Đọc bản đầy đủ
+                                    </Button>
+                                )}
+                                {readingAccess?.canPreview && readingAccess.hasPreviewFile && (
+                                    <Button
+                                        variant="outline"
+                                        disabled={openingReader}
+                                        onClick={() => void openReader('PREVIEW')}
+                                        className="h-12 rounded-full border-white/30 bg-white/10 px-6 text-white backdrop-blur hover:bg-white/20 hover:text-white disabled:opacity-60"
+                                    >
+                                        <Eye aria-hidden="true" />
+                                        Đọc PDF xem trước
+                                    </Button>
+                                )}
+                                {readerError && (
+                                    <p className="w-full text-sm text-red-300">{readerError}</p>
+                                )}
                                 <div className="text-sm">
                                     <div className="flex items-center gap-2 font-semibold">
                                         <span className={`h-2.5 w-2.5 rounded-full ${available ? 'bg-emerald-400' : 'bg-slate-400'}`} />
@@ -499,12 +560,25 @@ export default function BookDetail() {
                 onConfirm={handleBorrow}
             />
             {showPreview && (
-                <BookPreviewDialog
-                    title={book.title}
-                    ggId={book.ggId}
-                    isbn13={book.isbn13}
-                    onClose={() => setShowPreview(false)}
-                />
+                <DevToolsGuard>
+                    <BookPreviewDialog
+                        bookId={book.id}
+                        title={book.title}
+                        ggId={book.ggId}
+                        isbn13={book.isbn13}
+                        onClose={() => setShowPreview(false)}
+                    />
+                </DevToolsGuard>
+            )}
+            {readerLink && (
+                <DevToolsGuard>
+                    <CanaryReaderDialog
+                        link={readerLink}
+                        title={book.title}
+                        onRefresh={() => openReader(readerPurpose)}
+                        onClose={() => setReaderLink(null)}
+                    />
+                </DevToolsGuard>
             )}
         </div>
     );
