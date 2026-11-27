@@ -67,7 +67,10 @@ export default function CanaryReaderDialog({
       pendingClose.current = null;
     }
     // Đóng tab/điều hướng đi thì cleanup bên dưới không chạy: báo CLOSE ngay bằng beacon.
-    const onPageHide = () => sendReadingCloseBeacon(link.url);
+    // Trang vào bfcache (persisted) thì còn quay lại được, phiên đọc chưa kết thúc.
+    const onPageHide = (event: PageTransitionEvent) => {
+      if (!event.persisted) sendReadingCloseBeacon(link.url);
+    };
     window.addEventListener("pagehide", onPageHide);
 
     const controller = new AbortController();
