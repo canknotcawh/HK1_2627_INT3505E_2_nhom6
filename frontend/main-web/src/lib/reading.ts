@@ -43,19 +43,12 @@ function eventBody(event: ReadingEventType, detail?: string) {
 const recentEvents = new Map<string, number>();
 
 /**
- * Gửi hành vi đọc lên backend (không chặn UI, không ném lỗi).
- * Bỏ qua bản trùng trong 800ms để StrictMode/React re-render không nhân đôi sự kiện.
+ * Token đã báo CLOSE. Đóng bản đọc, đóng tab lẫn lần quay lại từ bfcache đều có thể cùng kết
+ * thúc một phiên, nên mỗi phiên chỉ ghi đúng một CLOSE; OPEN của phiên mới mở lại cờ này.
  */
-export function sendReadingEvent(url: string, event: ReadingEventType, detail?: string) {
-  const key = `${url}|${event}`;
-  const now = Date.now();
-  if (now - (recentEvents.get(key) ?? 0) < 800) return;
-  if (recentEvents.size > 40) {
-    for (const [seenKey, seenAt] of recentEvents) {
-      if (now - seenAt > 5_000) recentEvents.delete(seenKey);
-    }
-  }
-  recentEvents.set(key, now);
+const closedSessions = new Set<string>();
+
+function deliver(url: string, event: ReadingEventType, detail?: string) {
   try {
     void fetch(`${readerFileUrl(url)}/events`, {
       method: "POST",
@@ -68,16 +61,38 @@ export function sendReadingEvent(url: string, event: ReadingEventType, detail?: 
 }
 
 /**
+ * Gửi hành vi đọc lên backend (không chặn UI, không ném lỗi).
+ * Bỏ qua bản trùng trong 800ms để StrictMode/React re-render không nhân đôi sự kiện.
+ */
+export function sendReadingEvent(url: string, event: ReadingEventType, detail?: string) {
+  if (event === "CLOSE" && closedSessions.has(url)) return;
+  const key = `${url}|${event}`;
+  const now = Date.now();
+  if (now - (recentEvents.get(key) ?? 0) < 800) return;
+  if (recentEvents.size > 40) {
+    for (const [seenKey, seenAt] of recentEvents) {
+      if (now - seenAt > 5_000) recentEvents.delete(seenKey);
+    }
+  }
+  recentEvents.set(key, now);
+  if (event === "OPEN") closedSessions.delete(url);
+  if (event === "CLOSE") closedSessions.add(url);
+  deliver(url, event, detail);
+}
+
+/**
  * Báo CLOSE khi tab bị đóng/điều hướng đi: lúc đó cleanup của React không chạy, còn fetch thường
  * thì bị trình duyệt cắt. sendBeacon vẫn gửi nốt request sau khi trang đã bị huỷ.
  */
 export function sendReadingCloseBeacon(url: string) {
+  if (closedSessions.has(url)) return;
+  closedSessions.add(url);
   try {
     if (navigator.sendBeacon(`${readerFileUrl(url)}/events`, eventBody("CLOSE"))) return;
   } catch {
     // Trình duyệt chặn beacon: rơi xuống fetch keepalive bên dưới.
   }
-  sendReadingEvent(url, "CLOSE");
+  deliver(url, "CLOSE");
 }
 
 export async function getReadingAccess(bookId: string): Promise<ReadingAccess> {
