@@ -158,6 +158,9 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, onClose
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const watermarkRef = useRef<HTMLDivElement>(null);
+  // Ghi nhớ đã báo can thiệp: effect dưới phụ thuộc `state` nên sẽ chạy lại khi viewer
+  // chuyển loading → ready, và nếu chỉ dùng biến cục bộ thì sự kiện bị ghi trùng.
+  const tamperReportedRef = useRef(false);
 
   const [state, setState] = useState<PreviewState>(ggId || isbn13 ? "loading" : "unavailable");
   const [secondsLeft, setSecondsLeft] = useState(() => ggId ? getPreviewSecondsLeft(ggId) : PREVIEW_DURATION_SECONDS);
@@ -232,12 +235,13 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, onClose
     if (!canvasEl || !watermarkEl) return;
 
     let unmounted = false;
-    let reportedTamper = false;
+    let reportedTamper = tamperReportedRef.current;
 
     const triggerTamper = (details: string) => {
       setIsTampered(true);
       if (!reportedTamper) {
         reportedTamper = true;
+        tamperReportedRef.current = true;
         reportSecurityEvent({
           eventType: "WATERMARK_TAMPERED",
           severity: "CRITICAL",

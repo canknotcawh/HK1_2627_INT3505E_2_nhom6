@@ -26,6 +26,17 @@ export default function DevToolsGuard({ children }: { children: ReactNode }) {
     }
   }, [devToolsOpen]);
 
+  // Khoá cuộn trang khi cảnh báo đang phủ: thanh cuộn dọc sẽ để lộ mép nội dung phía sau.
+  useEffect(() => {
+    if (!devToolsOpen) return;
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previousOverflow;
+    };
+  }, [devToolsOpen]);
+
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       if (runDebuggerCheck()) {
