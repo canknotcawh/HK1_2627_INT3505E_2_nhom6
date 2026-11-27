@@ -9,7 +9,12 @@ services:
       - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../../../database/books.sql:/docker-entrypoint-initdb.d/10-books.sql:ro
+    # Không mount database/books.sql vào /docker-entrypoint-initdb.d: file đó tạo bảng
+    # public.book/... trước khi Flyway có flyway_schema_history, khiến lần chạy đầu trên
+    # volume mới chết với "Found non-empty schema(s) public".
+    # ./run-dev.sh tự nạp catalog sau khi app migrate xong (khi bảng book rỗng).
+    # Nếu không chạy app qua script:
+    #   PGPASSWORD=lms psql -h 127.0.0.1 -p 5433 -U lms -d lms -f database/books.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lms -d lms"]
       interval: 5s
