@@ -37,13 +37,21 @@ export default function DevToolsGuard({ children }: { children: ReactNode }) {
   }, []);
 
   if (devToolsOpen) {
+    // Overlay cố định phủ toàn viewport: khung đọc (dialog) là phần tử trong luồng trang
+    // nên nếu render tại chỗ, cảnh báo sẽ rơi xuống cuối trang và không che được nội dung.
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 p-6 text-center text-neutral-100">
-        <ShieldAlert className="size-12 text-red-500" aria-hidden="true" />
-        <h1 className="text-xl font-bold text-red-400">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="devtools-guard-title"
+        aria-describedby="devtools-guard-description"
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 overflow-y-auto bg-neutral-950 p-6 text-center text-neutral-100"
+      >
+        <ShieldAlert className="size-12 shrink-0 text-red-500" aria-hidden="true" />
+        <h1 id="devtools-guard-title" className="text-xl font-bold text-red-400">
           Phát hiện DevTools đang mở
         </h1>
-        <p className="max-w-md text-sm text-neutral-300">
+        <p id="devtools-guard-description" className="max-w-md text-sm text-neutral-300">
           Để bảo vệ bản quyền tài liệu và an toàn hệ thống, vui lòng đóng toàn bộ cửa sổ DevTools rồi nhấn nút bên dưới để tiếp tục.
         </p>
         <button
@@ -53,7 +61,7 @@ export default function DevToolsGuard({ children }: { children: ReactNode }) {
         >
           Tôi đã đóng DevTools, thử lại
         </button>
-      </main>
+      </div>
     );
   }
 
