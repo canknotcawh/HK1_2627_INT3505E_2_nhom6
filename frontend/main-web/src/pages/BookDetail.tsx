@@ -11,6 +11,7 @@ import BorrowConfirmDialog from "../components/loans/BorrowConfirmDialog";
 import BookPreviewDialog, { preloadGoogleBooksApi, probePreviewAvailable } from "../components/books/BookPreviewDialog";
 import BookReviewsSection from "../components/books/BookReviewsSection";
 import CanaryReaderDialog from "../components/books/CanaryReaderDialog";
+import DevToolsGuard from "../components/security/DevToolsGuard";
 import { getReadingAccess, requestReadingLink, readingErrorMessage } from "../lib/reading";
 import type { CanaryLink, ReadingAccess } from "../lib/reading";
 import { Button } from "../components/ui/button";
@@ -559,21 +560,25 @@ export default function BookDetail() {
                 onConfirm={handleBorrow}
             />
             {showPreview && (
-                <BookPreviewDialog
-                    bookId={book.id}
-                    title={book.title}
-                    ggId={book.ggId}
-                    isbn13={book.isbn13}
-                    onClose={() => setShowPreview(false)}
-                />
+                <DevToolsGuard>
+                    <BookPreviewDialog
+                        bookId={book.id}
+                        title={book.title}
+                        ggId={book.ggId}
+                        isbn13={book.isbn13}
+                        onClose={() => setShowPreview(false)}
+                    />
+                </DevToolsGuard>
             )}
             {readerLink && (
-                <CanaryReaderDialog
-                    link={readerLink}
-                    title={book.title}
-                    onRefresh={() => openReader(readerPurpose)}
-                    onClose={() => setReaderLink(null)}
-                />
+                <DevToolsGuard>
+                    <CanaryReaderDialog
+                        link={readerLink}
+                        title={book.title}
+                        onRefresh={() => openReader(readerPurpose)}
+                        onClose={() => setReaderLink(null)}
+                    />
+                </DevToolsGuard>
             )}
         </div>
     );
