@@ -416,8 +416,11 @@ export default function BookPreviewDialog({ bookId, title, ggId, isbn13, onClose
       >
         <div className="book-preview-dialog__viewport" ref={viewerRef} />
 
-        {/* Dynamic Watermark Overlay */}
-        {!isTampered && (
+        {/* Dynamic Watermark Overlay.
+            Luôn mount kể cả khi đã phát hiện can thiệp: nếu ai đó gỡ node này khỏi DOM,
+            việc React unmount nó sau đó sẽ ném removeChild và làm sập cả app.
+            Overlay cảnh báo (z-40) nằm trên watermark (z-10) nên vẫn che nội dung. */}
+        {(
           <div
             ref={watermarkRef}
             id="preview-watermark-overlay"
