@@ -1,7 +1,8 @@
 import { RouterProvider } from "react-router-dom";
 import router from "./routes";
-import { AuthProvider } from "./contexts/AuthContext";
-import { useAuth } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import DevToolsGuard from "./components/security/DevToolsGuard";
+import ShortcutBlock from "./components/security/ShortcutBlock";
 
 function MainWebGate() {
   const { role, initialized, roleError, logout } = useAuth();
@@ -26,8 +27,11 @@ function MainWebGate() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainWebGate />
-    </AuthProvider>
+    <DevToolsGuard>
+      <AuthProvider>
+        <ShortcutBlock />
+        <MainWebGate />
+      </AuthProvider>
+    </DevToolsGuard>
   );
 }

@@ -242,6 +242,58 @@
     background: #f9fafb;
 }
 
+.book-preview-dialog__watermark {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    user-select: none;
+    overflow: hidden;
+}
+
+.book-preview-dialog__obscured {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.95);
+    color: #f9fafb;
+    padding: 24px;
+    text-align: center;
+    user-select: none;
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+}
+
+.book-preview-dialog__tampered {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    color: #ef4444;
+    padding: 24px;
+    text-align: center;
+    user-select: none;
+}
+
+@media print {
+    .book-preview-dialog,
+    .book-preview-dialog__canvas,
+    .book-preview-dialog__viewport,
+    .book-preview-dialog__watermark,
+    #preview-watermark-overlay {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
 @media (max-width: 640px) {
     .book-preview-dialog {
         width: min(94vw, calc((90dvh - 58px) * 1.2));
@@ -574,6 +626,14 @@
 .dark .book-preview-dialog__expired span {
     color: oklch(0.97 0.005 265);
     text-shadow: 0 1px 3px black, 0 -1px 3px black;
+}
+
+.dark .book-preview-dialog__obscured {
+    background: rgba(10, 10, 15, 0.96);
+}
+
+.dark .book-preview-dialog__tampered {
+    background: #020617;
 }
 
 /* State variants that turn an element white (e.g. the search box on focus) */
