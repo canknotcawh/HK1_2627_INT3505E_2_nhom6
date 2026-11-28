@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: lms
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:backend/src/lms/.env[.properties]
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:lms}?options=-c%20TimeZone%3DAsia/Ho_Chi_Minh
     username: ${DB_USER:lms}
